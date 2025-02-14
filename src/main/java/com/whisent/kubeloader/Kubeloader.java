@@ -30,16 +30,12 @@ import java.util.List;
 
 @Mod(Kubeloader.MODID)
 public class Kubeloader {
-
     public static final String MODID = "kubeloader";
     public static final Logger LOGGER = LogUtils.getLogger();
     public static Path ResourcePath = KubeJSPaths.DIRECTORY.resolve("pack_resources");
     public static Path PackPath = KubeJSPaths.DIRECTORY.resolve("contentpacks");
-
     public Kubeloader() throws IOException {
         IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
-
-
 
         LOGGER.info("检查整合包各个文件夹");
         LOGGER.info(ResourcePath.toString());
