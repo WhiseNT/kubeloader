@@ -1,7 +1,7 @@
 package com.whisent.kubeloader.files;
 
 import com.whisent.kubeloader.Kubeloader;
-import dev.latvian.mods.kubejs.KubeJS;
+import net.minecraft.client.Minecraft;
 
 import java.io.*;
 import java.nio.file.*;
@@ -16,7 +16,7 @@ public class FileIO {
         try {
 
             // 删除目标目录下的所有文件和子目录
-            deleteDirectoryRecursively(targetDir, KubeJS.getGameDirectory());
+            deleteDirectoryRecursively(targetDir, Minecraft.getInstance().gameDirectory.toPath());
             // 确保目标目录存在
             if (!Files.exists(targetDir)) {
                 Files.createDirectories(targetDir);
@@ -100,7 +100,7 @@ public class FileIO {
             if (!Files.exists(sourceSubDir)) {
                 return;
             }
-            Path targetDir = KubeJS.getGameDirectory().resolve("contentpack").resolve(subDir)
+            Path targetDir = Minecraft.getInstance().gameDirectory.toPath().resolve("kubejs").resolve(subDir)
                     .resolve("contentpack_scripts").resolve(namespaceDir.getFileName());
             Kubeloader.LOGGER.info("ZIP缓存路径"+sourceSubDir);
             Kubeloader.LOGGER.info("ZIP写入路径"+targetDir);
@@ -128,7 +128,7 @@ public class FileIO {
             if (!Files.exists(sourceSubDir)) {
                 return;
             }
-            Path targetDir = KubeJS.getGameDirectory().resolve("contentpack").resolve("pack_resources")
+            Path targetDir = Minecraft.getInstance().gameDirectory.toPath().resolve("kubejs").resolve("pack_resources")
                     .resolve(subDir).resolve(namespaceDir.getFileName()).resolve(subDir);
 
             // 复制指定子目录下的所有内容到目标目录

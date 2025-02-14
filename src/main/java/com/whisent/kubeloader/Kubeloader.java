@@ -7,34 +7,26 @@ import dev.latvian.mods.kubejs.KubeJS;
 import dev.latvian.mods.kubejs.KubeJSPaths;
 import dev.latvian.mods.kubejs.util.ConsoleJS;
 import net.minecraft.client.Minecraft;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.PackType;
 import net.minecraft.server.packs.repository.RepositorySource;
-import net.minecraft.server.packs.resources.Resource;
-import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.event.AddPackFindersEvent;
 import net.minecraftforge.event.server.ServerStartingEvent;
-import net.minecraftforge.eventbus.api.Event;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.ModContainer;
 import net.minecraftforge.fml.ModList;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
-import net.minecraftforge.forgespi.language.IModInfo;
 import org.slf4j.Logger;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 @Mod(Kubeloader.MODID)
 public class Kubeloader {
@@ -50,20 +42,22 @@ public class Kubeloader {
 
 
         LOGGER.info("检查整合包各个文件夹");
+        LOGGER.info(ResourcePath.toString());
+        LOGGER.info(PackPath.toString());
         if (Files.notExists(ResourcePath)){
             Files.createDirectories(ResourcePath);
         }
         if (Files.notExists(PackPath)){
             Files.createDirectories(PackPath);
         }
-
         CleanPacks();
-
-        modEventBus.addListener(this::ModLoding);
-        LoadFromMods();
         loadScripts("startup");
         loadScripts("client");
         loadScripts("server");
+
+        modEventBus.addListener(this::ModLoding);
+        //LoadFromMods();
+
         FMLJavaModLoadingContext.get().getModEventBus().addListener(this::injectPacks);
 
         modEventBus.addListener(this::commonSetup);
@@ -105,13 +99,14 @@ public class Kubeloader {
         try (DirectoryStream<Path> namespaces = Files.newDirectoryStream(PackPath)) {
             for (Path namespaceDir : namespaces) {
                 //写入文件夹类型的资源包
-                KubeJS.LOGGER.info("发现压缩包"+namespaceDir);
                 if (Files.isDirectory(namespaceDir)){
                     Path assetDir = namespaceDir.resolve(type);
                     String PackName = namespaceDir.getFileName().toString();
                     if (true) {
                         //将assets全部复制
+
                         Path TargetDir = ResourcePath.resolve(type).resolve(PackName).resolve(type);
+                        LOGGER.info("复制到位置"+TargetDir);
                         FileIO.copyAndReplaceAllFiles(assetDir, TargetDir);
 
                         Path packFilePath = TargetDir.getParent().resolve("pack.mcmeta");
@@ -122,8 +117,9 @@ public class Kubeloader {
                     if(namespaceDir.toString().toLowerCase().endsWith(".zip")) {
                         String ZipName = namespaceDir.getFileName().toString().toLowerCase().replace(".zip", "");
                         ;
-                        Path targetDir = KubeJS.getGameDirectory().resolve("contentpack")
+                        Path targetDir = KubeJS.getGameDirectory().resolve("kubejs")
                                 .resolve("pack_resources").resolve(type).resolve(ZipName).resolve(type);
+                        LOGGER.info("复制到位置"+targetDir);
                         Path packFilePath = targetDir.getParent().resolve("pack.mcmeta");
                         FileIO.extractAssetCopyFromZip(namespaceDir,type);
                         FileIO.createMcMetaFile(packFilePath.toString());
@@ -137,7 +133,7 @@ public class Kubeloader {
         }
     }
 
-    private void loadScripts(String scriptType) {
+    public static void loadScripts(String scriptType) {
         //MC根目录
         Path MinecraftDir = Minecraft.getInstance().gameDirectory.toPath();
         //非脚本 内容包根目录
@@ -153,8 +149,7 @@ public class Kubeloader {
                 if (Files.isDirectory(namespaceDir)) {
                     //构建脚本类型目录路径
                     KubeJS.LOGGER.info("脚本类型路径" + scriptTypeDir);
-                    Path scriptsDir = namespaceDir;
-
+                    Path scriptsDir = namespaceDir.resolve(scriptTypeDir);
                     if (Files.notExists(scriptsDir)) {
                         //不存在文件夹则创建文件夹
                         Files.createDirectories(scriptsDir);
@@ -222,7 +217,7 @@ public class Kubeloader {
                     if(namespaceDir.toString().toLowerCase().endsWith(".zip")) {
                         String ZipName = namespaceDir.getFileName().toString().toLowerCase().replace(".zip", "");
                         KubeJS.LOGGER.info("发现压缩包"+namespaceDir);
-                        Path targetDir = MinecraftDir.resolve("contentpack").resolve(scriptTypeDir)
+                        Path targetDir = MinecraftDir.resolve("kubejs").resolve(scriptTypeDir)
                                 .resolve("contentpack_scripts").resolve(ZipName);
                         Kubeloader.LOGGER.info("写入目标路径"+targetDir);
                         if (Files.notExists(namespaceDir)) {
@@ -240,6 +235,7 @@ public class Kubeloader {
         }
     }
     private void CleanPacks() {
+        LOGGER.info("清理不存在的ContentPack");
         Path MinecraftDir = Minecraft.getInstance().gameDirectory.toPath();
 
         Path server_scriptsDir = MinecraftDir.resolve("kubejs").resolve("server_scripts").resolve("contentpack_scripts");
@@ -267,9 +263,9 @@ public class Kubeloader {
 
             if (Files.exists(filePath)) {
                 Kubeloader.LOGGER.info("模组存在存在资源包"+filePath);
-                loadModScripts(modFile.getFile().getFilePath(),"startup");
-                loadModScripts(modFile.getFile().getFilePath(),"client");
-                loadModScripts(modFile.getFile().getFilePath(),"server");
+                //loadModScripts(modFile.getFile().getFilePath(),"startup");
+                //loadModScripts(modFile.getFile().getFilePath(),"client");
+                //loadModScripts(modFile.getFile().getFilePath(),"server");
             }else{
                 Kubeloader.LOGGER.info("模组不存在资源包"+modFile.getFile().getFilePath());
                 Kubeloader.LOGGER.info("检查目录"+filePath);
