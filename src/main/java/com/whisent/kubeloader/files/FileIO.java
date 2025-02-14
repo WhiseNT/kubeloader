@@ -196,7 +196,6 @@ public class FileIO {
         if (parentDir != null && !Files.exists(parentDir)) {
             Files.createDirectories(parentDir);
         }
-
         // 写入文件
         try (FileWriter writer = new FileWriter(filePath.toString())) {
             writer.write(FIXED_JSON_CONTENT);
