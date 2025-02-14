@@ -1,7 +1,6 @@
 package com.whisent.kubeloader.files;
 
 import com.whisent.kubeloader.Kubeloader;
-import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.packs.FilePackResources;
 import net.minecraft.server.packs.PackType;
