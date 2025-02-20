@@ -1,8 +1,13 @@
 package com.whisent.kubeloader;
 
+import com.electronwill.nightconfig.toml.TomlFormat;
+import com.electronwill.nightconfig.toml.TomlParser;
 import com.mojang.logging.LogUtils;
+import com.whisent.kubeloader.files.ContentPackExplorer;
 import com.whisent.kubeloader.files.FileIO;
+import com.whisent.kubeloader.files.PackInfo;
 import com.whisent.kubeloader.files.ResourcePackProvider;
+import cpw.mods.jarhandling.SecureJar;
 import dev.latvian.mods.kubejs.KubeJS;
 import dev.latvian.mods.kubejs.KubeJSPaths;
 import dev.latvian.mods.kubejs.util.ConsoleJS;
@@ -17,8 +22,9 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.ModList;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
-import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
+import org.apache.logging.log4j.core.config.yaml.YamlConfiguration;
+import org.apache.logging.log4j.core.config.yaml.YamlConfigurationFactory;
 import org.slf4j.Logger;
 
 import java.io.IOException;
@@ -26,7 +32,11 @@ import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Enumeration;
 import java.util.List;
+import java.util.Objects;
+import java.util.jar.JarEntry;
+import java.util.jar.JarFile;
 
 @Mod(Kubeloader.MODID)
 public class Kubeloader {
@@ -36,6 +46,7 @@ public class Kubeloader {
     public static Path PackPath = KubeJSPaths.DIRECTORY.resolve("contentpacks");
     public Kubeloader() throws IOException {
         IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
+
 
         LOGGER.info("检查整合包各个文件夹");
         LOGGER.info(ResourcePath.toString());
@@ -47,7 +58,11 @@ public class Kubeloader {
             Files.createDirectories(PackPath);
         }
         CleanPacks();
-        loadScripts("startup");
+
+        ContentPackExplorer.scanAllMods("server_scripts");
+        ContentPackExplorer.scanAllMods("startup_scripts");
+        ContentPackExplorer.scanAllMods("client_scripts");
+        //startup会在加载脚本前被被写入
         loadScripts("client");
         loadScripts("server");
 
@@ -56,7 +71,6 @@ public class Kubeloader {
 
         FMLJavaModLoadingContext.get().getModEventBus().addListener(this::injectPacks);
 
-        modEventBus.addListener(this::commonSetup);
     }
 
     private void ModLoding(FMLClientSetupEvent event) {
@@ -67,9 +81,6 @@ public class Kubeloader {
         //资源写入
         InjectFiles(PackPath,"assets");
         InjectFiles(PackPath,"data");
-
-
-
         switch (event.getPackType()) {
             case CLIENT_RESOURCES -> {
                 event.addRepositorySource((RepositorySource)
@@ -82,15 +93,7 @@ public class Kubeloader {
                                 ,PackType.SERVER_DATA));
             }
         }
-
-
     }
-
-    private void commonSetup(final FMLCommonSetupEvent event) {
-
-    }
-
-
     private void InjectFiles(Path PackPath,String type) {
         try (DirectoryStream<Path> namespaces = Files.newDirectoryStream(PackPath)) {
             for (Path namespaceDir : namespaces) {
@@ -100,7 +103,6 @@ public class Kubeloader {
                     String PackName = namespaceDir.getFileName().toString();
                     if (true) {
                         //将assets全部复制
-
                         Path TargetDir = ResourcePath.resolve(type).resolve(PackName).resolve(type);
                         LOGGER.info("复制到位置"+TargetDir);
                         FileIO.copyAndReplaceAllFiles(assetDir, TargetDir);
@@ -121,8 +123,6 @@ public class Kubeloader {
                         FileIO.createMcMetaFile(packFilePath.toString());
                     }
                 }
-
-
             }
         } catch (IOException e) {
             throw new RuntimeException(e);
@@ -132,7 +132,7 @@ public class Kubeloader {
     public static void loadScripts(String scriptType) {
         //MC根目录
         Path MinecraftDir = Minecraft.getInstance().gameDirectory.toPath();
-        //非脚本 内容包根目录
+        //非脚本**内容包根目录
         Path contentPacksDir = MinecraftDir.resolve("kubejs").resolve("contentpacks");
         if (Files.notExists(contentPacksDir)) {
             return;
@@ -140,17 +140,21 @@ public class Kubeloader {
         KubeJS.LOGGER.info("内容包根目录" + contentPacksDir);
         try (DirectoryStream<Path> namespaces = Files.newDirectoryStream(contentPacksDir)) {
             for (Path namespaceDir : namespaces) {
+                //.minecraft/kubejs/contentpacks/namespace
                 KubeJS.LOGGER.info("命名空间" + namespaceDir);
+
                 String scriptTypeDir = scriptType + "_scripts";
                 if (Files.isDirectory(namespaceDir)) {
                     //构建脚本类型目录路径
                     KubeJS.LOGGER.info("脚本类型路径" + scriptTypeDir);
+                    //.minecraft/kubejs/contentpacks/namespace/scripts
                     Path scriptsDir = namespaceDir.resolve(scriptTypeDir);
                     if (Files.notExists(scriptsDir)) {
                         //不存在文件夹则创建文件夹
                         Files.createDirectories(scriptsDir);
                     }
                     //搜索对应kubejs路径
+                    //.minecraft/kubejs/scripts/contentpack_scripts/namespace
                     Path MainScriptPath = MinecraftDir.resolve("kubejs").resolve(scriptTypeDir);
                     KubeJS.LOGGER.info("kubejs路径"+ MainScriptPath);
                     Path targetDir = MainScriptPath.resolve("contentpack_scripts").resolve(namespaceDir.getFileName());
@@ -169,8 +173,6 @@ public class Kubeloader {
                         FileIO.extractAndCopyFromZip(namespaceDir,scriptTypeDir);
                     }
                 }
-
-
             }
         } catch (IOException e) {
             Kubeloader.LOGGER.error("Failed to load contentpacks!", e);
@@ -197,7 +199,6 @@ public class Kubeloader {
                 String scriptTypeDir = scriptType + "_scripts";
                 if (Files.isDirectory(namespaceDir)) {
                     //构建脚本类型目录路径
-
                     Path scriptsDir = namespaceDir.resolve(scriptTypeDir);
                     KubeJS.LOGGER.info("模组脚本类型路径" + scriptsDir);
                     if (Files.notExists(scriptsDir)) {
@@ -222,8 +223,6 @@ public class Kubeloader {
                         FileIO.extractAndCopyFromZip(namespaceDir,scriptTypeDir);
                     }
                 }
-
-
             }
         } catch (IOException e) {
             Kubeloader.LOGGER.error("Failed to load contentpacks!", e);
@@ -233,7 +232,6 @@ public class Kubeloader {
     private void CleanPacks() {
         LOGGER.info("清理不存在的ContentPack");
         Path MinecraftDir = Minecraft.getInstance().gameDirectory.toPath();
-
         Path server_scriptsDir = MinecraftDir.resolve("kubejs").resolve("server_scripts").resolve("contentpack_scripts");
         Path startup_scriptsDir = MinecraftDir.resolve("kubejs").resolve("startup_scripts").resolve("contentpack_scripts");
         Path client_scriptsDir = MinecraftDir.resolve("kubejs").resolve("client_scripts").resolve("contentpack_scripts");
@@ -255,17 +253,28 @@ public class Kubeloader {
     }
     private void LoadFromMods() {
         ModList.get().getModFiles().forEach(modFile -> {
-            Path filePath = modFile.getFile().getFilePath().resolve("contentpack");
+            SecureJar ModJar = modFile.getFile().getSecureJar();
+            Path filePath = ModJar.getPrimaryPath().resolve("contentpack");
+            Path reso = modFile.getFile().findResource("contentpack");
+            LOGGER.info(String.valueOf(Objects.equals(modFile.moduleName(), "kubeloader")));
+            if (Objects.equals(modFile.moduleName(), "kubeloader")) {
+                SecureJar jar = modFile.getFile().getSecureJar();
+                LOGGER.info("jar名称"+jar.name());
 
-            if (Files.exists(filePath)) {
-                Kubeloader.LOGGER.info("模组存在存在资源包"+filePath);
+            }
+
+
+
+            if (Files.exists(reso)) {
+                Kubeloader.LOGGER.info("模组存在资源包"+reso);
+                Kubeloader.LOGGER.info("资源包位置"+filePath);
+                Kubeloader.LOGGER.info("资源包是否存在"+Files.exists(filePath));
                 //loadModScripts(modFile.getFile().getFilePath(),"startup");
                 //loadModScripts(modFile.getFile().getFilePath(),"client");
                 //loadModScripts(modFile.getFile().getFilePath(),"server");
             }else{
-                Kubeloader.LOGGER.info("模组不存在资源包"+modFile.getFile().getFilePath());
-                Kubeloader.LOGGER.info("检查目录"+filePath);
-                Kubeloader.LOGGER.info("二次检查"+Files.notExists(filePath));
+                Kubeloader.LOGGER.info("模组不存在资源包"+reso);
+                Kubeloader.LOGGER.info("资源包位置"+filePath);
             }
 
         });

@@ -4,6 +4,7 @@ import com.whisent.kubeloader.Kubeloader;
 import net.minecraft.client.Minecraft;
 
 import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.zip.ZipEntry;
@@ -244,5 +245,17 @@ public class FileIO {
         }
 
         Files.delete(path); // 删除文件或空目录
+    }
+    // 统一的重写策略
+    public static void copyAndReplaceFile(InputStream source, Path target) throws IOException {
+        if (Files.exists(target)) {
+            // 使用与copyAndReplaceAllFiles相同的版本比较逻辑
+            String existing = Files.readString(target);
+            String incoming = new String(source.readAllBytes(), StandardCharsets.UTF_8);
+
+
+        } else {
+            Files.copy(source, target);
+        }
     }
 }
