@@ -1,8 +1,13 @@
-# ReadMe
+# KUBELOADER
 
-ContentPack[内容包]是由KubeJS脚本&资源组成的文件夹或zip格式压缩包。
+KubeLoader是一个KubeJS附属模组，在现在处于早期开发阶段，仅支持Forge 1.20.1(因为模组所涉及内容与Minecraft本体关联度不大,所以版本的迁移很容易.在进度足够时会去尽快支持其他版本。)
+KubeLoader提供了一种类似于“资源包”或“数据包”的KubeJS脚本&资源集合，名为内容包（ContentPack），并支持 **从内容包文件夹**  和  **从模组资源** 两种读取方式。
+从内容包文件夹的方式为：在kubejs/contentpacks/下放置文件夹或zip格式压缩包 （如果没有，可以自行创建，或等待游戏启动后由模组创建）
 
-文件目录参考：
+在写入内容后，KubeLoader会在常规脚本路径下新建contentpack_scripts文件夹来存放脚本（不要修改该文件夹下的任何内容）
+同时会创建pack_resources文件夹用于存放内容包的资源（assets + data）
+
+内容包文件结构参考：
 
 ```
 文件夹类型
