@@ -44,6 +44,8 @@ namespace在文件上不会对脚本产生约束,但是希望你使用非kubejs�
 推荐以下写法：
 
 ```jsx
+//对象写法
+
 //创建一个对象用于存储事件外的其他变量,防止污染作用域和冲突.
 const TestContentPackMod = {}
 //通过给key赋值来实现原本的“变量声明”.
@@ -57,4 +59,50 @@ ItemEvents.rightClicked(event=>{
 }
 })
 
+//闭包写法
+
+//通过IIEF创建闭包
+const MyTestContentPackMod = (function() {
+    //创建私有变量
+    let StringVar = '我是私有变量,无法直接从外部访问'
+    let TestTrigger = true
+    //私有函数
+    function privateFunction() {
+        console.log('我是私有函数,无法直接从外部调用');
+    }
+    //在此写入访问和调用上述内容的对象和函数
+    return {
+        getPrivate: function() {
+            return StringVar
+        },
+        getTestTrigger: function() {
+            return TestTrigger
+        },
+        setPrivate: function(value) {
+            StringVar = value
+        },
+        setTestTrigger: function(value) {
+            TestTrigger = value
+        },
+        callPrivateFunction: function() {
+            privateFunction()
+        }
+    }
+})()
+console.log(MyTestContentPackMod.getPrivate())
+MyTestContentPackMod.setPrivate('修改私有变量')
+console.log(MyTestContentPackMod.getPrivate())
+MyTestContentPackMod.callPrivateFunction()
+
+//在事件中调用
+ItemEvents.rightClicked(event=>{
+    if (MyTestContentPackMod.getTestTrigger()) {
+        console.log(MyTestContentPackMod.getTestTrigger())
+        MyTestContentPackMod.setTestTrigger(false)
+    }   else {
+        console.log(MyTestContentPackMod.getTestTrigger())
+        MyTestContentPackMod.setTestTrigger(true)
+        
+    }
+})
 ```
