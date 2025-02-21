@@ -36,13 +36,12 @@ public class ContentPackExplorer {
         });
     }
 
-    // 获取模组JAR物理路径
     private static Path getModJarPath(IModInfo mod) {
         return mod.getOwningFile()
                 .getFile()
                 .getFilePath();
     }
-    // 处理单个JAR文件
+
     private static void processJarFile(Path jarPath, String modId,String type) {
         try (JarFile jar = new JarFile(jarPath.toFile())) {
             Enumeration<JarEntry> entries = jar.entries();
@@ -60,13 +59,13 @@ public class ContentPackExplorer {
             System.err.println("Failed to open JAR: " + jarPath);
         }
     }
-    // 判断是否为目标文件
+
     private static boolean isContentPackFile(JarEntry entry) {
         return entry.getName().startsWith(TARGET_DIR + "/") &&
                 !entry.isDirectory() &&
                 entry.getName().length() > TARGET_DIR.length() + 1;
     }
-    // 处理找到的内容包文件
+
     private static void handleContentPackEntry(JarFile jar, JarEntry entry, String modId,String type) {
         try (InputStream is = jar.getInputStream(entry)) {
             // 解析原始路径结构（示例：contentpack/client_scripts/example.js）
@@ -79,27 +78,26 @@ public class ContentPackExplorer {
             if (Objects.equals(pathArray[1], type)) {
 
                 String fullPath = type + "/" + "contentpack_scripts" + "/"  + modId + "/" + reconstructedPath;
-                //contentpack/server_scripts/advanced/test.js
+
                 Kubeloader.LOGGER.debug("entry的name"+entry.getName());
-                //server_scripts/contentpack_scripts/testcontentpackmod/advanced/test.js
+
                 Kubeloader.LOGGER.debug("fullPath的name"+fullPath);
                 Path path = Paths.get(fullPath);
-                // 解析脚本类型和目标路径
+
                 Path targetPath = Minecraft.getInstance().gameDirectory.toPath().resolve("kubejs").resolve(fullPath);
                 Kubeloader.LOGGER.debug("目标的name"+targetPath);
 
-                // 创建父目录
+
                 if (Files.notExists(targetPath.getParent())) {
                     Files.createDirectories(targetPath.getParent());
                 }
 
-                // 执行文件复制
                 Files.copy(is, targetPath , StandardCopyOption.REPLACE_EXISTING);
             }
 
 
         } catch (IOException e) {
-            KubeJS.LOGGER.error("合并失败 [{}]: {}", modId, entry.getName(), e);
+            Kubeloader.LOGGER.error("合并失败 [{}]: {}", modId, entry.getName(), e);
         }
     }
 }
