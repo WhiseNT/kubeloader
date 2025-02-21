@@ -1,7 +1,6 @@
 package com.whisent.kubeloader.files;
 
 import com.whisent.kubeloader.Kubeloader;
-import dev.latvian.mods.kubejs.KubeJS;
 import net.minecraft.client.Minecraft;
 import net.minecraftforge.fml.ModList;
 import net.minecraftforge.forgespi.language.IModInfo;

@@ -4,7 +4,6 @@ import com.whisent.kubeloader.Kubeloader;
 import net.minecraft.client.Minecraft;
 
 import java.io.*;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.zip.ZipEntry;

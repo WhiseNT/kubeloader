@@ -1,13 +1,9 @@
 package com.whisent.kubeloader;
 
-import com.electronwill.nightconfig.toml.TomlFormat;
-import com.electronwill.nightconfig.toml.TomlParser;
 import com.mojang.logging.LogUtils;
 import com.whisent.kubeloader.files.ContentPackExplorer;
 import com.whisent.kubeloader.files.FileIO;
-import com.whisent.kubeloader.files.PackInfo;
 import com.whisent.kubeloader.files.ResourcePackProvider;
-import cpw.mods.jarhandling.SecureJar;
 import dev.latvian.mods.kubejs.KubeJS;
 import dev.latvian.mods.kubejs.KubeJSPaths;
 import dev.latvian.mods.kubejs.util.ConsoleJS;
@@ -19,12 +15,9 @@ import net.minecraftforge.event.AddPackFindersEvent;
 import net.minecraftforge.event.server.ServerStartingEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.ModList;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
-import org.apache.logging.log4j.core.config.yaml.YamlConfiguration;
-import org.apache.logging.log4j.core.config.yaml.YamlConfigurationFactory;
 import org.slf4j.Logger;
 
 import java.io.IOException;
@@ -32,11 +25,7 @@ import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Enumeration;
 import java.util.List;
-import java.util.Objects;
-import java.util.jar.JarEntry;
-import java.util.jar.JarFile;
 
 @Mod(Kubeloader.MODID)
 public class Kubeloader {
