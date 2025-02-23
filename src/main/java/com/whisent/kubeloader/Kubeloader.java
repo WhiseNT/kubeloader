@@ -2,10 +2,13 @@ package com.whisent.kubeloader;
 
 import com.mojang.logging.LogUtils;
 import com.whisent.kubeloader.files.ContentPackExplorer;
+import com.whisent.kubeloader.files.ContentScriptsManager;
 import com.whisent.kubeloader.files.FileIO;
 import com.whisent.kubeloader.files.ResourcePackProvider;
 import dev.latvian.mods.kubejs.KubeJS;
 import dev.latvian.mods.kubejs.KubeJSPaths;
+import dev.latvian.mods.kubejs.script.ScriptManager;
+import dev.latvian.mods.kubejs.script.ScriptType;
 import dev.latvian.mods.kubejs.util.ConsoleJS;
 import net.minecraft.client.Minecraft;
 import net.minecraft.server.packs.PackType;
@@ -33,6 +36,15 @@ public class Kubeloader {
     public static final Logger LOGGER = LogUtils.getLogger();
     public static Path ResourcePath = KubeJSPaths.DIRECTORY.resolve("pack_resources");
     public static Path PackPath = KubeJSPaths.DIRECTORY.resolve("contentpacks");
+
+    private static ContentScriptsManager startupScriptManager, clientScriptManager;
+    public static ContentScriptsManager getStartupScriptManager() {
+        return startupScriptManager;
+    }
+    public static ContentScriptsManager getClientScriptManager() {
+        return clientScriptManager;
+    }
+
     public Kubeloader() throws IOException {
         IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
 
@@ -47,12 +59,16 @@ public class Kubeloader {
         }
         CleanPacks();
 
-        ContentPackExplorer.scanAllMods("server_scripts");
-        ContentPackExplorer.scanAllMods("startup_scripts");
-        ContentPackExplorer.scanAllMods("client_scripts");
+        startupScriptManager = new ContentScriptsManager(ScriptType.STARTUP);
+        clientScriptManager = new ContentScriptsManager(ScriptType.CLIENT);
+
+        Kubeloader.getStartupScriptManager().reload(null);
+        //ContentPackExplorer.scanAllMods("server_scripts");
+        //ContentPackExplorer.scanAllMods("startup_scripts");
+        //ContentPackExplorer.scanAllMods("client_scripts");
         //startup会在加载脚本前被被写入
-        loadScripts("client");
-        loadScripts("server");
+        //loadScripts("client");
+        //loadScripts("server");
 
         modEventBus.addListener(this::ModLoding);
         //LoadFromMods();
