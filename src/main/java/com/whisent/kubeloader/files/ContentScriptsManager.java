@@ -6,6 +6,7 @@ import dev.latvian.mods.kubejs.KubeJSPlugin;
 import dev.latvian.mods.kubejs.script.*;
 import dev.latvian.mods.kubejs.util.KubeJSPlugins;
 import dev.latvian.mods.kubejs.util.LogType;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.resources.ResourceManager;
 import org.jetbrains.annotations.Nullable;
 
@@ -13,8 +14,8 @@ import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
-import java.util.Comparator;
-import java.util.Iterator;
+import java.nio.file.Path;
+import java.util.*;
 
 public class ContentScriptsManager extends ScriptManager {
     public ContentScriptsManager(ScriptType t) {
@@ -34,23 +35,48 @@ public class ContentScriptsManager extends ScriptManager {
         loadFromDirectory();
 
         load();
+
+
         //super.reload(resourceManager);
     }
+    private void loadFromResources(ResourceManager resourceManager) {
+        Map<String, List<ResourceLocation>> packMap = new HashMap<>();
 
+        for (var resource : resourceManager.listResources("contentpack", s -> s.getPath().endsWith(".js") || s.getPath().endsWith(".ts") && !s.getPath().endsWith(".d.ts")).keySet()) {
+            packMap.computeIfAbsent(resource.getNamespace(), s -> new ArrayList<>()).add(resource);
+        }
+        //不应该从resourceManager获取 应该直接从jar中获取entry
+        for (var entry : packMap.entrySet()) {
+            var pack = new ScriptPack(this, new ScriptPackInfo(entry.getKey(), "contentpack/"));
+
+            for (var id : entry.getValue()) {
+                pack.info.scripts.add(new ScriptFileInfo(pack.info, id.getPath().substring(7)));
+            }
+
+            for (var fileInfo : pack.info.scripts) {
+                var scriptSource = (ScriptSource.FromResource) info -> resourceManager.getResourceOrThrow(info.id);
+                loadFile(pack, fileInfo, scriptSource);
+            }
+
+            pack.scripts.sort(null);
+            packs.put(pack.info.namespace, pack);
+        }
+    }
     @Override
     public void loadFromDirectory() {
+        Path ScriptsPath = Kubeloader.PackPath.resolve("namespace").resolve(this.scriptType.name + "_scripts");
         Kubeloader.LOGGER.info((this.scriptType.name+"脚本正在加载"));
-        if (Files.notExists(Kubeloader.PackPath.resolve("namespace").resolve(this.scriptType.name + "_scripts"), new LinkOption[0])) {
+        if (Files.notExists(ScriptsPath, new LinkOption[0])) {
             Exception ex;
             try {
-                Files.createDirectories(Kubeloader.PackPath.resolve("namespace").resolve(this.scriptType.name + "_scripts"));
+                Files.createDirectories(ScriptsPath);
             } catch (Exception var6) {
                 ex = var6;
                 this.scriptType.console.error("Failed to create script directory", ex);
             }
 
             try {
-                OutputStream out = Files.newOutputStream(Kubeloader.PackPath.resolve("namespace").resolve(this.scriptType.name + "_scripts").resolve("example.js"));
+                OutputStream out = Files.newOutputStream(ScriptsPath.resolve("example.js"));
 
                 try {
                     out.write(("// priority: 0\n\n// Visit the wiki for more info - https://kubejs.com/\n\nconsole.info('Hello, World! (Loaded " + this.scriptType.name + "_scripts" + " scripts)')\n\n").getBytes(StandardCharsets.UTF_8));
@@ -75,15 +101,15 @@ public class ContentScriptsManager extends ScriptManager {
             }
         }
 
-        ScriptPack pack = new ScriptPack(this, new ScriptPackInfo(Kubeloader.PackPath.resolve("namespace").resolve(this.scriptType.name + "_scripts")
+        ScriptPack pack = new ScriptPack(this, new ScriptPackInfo(ScriptsPath
                 .getFileName().toString(), ""));
-        KubeJS.loadScripts(pack, Kubeloader.PackPath.resolve("namespace").resolve(this.scriptType.name + "_scripts"), "");
+        KubeJS.loadScripts(pack, ScriptsPath, "");
         Iterator var2 = pack.info.scripts.iterator();
 
         while(var2.hasNext()) {
             ScriptFileInfo fileInfo = (ScriptFileInfo)var2.next();
             ScriptSource.FromPath scriptSource = (info) -> {
-                return Kubeloader.PackPath.resolve("namespace").resolve(this.scriptType.name + "_scripts").resolve(info.file);
+                return ScriptsPath.resolve(info.file);
             };
             this.loadFile(pack, fileInfo, scriptSource);
         }

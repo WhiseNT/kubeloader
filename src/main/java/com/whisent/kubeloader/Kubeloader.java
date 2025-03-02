@@ -18,6 +18,7 @@ import net.minecraftforge.event.AddPackFindersEvent;
 import net.minecraftforge.event.server.ServerStartingEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.ModList;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
@@ -61,8 +62,10 @@ public class Kubeloader {
 
         startupScriptManager = new ContentScriptsManager(ScriptType.STARTUP);
         clientScriptManager = new ContentScriptsManager(ScriptType.CLIENT);
-
-        Kubeloader.getStartupScriptManager().reload(null);
+        Minecraft.getInstance().getResourceManager().listPacks().forEach(pack -> {
+            Kubeloader.LOGGER.debug("搜索到资源包："+pack.toString());
+        });
+        //Kubeloader.getStartupScriptManager().reload(null);
         //ContentPackExplorer.scanAllMods("server_scripts");
         //ContentPackExplorer.scanAllMods("startup_scripts");
         //ContentPackExplorer.scanAllMods("client_scripts");

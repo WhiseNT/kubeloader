@@ -7,10 +7,12 @@ import net.minecraftforge.forgespi.language.IModInfo;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.reflect.Array;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Enumeration;
 import java.util.Objects;
@@ -42,6 +44,7 @@ public class ContentPackExplorer {
     }
 
     private static void processJarFile(Path jarPath, String modId,String type) {
+        ArrayList<JarEntry> JarContentScripts = new ArrayList<>();
         try (JarFile jar = new JarFile(jarPath.toFile())) {
             Enumeration<JarEntry> entries = jar.entries();
 
@@ -49,9 +52,10 @@ public class ContentPackExplorer {
                 JarEntry entry = entries.nextElement();
                 //Kubeloader.LOGGER.info(String.valueOf(entry));
                 if (isContentPackFile(entry)) {
-                    handleContentPackEntry(jar, entry, modId,type);
+                    //handleContentPackEntry(jar, entry, modId,type);
                     Kubeloader.LOGGER.info("找到jar内文件");
                     Kubeloader.LOGGER.info(entry.getName());
+                    //JarContentScripts.add(entry);
                 }
             }
         } catch (IOException e) {
@@ -91,7 +95,7 @@ public class ContentPackExplorer {
                     Files.createDirectories(targetPath.getParent());
                 }
 
-                Files.copy(is, targetPath , StandardCopyOption.REPLACE_EXISTING);
+                //Files.copy(is, targetPath , StandardCopyOption.REPLACE_EXISTING);
             }
 
 
