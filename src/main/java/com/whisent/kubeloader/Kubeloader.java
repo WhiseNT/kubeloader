@@ -65,9 +65,10 @@ public class Kubeloader {
         Minecraft.getInstance().getResourceManager().listPacks().forEach(pack -> {
             Kubeloader.LOGGER.debug("搜索到资源包："+pack.toString());
         });
-        //Kubeloader.getStartupScriptManager().reload(null);
+
+        Kubeloader.getStartupScriptManager().reload(null);
         //ContentPackExplorer.scanAllMods("server_scripts");
-        //ContentPackExplorer.scanAllMods("startup_scripts");
+
         //ContentPackExplorer.scanAllMods("client_scripts");
         //startup会在加载脚本前被被写入
         //loadScripts("client");

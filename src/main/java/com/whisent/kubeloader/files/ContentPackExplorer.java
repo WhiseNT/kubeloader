@@ -1,6 +1,10 @@
 package com.whisent.kubeloader.files;
 
 import com.whisent.kubeloader.Kubeloader;
+import dev.latvian.mods.kubejs.script.ScriptFileInfo;
+import dev.latvian.mods.kubejs.script.ScriptPack;
+import dev.latvian.mods.kubejs.script.ScriptPackInfo;
+import dev.latvian.mods.kubejs.script.ScriptSource;
 import net.minecraft.client.Minecraft;
 import net.minecraftforge.fml.ModList;
 import net.minecraftforge.forgespi.language.IModInfo;
@@ -47,6 +51,8 @@ public class ContentPackExplorer {
         ArrayList<JarEntry> JarContentScripts = new ArrayList<>();
         try (JarFile jar = new JarFile(jarPath.toFile())) {
             Enumeration<JarEntry> entries = jar.entries();
+            var pack = new ScriptPack(Kubeloader.getStartupScriptManager(),
+                    new ScriptPackInfo(modId, "contentpack/"));
 
             while (entries.hasMoreElements()) {
                 JarEntry entry = entries.nextElement();
@@ -55,8 +61,13 @@ public class ContentPackExplorer {
                     //handleContentPackEntry(jar, entry, modId,type);
                     Kubeloader.LOGGER.info("找到jar内文件");
                     Kubeloader.LOGGER.info(entry.getName());
+                    pack.info.scripts.add(new ScriptFileInfo(pack.info, entry.getName()));
                     //JarContentScripts.add(entry);
                 }
+            }
+            for (var fileInfo : pack.info.scripts) {
+                //var scriptSource = (ScriptSource.FromPath) info -> resourceManager.getResourceOrThrow(info.id);
+                //Kubeloader.getStartupScriptManager().loadFile(pack, fileInfo, scriptSource);
             }
         } catch (IOException e) {
             System.err.println("Failed to open JAR: " + jarPath);

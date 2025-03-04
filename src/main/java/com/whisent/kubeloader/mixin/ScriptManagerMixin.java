@@ -37,11 +37,11 @@ public abstract class ScriptManagerMixin {
     }
 
 
-    @Inject(method = "loadFromResources",at = @At("HEAD"),remap = false)
-    private void resource(CallbackInfo ci) {
-        if (!kubeloader$sign) {
-            Kubeloader.LOGGER.debug("从Resources中载入");
-
+    @Inject(method = "reload",at = @At("HEAD"),remap = false)
+    private void relaoadMixin(CallbackInfo ci) {
+        if (kubeloader$sign){
+            Kubeloader.getStartupScriptManager().reload(null);
         }
+
     }
 }
