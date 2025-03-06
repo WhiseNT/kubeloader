@@ -3,6 +3,7 @@ package com.whisent.kubeloader.impl.mod;
 import com.whisent.kubeloader.Kubeloader;
 import com.whisent.kubeloader.definition.ContentPack;
 import com.whisent.kubeloader.definition.ContentPackProvider;
+import com.whisent.kubeloader.mixin.AccessScriptManager;
 import dev.architectury.platform.Mod;
 import dev.latvian.mods.kubejs.script.*;
 import org.jetbrains.annotations.NotNull;
@@ -55,8 +56,9 @@ public class ModContentPackProvider implements ContentPackProvider {
 
             for (var entry : entriesByType.entrySet()) {
                 var type = entry.getKey();
+                var manager = type.manager.get();
                 var pack = new ScriptPack(
-                    type.manager.get(),
+                    manager,
                     new ScriptPackInfo(mod.getModId(), "")
                 );
 
@@ -66,7 +68,7 @@ public class ModContentPackProvider implements ContentPackProvider {
                         var reader = new BufferedReader(new InputStreamReader(file.getInputStream(jarEntry)));
                         return reader.lines().toList();
                     };
-                    pack.scripts.add(new ScriptFile(pack, fileInfo, scriptSource));
+                    ((AccessScriptManager) manager).kubeLoader$loadFile(pack, fileInfo, scriptSource);
                 }
 
                 contentPack.packs.put(type, pack);
