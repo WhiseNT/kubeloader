@@ -69,30 +69,4 @@ public abstract class ScriptManagerMixin {
     private ScriptManager thiz() {
         return (ScriptManager) (Object) this;
     }
-    private static Path getModJarPath(IModInfo mod) {
-        return mod.getOwningFile()
-                .getFile()
-                .getFilePath();
-    }
-    private static boolean isContentPackFile(JarEntry entry) {
-        return entry.getName().startsWith("contentpack/") &&
-                !entry.isDirectory() &&
-                entry.getName().length() > "contentpack".length() + 1;
-    }
-    @Deprecated
-    private static List<String> countLinesInJarEntry(JarFile jarFile, JarEntry entry) throws IOException {
-        if (entry.isDirectory()) {
-            throw new IllegalArgumentException("JarEntry is a directory and cannot be read as a file.");
-        }
-        try (InputStream inputStream = jarFile.getInputStream(entry);
-             BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8))) {
-            String line;
-            var list = new ArrayList<String>();
-            while ((line = reader.readLine()) != null) {
-                list.add(line);
-            }
-            return list;
-        }
-    }
-
 }
