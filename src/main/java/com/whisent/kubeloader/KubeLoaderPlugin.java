@@ -6,25 +6,28 @@ import dev.latvian.mods.kubejs.script.BindingsEvent;
 import dev.latvian.mods.kubejs.script.ScriptType;
 
 import java.util.HashMap;
+import java.util.Objects;
 
 public class KubeLoaderPlugin extends KubeJSPlugin {
-    public static final HashMap<String, Object> PUBLIC = new HashMap<>();
+    public static final HashMap<String, Object> STARTUPFIELD = new HashMap<>();
+    public static final HashMap<String, Object> SERVERFIELD = new HashMap<>();
+    public static final HashMap<String, Object> CLIENTFIELD = new HashMap<>();
 
-    private static void initializePublicMap() {
-        PUBLIC.put("server", new HashMap<>());
-        PUBLIC.put("startup", new HashMap<>());
-        PUBLIC.put("client", new HashMap<>());
-    }
 
     @Override
     public void init() {
         super.init();
 
     }
-
     @Override
     public void registerBindings(BindingsEvent event) {
-        event.add("pulic", PUBLIC);
-        initializePublicMap();
+        switch (event.getType()) {
+            case STARTUP :
+                event.add("startupField", STARTUPFIELD);
+            case SERVER :
+                event.add("serverField", SERVERFIELD);
+            case CLIENT :
+                event.add("clientField", CLIENTFIELD);
+        }
     }
 }
