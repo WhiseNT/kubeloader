@@ -121,15 +121,12 @@ public abstract class ScriptManagerMixin {
                                 Kubeloader.LOGGER.info("找到jar内文件");
                                 Kubeloader.LOGGER.info(String.valueOf(entryPath));
                                 pack.info.scripts.add(new ScriptFileInfo(pack.info, entry.getName()));
-
-                                var scriptSource = (ContentScriptSources.FromMod) info -> new jarFix(jar,this.scriptType);
-
+                                var scriptSource = (ContentScriptSources.FromMod) info -> new jarFix(jar,entry,this.scriptType);
                                 loadFile(pack,new ScriptFileInfo(pack.info, entry.getName()), scriptSource);
                             }
                         }
-
-                        //pack.scripts.sort(null);
-                        //packs.put(mod.getModId(), pack);
+                        pack.scripts.sort(null);
+                        packs.put(mod.getModId(), pack);
                     } catch (IOException e) {
                         System.err.println("Failed to open JAR: " + jarPath);
                     }

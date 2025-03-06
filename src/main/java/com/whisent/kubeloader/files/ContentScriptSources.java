@@ -33,31 +33,16 @@ public class ContentScriptSources implements ScriptSource {
             List<String> lines = new ArrayList<>();
             jarFix jarFix = getJarFix(info);
             JarFile jar = jarFix.getJarFile();
-            {
-                Enumeration<JarEntry> entries = jar.entries();
-                while (entries.hasMoreElements()) {
-                    JarEntry entry = entries.nextElement();
-                    //Kubeloader.LOGGER.info(String.valueOf(entry));
-                    Path scriptPath = Path.of("contentpack/"+jarFix.getScriptType().name+"_scripts/");
-                    Path entryPath = Path.of(entry.getName());
-                    if (isContentPackFile(entry) && entryPath.startsWith(scriptPath)) {
-                        // 获取JarEntry对象
-                        JarEntry jarEntry = entry;
-                        try (JarFile jarFile = jar) {
-                            // 打开JarEntry的输入流
-                            try (InputStream inputStream = jarFile.getInputStream(jarEntry);
-                                 BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8))) {
-                                String line;
-                                while ((line = reader.readLine()) != null) {
-                                    lines.add(line);
-                                }
-                            }
-                        }
-
-                    }
+            JarEntry entry = jarFix.getJarEntry();
+            try (InputStream inputStream = jar.getInputStream(entry);
+                 BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8))) {
+                String line;
+                var list = new ArrayList<String>();
+                while ((line = reader.readLine()) != null) {
+                    list.add(line);
                 }
+                return list;
             }
-            return lines;
         }
     }
 }
