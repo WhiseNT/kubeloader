@@ -1,16 +1,15 @@
 package com.whisent.kubeloader;
 
 import com.mojang.logging.LogUtils;
-import com.sun.jna.Platform;
+import com.whisent.kubeloader.definition.ContentPackProvider;
 import com.whisent.kubeloader.files.*;
+import com.whisent.kubeloader.impl.ContentPackProviders;
+import com.whisent.kubeloader.impl.mod.ModContentPackProvider;
+import dev.architectury.platform.Platform;
 import dev.latvian.mods.kubejs.KubeJS;
 import dev.latvian.mods.kubejs.KubeJSPaths;
-import dev.latvian.mods.kubejs.script.ScriptManager;
-import dev.latvian.mods.kubejs.script.ScriptType;
-import dev.latvian.mods.kubejs.util.ConsoleJS;
 import net.minecraft.client.Minecraft;
 import net.minecraft.server.packs.PackType;
-import net.minecraft.server.packs.repository.RepositorySource;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.event.AddPackFindersEvent;
 import net.minecraftforge.event.server.ServerStartingEvent;
@@ -33,8 +32,9 @@ import java.util.List;
 public class Kubeloader {
     public static final String MODID = "kubeloader";
     public static final Logger LOGGER = LogUtils.getLogger();
+    public static final String FOLDER_NAME = "contentpacks";
     public static Path ResourcePath = KubeJSPaths.DIRECTORY.resolve("pack_resources");
-    public static Path PackPath = KubeJSPaths.DIRECTORY.resolve("contentpacks");
+    public static Path PackPath = KubeJSPaths.DIRECTORY.resolve(FOLDER_NAME);
 
     public Kubeloader() throws IOException {
         IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
@@ -56,6 +56,16 @@ public class Kubeloader {
         modEventBus.addListener(this::ModLoding);
         FMLJavaModLoadingContext.get().getModEventBus().addListener(this::injectPacks);
 
+        registerContentPackProviders();
+    }
+
+    private static void registerContentPackProviders() {
+        var providers = ModList.get()
+            .getMods()
+            .stream()
+            .map(ModContentPackProvider::new)
+            .toArray(ContentPackProvider[]::new);
+        ContentPackProviders.register(providers);
     }
 
     private void ModLoding(FMLClientSetupEvent event) {
@@ -68,14 +78,10 @@ public class Kubeloader {
         InjectFiles(PackPath,"data");
         switch (event.getPackType()) {
             case CLIENT_RESOURCES -> {
-                event.addRepositorySource((RepositorySource)
-                        new ResourcePackProvider(ResourcePath
-                                , PackType.CLIENT_RESOURCES));
+                event.addRepositorySource(new ResourcePackProvider(ResourcePath, PackType.CLIENT_RESOURCES));
             }
             case SERVER_DATA -> {
-                event.addRepositorySource((RepositorySource)
-                        new ResourcePackProvider(ResourcePath
-                                ,PackType.SERVER_DATA));
+                event.addRepositorySource(new ResourcePackProvider(ResourcePath,PackType.SERVER_DATA));
             }
         }
     }
