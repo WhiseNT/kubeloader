@@ -41,7 +41,6 @@ public class ResourcePackProvider  implements RepositorySource {
         }
     }
 
-
     @Override
     public void loadPacks(Consumer<Pack> consumer) {
         //遍历所有子目录

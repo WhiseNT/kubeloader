@@ -17,8 +17,6 @@ import java.util.List;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 
-import static com.whisent.kubeloader.files.ContentPackExplorer.isContentPackFile;
-
 public class ContentScriptSources implements ScriptSource {
 
     @Override

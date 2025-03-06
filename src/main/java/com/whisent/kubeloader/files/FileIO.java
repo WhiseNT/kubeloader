@@ -6,6 +6,8 @@ import net.minecraft.client.Minecraft;
 import java.io.*;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.util.List;
+import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -54,7 +56,28 @@ public class FileIO {
             throw new RuntimeException("Failed in batch copy operation", e);
         }
     }
-
+    public static List<String> listDirectories(Path path) {
+        try {
+            if (!Files.isDirectory(path)) {
+                throw new SecurityException("Access denied: Path is not a directory: " + path);
+            }
+            return Files.list(path)
+                    .filter(p -> {
+                        try {
+                            //validateAndNormalizePath(p.toString());
+                            return Files.isDirectory(p);
+                        } catch (SecurityException e) {
+                            return false;
+                        }
+                    }).map(path::relativize)
+                    .map(Path::toString)
+                    .collect(Collectors.toList());
+        } catch (SecurityException e) {
+            throw e;
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to list directories: " + path, e);
+        }
+    }
     private static void deleteDirectoryRecursively(Path dir, Path basePath) throws IOException {
         if (Files.exists(dir)) {
             Files.walkFileTree(dir, new SimpleFileVisitor<Path>() {

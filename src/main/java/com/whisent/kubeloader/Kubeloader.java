@@ -36,45 +36,24 @@ public class Kubeloader {
     public static Path ResourcePath = KubeJSPaths.DIRECTORY.resolve("pack_resources");
     public static Path PackPath = KubeJSPaths.DIRECTORY.resolve("contentpacks");
 
-    private static ContentScriptsManager startupScriptManager, clientScriptManager;
-    public static ContentScriptsManager getStartupScriptManager() {
-        return startupScriptManager;
-    }
-    public static ContentScriptsManager getClientScriptManager() {
-        return clientScriptManager;
-    }
-
     public Kubeloader() throws IOException {
         IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
 
 
         LOGGER.info(ResourcePath.toString());
         LOGGER.info(PackPath.toString());
+        //将resource写入
+        CleanPacks();
         if (Files.notExists(ResourcePath)){
             Files.createDirectories(ResourcePath);
         }
         if (Files.notExists(PackPath)){
             Files.createDirectories(PackPath);
         }
-        CleanPacks();
-
-        startupScriptManager = new ContentScriptsManager(ScriptType.STARTUP);
-        clientScriptManager = new ContentScriptsManager(ScriptType.CLIENT);
         Minecraft.getInstance().getResourceManager().listPacks().forEach(pack -> {
             Kubeloader.LOGGER.debug("搜索到资源包："+pack.toString());
         });
-
-
-        //Kubeloader.getStartupScriptManager().reload(null);
-        //ContentPackExplorer.scanAllMods("startup_scripts");
-
-        //ContentPackExplorer.scanAllMods("client_scripts");
-        //startup会在加载脚本前被被写入
-        //loadScripts("client");
-        //loadScripts("server");
-
         modEventBus.addListener(this::ModLoding);
-        //LoadFromMods();
         FMLJavaModLoadingContext.get().getModEventBus().addListener(this::injectPacks);
 
     }
@@ -135,65 +114,13 @@ public class Kubeloader {
         }
     }
 
-    public static void loadScripts(String scriptType) {
-        //MC根目录
-        Path MinecraftDir = Minecraft.getInstance().gameDirectory.toPath();
-        //非脚本**内容包根目录
-        Path contentPacksDir = MinecraftDir.resolve("kubejs").resolve("contentpacks");
-        if (Files.notExists(contentPacksDir)) {
-            return;
-        }
-        KubeJS.LOGGER.info("内容包根目录" + contentPacksDir);
-        try (DirectoryStream<Path> namespaces = Files.newDirectoryStream(contentPacksDir)) {
-            for (Path namespaceDir : namespaces) {
-                //.minecraft/kubejs/contentpacks/namespace
-
-
-                String scriptTypeDir = scriptType + "_scripts";
-                if (Files.isDirectory(namespaceDir)) {
-                    //构建脚本类型目录路径
-
-                    //.minecraft/kubejs/contentpacks/namespace/scripts
-                    Path scriptsDir = namespaceDir.resolve(scriptTypeDir);
-                    if (Files.notExists(scriptsDir)) {
-                        //不存在文件夹则创建文件夹
-                        Files.createDirectories(scriptsDir);
-                    }
-                    //搜索对应kubejs路径
-                    //.minecraft/kubejs/scripts/contentpack_scripts/namespace
-                    Path MainScriptPath = MinecraftDir.resolve("kubejs").resolve(scriptTypeDir);
-                    Path targetDir = MainScriptPath.resolve("contentpack_scripts").resolve(namespaceDir.getFileName());
-                    FileIO.copyAndReplaceAllFiles(scriptsDir,targetDir);
-                }   else if (!Files.isDirectory(namespaceDir)) {
-                    if(namespaceDir.toString().toLowerCase().endsWith(".zip")) {
-                        String ZipName = namespaceDir.getFileName().toString().toLowerCase().replace(".zip", "");
-                        Path targetDir = MinecraftDir.resolve("kubejs").resolve(scriptTypeDir)
-                                .resolve("contentpack_scripts").resolve(ZipName);
-                        if (Files.notExists(targetDir)) {
-                            Files.createDirectories(targetDir);
-                        }
-                        FileIO.extractAndCopyFromZip(namespaceDir,scriptTypeDir);
-                    }
-                }
-            }
-        } catch (IOException e) {
-            Kubeloader.LOGGER.error("Failed to load contentpacks!", e);
-            ConsoleJS.STARTUP.error("Failed to load contentpacks!,e");
-        }
-    }
-
     private void CleanPacks() {
         LOGGER.info("清理不存在的ContentPack");
         Path MinecraftDir = Minecraft.getInstance().gameDirectory.toPath();
-        Path server_scriptsDir = MinecraftDir.resolve("kubejs").resolve("server_scripts").resolve("contentpack_scripts");
-        Path startup_scriptsDir = MinecraftDir.resolve("kubejs").resolve("startup_scripts").resolve("contentpack_scripts");
-        Path client_scriptsDir = MinecraftDir.resolve("kubejs").resolve("client_scripts").resolve("contentpack_scripts");
         Path assetsDir = MinecraftDir.resolve("kubejs").resolve("pack_resources").resolve("assets");
         Path dataDir = MinecraftDir.resolve("kubejs").resolve("pack_resources").resolve("data");
-
         List<Path> pathCollection = new ArrayList<>();
-        pathCollection.addAll(List.of(
-                server_scriptsDir, startup_scriptsDir, client_scriptsDir,assetsDir, dataDir));
+        pathCollection.addAll(List.of(assetsDir, dataDir));
         pathCollection.forEach(path -> {
             try {
                 if (Files.exists(path)) {
@@ -204,7 +131,6 @@ public class Kubeloader {
             }
         });
     }
-
     @SubscribeEvent
     public void onServerStarting(ServerStartingEvent event) {
     }
