@@ -4,8 +4,8 @@ import com.whisent.kubeloader.Kubeloader;
 import com.whisent.kubeloader.definition.ContentPack;
 import com.whisent.kubeloader.definition.ContentPackProvider;
 import com.whisent.kubeloader.mixin.AccessScriptManager;
-import dev.architectury.platform.Mod;
 import dev.latvian.mods.kubejs.script.*;
+import net.minecraftforge.forgespi.language.IModInfo;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -29,20 +29,18 @@ public class ModContentPackProvider implements ContentPackProvider {
         }
     }
 
-    private final Mod mod;
+    private final IModInfo mod;
 
-    public ModContentPackProvider(Mod mod) {
+    public ModContentPackProvider(IModInfo mod) {
         this.mod = mod;
     }
 
     @Override
     public @Nullable ContentPack providePack() {
-        return mod.getFilePaths()
-            .stream()
-            .map(this::scanSingle)
-            .filter(Objects::nonNull)
-            .findFirst()
-            .orElse(null);
+        var path = mod.getOwningFile()
+            .getFile()
+            .getFilePath();
+        return scanSingle(path);
     }
 
     private ContentPack scanSingle(Path path) {
