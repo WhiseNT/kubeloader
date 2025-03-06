@@ -42,7 +42,7 @@ public class Kubeloader {
 
         LOGGER.info(ResourcePath.toString());
         LOGGER.info(PackPath.toString());
-        //将resource写入
+        //将resource写入,先清理资源文件再进行写入
         CleanPacks();
         if (Files.notExists(ResourcePath)){
             Files.createDirectories(ResourcePath);
