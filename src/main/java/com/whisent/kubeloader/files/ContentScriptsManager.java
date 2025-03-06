@@ -28,10 +28,7 @@ public class ContentScriptsManager extends ScriptManager {
         super(t);
     }
 
-    @Override
-    public void load() {super.load();
 
-    }
 
     @Override
     public void reload(@Nullable ResourceManager resourceManager) {
@@ -41,7 +38,7 @@ public class ContentScriptsManager extends ScriptManager {
         loadFromDirectory();
 
         load();
-
+        Kubeloader.LOGGER.debug("加载自定义脚本成功");
     }
 
     private void loadFromMods() {
@@ -126,6 +123,7 @@ public class ContentScriptsManager extends ScriptManager {
         }
 
         pack.scripts.sort((Comparator)null);
+        //
         this.packs.put(pack.info.namespace, pack);
     }
     public void loadFile(ScriptPack pack, ScriptFileInfo fileInfo, ScriptSource source) {

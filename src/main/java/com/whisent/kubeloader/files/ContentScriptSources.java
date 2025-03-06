@@ -1,0 +1,63 @@
+package com.whisent.kubeloader.files;
+
+import com.whisent.kubeloader.Kubeloader;
+import dev.latvian.mods.kubejs.script.ScriptFileInfo;
+import dev.latvian.mods.kubejs.script.ScriptSource;
+import net.minecraft.server.packs.resources.Resource;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Enumeration;
+import java.util.List;
+import java.util.jar.JarEntry;
+import java.util.jar.JarFile;
+
+import static com.whisent.kubeloader.files.ContentPackExplorer.isContentPackFile;
+
+public class ContentScriptSources implements ScriptSource {
+
+    @Override
+    public List<String> readSource(ScriptFileInfo scriptFileInfo) throws IOException {
+        return List.of();
+    }
+    public interface FromMod extends ScriptSource {
+        jarFix getJarFix(ScriptFileInfo info) throws IOException;
+
+        @Override
+        default List<String> readSource(ScriptFileInfo info) throws IOException {
+            List<String> lines = new ArrayList<>();
+            jarFix jarFix = getJarFix(info);
+            JarFile jar = jarFix.getJarFile();
+            {
+                Enumeration<JarEntry> entries = jar.entries();
+                while (entries.hasMoreElements()) {
+                    JarEntry entry = entries.nextElement();
+                    //Kubeloader.LOGGER.info(String.valueOf(entry));
+                    Path scriptPath = Path.of("contentpack/"+jarFix.getScriptType().name+"_scripts/");
+                    Path entryPath = Path.of(entry.getName());
+                    if (isContentPackFile(entry) && entryPath.startsWith(scriptPath)) {
+                        // 获取JarEntry对象
+                        JarEntry jarEntry = entry;
+                        try (JarFile jarFile = jar) {
+                            // 打开JarEntry的输入流
+                            try (InputStream inputStream = jarFile.getInputStream(jarEntry);
+                                 BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8))) {
+                                String line;
+                                while ((line = reader.readLine()) != null) {
+                                    lines.add(line);
+                                }
+                            }
+                        }
+
+                    }
+                }
+            }
+            return lines;
+        }
+    }
+}

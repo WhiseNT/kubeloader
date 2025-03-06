@@ -166,6 +166,12 @@ public class FileIO {
         }
     }
 
+    public static void unzipJar(Path jarPath, Path destDir) throws IOException {
+        if (!Files.isReadable(jarPath)) {
+
+        }
+    }
+
     /**
      * 验证临时目录的根目录是否仅包含一个命名空间文件夹
      *

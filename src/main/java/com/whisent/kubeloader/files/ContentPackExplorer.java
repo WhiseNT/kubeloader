@@ -32,7 +32,7 @@ public class ContentPackExplorer {
             try {
                 Path jarPath = getModJarPath(mod);
                 if (jarPath != null) {
-                    processJarFile(jarPath, mod.getModId(),type);
+
                 }
             } catch (Exception e) {
                 System.err.println("Error processing mod: " + mod.getModId());
@@ -41,19 +41,16 @@ public class ContentPackExplorer {
         });
     }
 
-    private static Path getModJarPath(IModInfo mod) {
+    public static Path getModJarPath(IModInfo mod) {
         return mod.getOwningFile()
                 .getFile()
                 .getFilePath();
     }
 
-    private static void processJarFile(Path jarPath, String modId,String type) {
-        ArrayList<JarEntry> JarContentScripts = new ArrayList<>();
+    public static ArrayList<JarEntry> processJarFile(Path jarPath, String modId, String type) {
+        var entriesList = new ArrayList<JarEntry>();
         try (JarFile jar = new JarFile(jarPath.toFile())) {
             Enumeration<JarEntry> entries = jar.entries();
-            var pack = new ScriptPack(Kubeloader.getStartupScriptManager(),
-                    new ScriptPackInfo(modId, "contentpack/"));
-
             while (entries.hasMoreElements()) {
                 JarEntry entry = entries.nextElement();
                 //Kubeloader.LOGGER.info(String.valueOf(entry));
@@ -61,20 +58,22 @@ public class ContentPackExplorer {
                     //handleContentPackEntry(jar, entry, modId,type);
                     Kubeloader.LOGGER.info("找到jar内文件");
                     Kubeloader.LOGGER.info(entry.getName());
-                    pack.info.scripts.add(new ScriptFileInfo(pack.info, entry.getName()));
+                    entriesList.add(entry);
+                    //pack.info.scripts.add(new ScriptFileInfo(pack.info, entry.getName()));
                     //JarContentScripts.add(entry);
+                    //Path tempDir = Files.createTempDirectory("jar_cache");
+                    //Path entryPath = tempDir.resolve(entry.getName());
+
                 }
-            }
-            for (var fileInfo : pack.info.scripts) {
-                //var scriptSource = (ScriptSource.FromPath) info -> resourceManager.getResourceOrThrow(info.id);
-                //Kubeloader.getStartupScriptManager().loadFile(pack, fileInfo, scriptSource);
+                return  entriesList;
             }
         } catch (IOException e) {
             System.err.println("Failed to open JAR: " + jarPath);
         }
+        return  new ArrayList<JarEntry>();
     }
 
-    private static boolean isContentPackFile(JarEntry entry) {
+    public static boolean isContentPackFile(JarEntry entry) {
         return entry.getName().startsWith(TARGET_DIR + "/") &&
                 !entry.isDirectory() &&
                 entry.getName().length() > TARGET_DIR.length() + 1;
@@ -90,14 +89,10 @@ public class ContentPackExplorer {
             Kubeloader.LOGGER.debug("组织元素");
             Kubeloader.LOGGER.debug(reconstructedPath);
             if (Objects.equals(pathArray[1], type)) {
-
                 String fullPath = type + "/" + "contentpack_scripts" + "/"  + modId + "/" + reconstructedPath;
-
                 Kubeloader.LOGGER.debug("entry的name"+entry.getName());
-
                 Kubeloader.LOGGER.debug("fullPath的name"+fullPath);
                 Path path = Paths.get(fullPath);
-
                 Path targetPath = Minecraft.getInstance().gameDirectory.toPath().resolve("kubejs").resolve(fullPath);
                 Kubeloader.LOGGER.debug("目标的name"+targetPath);
 

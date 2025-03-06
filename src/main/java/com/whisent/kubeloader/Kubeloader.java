@@ -1,10 +1,8 @@
 package com.whisent.kubeloader;
 
 import com.mojang.logging.LogUtils;
-import com.whisent.kubeloader.files.ContentPackExplorer;
-import com.whisent.kubeloader.files.ContentScriptsManager;
-import com.whisent.kubeloader.files.FileIO;
-import com.whisent.kubeloader.files.ResourcePackProvider;
+import com.sun.jna.Platform;
+import com.whisent.kubeloader.files.*;
 import dev.latvian.mods.kubejs.KubeJS;
 import dev.latvian.mods.kubejs.KubeJSPaths;
 import dev.latvian.mods.kubejs.script.ScriptManager;
@@ -66,8 +64,9 @@ public class Kubeloader {
             Kubeloader.LOGGER.debug("搜索到资源包："+pack.toString());
         });
 
-        Kubeloader.getStartupScriptManager().reload(null);
-        //ContentPackExplorer.scanAllMods("server_scripts");
+
+        //Kubeloader.getStartupScriptManager().reload(null);
+        //ContentPackExplorer.scanAllMods("startup_scripts");
 
         //ContentPackExplorer.scanAllMods("client_scripts");
         //startup会在加载脚本前被被写入
@@ -76,7 +75,6 @@ public class Kubeloader {
 
         modEventBus.addListener(this::ModLoding);
         //LoadFromMods();
-
         FMLJavaModLoadingContext.get().getModEventBus().addListener(this::injectPacks);
 
     }

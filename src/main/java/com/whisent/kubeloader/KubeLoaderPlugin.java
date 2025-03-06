@@ -24,7 +24,7 @@ public class KubeLoaderPlugin extends KubeJSPlugin {
 
     @Override
     public void registerBindings(BindingsEvent event) {
-        event.add("public", PUBLIC);
+        event.add("pulic", PUBLIC);
         initializePublicMap();
     }
 }
