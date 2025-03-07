@@ -8,13 +8,19 @@ import dev.latvian.mods.kubejs.script.*;
  */
 public class PackLoadingContext {
     private final ScriptManager manager;
+    private final String folderName;
 
     public PackLoadingContext(ScriptManager manager) {
         this.manager = manager;
+        this.folderName = type().name + "_scripts";
     }
 
     public ScriptType type() {
         return manager.scriptType;
+    }
+
+    public String folderName() {
+        return folderName;
     }
 
     public ScriptManager manager() {
