@@ -1,6 +1,7 @@
 package com.whisent.kubeloader.definition;
 
 import dev.latvian.mods.kubejs.script.ScriptPack;
+import dev.latvian.mods.kubejs.script.ScriptPackInfo;
 import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -29,4 +30,8 @@ public interface ContentPack {
      */
     @Nullable
     ScriptPack getPack(PackLoadingContext context);
+
+    default ScriptPack createEmptyPack(PackLoadingContext context) {
+        return new ScriptPack(context.manager(), new ScriptPackInfo(getNamespace(context), ""));
+    }
 }
