@@ -1,7 +1,6 @@
 package com.whisent.kubeloader.definition;
 
 import dev.latvian.mods.kubejs.script.ScriptPack;
-import dev.latvian.mods.kubejs.script.ScriptType;
 import net.minecraft.resources.ResourceLocation;
 
 /**
@@ -17,9 +16,9 @@ public interface ContentPack {
     /**
      * 留作未来使用，或者可能也没用
      */
-    default String getNamespace(ScriptType type) {
+    default String getNamespace(PackLoadingContext context) {
         return getNamespace();
     }
 
-    ScriptPack getPack(ScriptType type);
+    ScriptPack getPack(PackLoadingContext context);
 }
