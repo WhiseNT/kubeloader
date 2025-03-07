@@ -20,7 +20,7 @@ import java.util.jar.JarFile;
  */
 public class ModContentPack implements ContentPack {
     private final IModInfo mod;
-    final Map<ScriptType, ScriptPack> packs = new EnumMap<>(ScriptType.class);
+    private final Map<ScriptType, ScriptPack> packs = new EnumMap<>(ScriptType.class);
 
     public ModContentPack(IModInfo mod) {
         this.mod = mod;
@@ -38,10 +38,7 @@ public class ModContentPack implements ContentPack {
     }
 
     private ScriptPack createPack(PackLoadingContext context) {
-        var pack = new ScriptPack(
-            context.manager(),
-            new ScriptPackInfo(mod.getModId(), "")
-        );
+        var pack = createEmptyPack(context);
 
         var prefix = Kubeloader.FOLDER_NAME + '/' + context.folderName() + '/';
         try (var file = new JarFile(mod.getOwningFile().getFile().getFilePath().toFile())) {
