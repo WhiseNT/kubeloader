@@ -1,6 +1,7 @@
 package com.whisent.kubeloader.impl.mod;
 
 import com.whisent.kubeloader.definition.ContentPack;
+import com.whisent.kubeloader.definition.PackLoadingContext;
 import dev.latvian.mods.kubejs.script.ScriptPack;
 import dev.latvian.mods.kubejs.script.ScriptType;
 import net.minecraftforge.forgespi.language.IModInfo;
@@ -25,7 +26,7 @@ public class ModContentPack implements ContentPack {
     }
 
     @Override
-    public ScriptPack getPack(ScriptType type) {
-        return packs.get(type);
+    public ScriptPack getPack(PackLoadingContext context) {
+        return packs.get(context.type());
     }
 }

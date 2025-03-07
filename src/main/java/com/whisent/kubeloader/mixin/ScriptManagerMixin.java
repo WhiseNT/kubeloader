@@ -1,6 +1,7 @@
 package com.whisent.kubeloader.mixin;
 
 import com.whisent.kubeloader.Kubeloader;
+import com.whisent.kubeloader.definition.PackLoadingContext;
 import com.whisent.kubeloader.files.FileIO;
 import com.whisent.kubeloader.impl.ContentPackProviders;
 import dev.latvian.mods.kubejs.KubeJS;
@@ -41,8 +42,9 @@ public abstract class ScriptManagerMixin {
 
     @Inject(method = "reload", at = @At(value = "INVOKE", target = "Ldev/latvian/mods/kubejs/script/ScriptManager;load()V"), remap = false)
     private void injectPacks(CallbackInfo ci) {
+        var context = new PackLoadingContext(thiz());
         for (var contentPack : ContentPackProviders.getPacks()) {
-            this.packs.put(contentPack.getNamespace(), contentPack.getPack(scriptType));
+            this.packs.put(contentPack.getNamespace(context), contentPack.getPack(context));
         }
 
         //TODO: 把这个也改为 ContentPackProvider
