@@ -28,7 +28,6 @@ public class ContentScriptSources implements ScriptSource {
 
         @Override
         default List<String> readSource(ScriptFileInfo info) throws IOException {
-            List<String> lines = new ArrayList<>();
             jarFix jarFix = getJarFix(info);
             JarFile jar = jarFix.getJarFile();
             JarEntry entry = jarFix.getJarEntry();
