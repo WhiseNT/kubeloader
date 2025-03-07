@@ -36,6 +36,11 @@ public class ModContentPackProvider implements ContentPackProvider {
     }
 
     @Override
+    public boolean isDynamic() {
+        return false;
+    }
+
+    @Override
     public @Nullable ContentPack providePack() {
         var path = mod.getOwningFile()
             .getFile()
