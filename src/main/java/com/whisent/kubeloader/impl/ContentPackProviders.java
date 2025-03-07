@@ -12,27 +12,40 @@ import java.util.Objects;
  * @author ZZZank
  */
 public final class ContentPackProviders {
-    private static final List<ContentPackProvider> PROVIDERS = new ArrayList<>();
     private static List<ContentPack> cachedPacks = null;
+    private static final List<ContentPackProvider> STATIC_PROVIDERS = new ArrayList<>();
+    private static final List<ContentPackProvider> DYNAMIC_PROVIDERS = new ArrayList<>();
 
     public static void register(ContentPackProvider... providers) {
         for (var provider : providers) {
-            PROVIDERS.add(Objects.requireNonNull(provider));
+            if (provider.isDynamic()) {
+                DYNAMIC_PROVIDERS.add(provider);
+            } else {
+                STATIC_PROVIDERS.add(provider);
+            }
         }
     }
 
-    public static List<ContentPackProvider> getProviders() {
-        return Collections.unmodifiableList(PROVIDERS);
+    public static List<ContentPackProvider> getDynamicProviders() {
+        return Collections.unmodifiableList(DYNAMIC_PROVIDERS);
+    }
+
+    public static List<ContentPackProvider> getStaticProviders() {
+        return Collections.unmodifiableList(STATIC_PROVIDERS);
     }
 
     public static List<ContentPack> getPacks() {
         if (cachedPacks == null) {
-            cachedPacks = PROVIDERS
+            cachedPacks = STATIC_PROVIDERS
                 .stream()
                 .map(ContentPackProvider::providePack)
                 .filter(Objects::nonNull)
                 .toList();
         }
-        return cachedPacks;
+        var packs = new ArrayList<>(cachedPacks);
+        for (var provider : DYNAMIC_PROVIDERS) {
+            packs.add(provider.providePack());
+        }
+        return packs;
     }
 }
