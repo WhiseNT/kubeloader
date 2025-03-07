@@ -5,6 +5,8 @@ import com.whisent.kubeloader.definition.ContentPack;
 import com.whisent.kubeloader.definition.PackLoadingContext;
 import dev.latvian.mods.kubejs.script.*;
 import net.minecraftforge.forgespi.language.IModInfo;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -25,11 +27,12 @@ public class ModContentPack implements ContentPack {
     }
 
     @Override
-    public String getNamespace() {
+    public @NotNull String getNamespace() {
         return mod.getModId();
     }
 
     @Override
+    @Nullable
     public ScriptPack getPack(PackLoadingContext context) {
         return packs.computeIfAbsent(context.type(), k -> createPack(context));
     }
