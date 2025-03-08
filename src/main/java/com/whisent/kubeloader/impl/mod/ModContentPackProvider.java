@@ -16,13 +16,6 @@ import java.util.jar.JarFile;
  * @author ZZZank
  */
 public class ModContentPackProvider implements ContentPackProvider {
-    private static final Map<ScriptType, String> PREFIXES = new EnumMap<>(ScriptType.class);
-
-    static {
-        for (var scriptType : ScriptType.values()) {
-            PREFIXES.put(scriptType, Kubeloader.FOLDER_NAME + '/' + scriptType.name + '/');
-        }
-    }
 
     private final IModInfo mod;
 

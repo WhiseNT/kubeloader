@@ -67,7 +67,7 @@ public class Kubeloader {
             .getMods()
             .stream()
             .map(ModContentPackProvider::new)
-            .toArray(ContentPackProvider[]::new);
+            .toList();
         ContentPackProviders.register(providers);
     }
 
@@ -79,8 +79,7 @@ public class Kubeloader {
             ZipContentPackProvider zipContentPackProvider = new ZipContentPackProvider(file);
             list.add(zipContentPackProvider);
         }
-        var providers = list.toArray(new ContentPackProvider[0]);
-        ContentPackProviders.register(providers);
+        ContentPackProviders.register(list);
     }
 
 
