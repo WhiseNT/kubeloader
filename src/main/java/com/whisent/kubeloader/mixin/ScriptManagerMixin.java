@@ -7,6 +7,7 @@ import com.whisent.kubeloader.impl.ContentPackProviders;
 import dev.latvian.mods.kubejs.KubeJS;
 import dev.latvian.mods.kubejs.script.*;
 import net.minecraftforge.forgespi.language.IModInfo;
+import org.checkerframework.checker.units.qual.K;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -44,6 +45,7 @@ public abstract class ScriptManagerMixin {
     private void injectPacks(CallbackInfo ci) {
         var context = new PackLoadingContext(thiz());
         for (var contentPack : ContentPackProviders.getPacks()) {
+            Kubeloader.LOGGER.debug("寻找到contentPack: " + contentPack);
             var pack = contentPack.getPack(context);
             if (pack != null) {
                 this.packs.put(contentPack.getNamespace(context), pack);

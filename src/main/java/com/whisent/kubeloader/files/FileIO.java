@@ -78,6 +78,20 @@ public class FileIO {
             throw new RuntimeException("Failed to list directories: " + path, e);
         }
     }
+    public static List<String> listZips(Path path) {
+        try {
+            if (!Files.isDirectory(path)) {
+                throw new SecurityException("Access denied: Path is not a directory: " + path);
+            }
+            var a = Files.list(path)
+                    .filter(e->e.getFileName().toString().endsWith(".zip"))
+                    .map(Path::toString)
+                    .collect(Collectors.toList());
+            return a;
+        } catch (RuntimeException | IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
     private static void deleteDirectoryRecursively(Path dir, Path basePath) throws IOException {
         if (Files.exists(dir)) {
             Files.walkFileTree(dir, new SimpleFileVisitor<Path>() {
