@@ -1,5 +1,6 @@
 package com.whisent.kubeloader;
 
+import com.whisent.kubeloader.utils.ContentPackConfig;
 import dev.latvian.mods.kubejs.KubeJSPlugin;
 import dev.latvian.mods.kubejs.registry.RegistryInfo;
 import dev.latvian.mods.kubejs.script.BindingsEvent;
@@ -21,6 +22,7 @@ public class KubeLoaderPlugin extends KubeJSPlugin {
     }
     @Override
     public void registerBindings(BindingsEvent event) {
+        event.add("PackConfig",new ContentPackConfig());
         switch (event.getType()) {
             case STARTUP :
                 event.add("startupField", STARTUPFIELD);
