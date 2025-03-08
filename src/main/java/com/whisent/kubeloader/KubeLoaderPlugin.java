@@ -1,13 +1,9 @@
 package com.whisent.kubeloader;
 
-import com.whisent.kubeloader.utils.ContentPackConfig;
 import dev.latvian.mods.kubejs.KubeJSPlugin;
-import dev.latvian.mods.kubejs.registry.RegistryInfo;
 import dev.latvian.mods.kubejs.script.BindingsEvent;
-import dev.latvian.mods.kubejs.script.ScriptType;
 
 import java.util.HashMap;
-import java.util.Objects;
 
 public class KubeLoaderPlugin extends KubeJSPlugin {
     public static final HashMap<String, Object> STARTUPFIELD = new HashMap<>();
@@ -22,7 +18,6 @@ public class KubeLoaderPlugin extends KubeJSPlugin {
     }
     @Override
     public void registerBindings(BindingsEvent event) {
-        event.add("PackConfig",new ContentPackConfig());
         switch (event.getType()) {
             case STARTUP :
                 event.add("startupField", STARTUPFIELD);
