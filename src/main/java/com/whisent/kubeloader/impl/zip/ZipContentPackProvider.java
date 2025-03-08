@@ -16,12 +16,10 @@ import java.util.zip.ZipFile;
 public class ZipContentPackProvider  implements ContentPackProvider {
     private final File file;
     private final ZipFile zipFile;
-    private final Path filePath;
 
     public ZipContentPackProvider(File file) throws IOException {
         this.file = file;
         this.zipFile = new ZipFile(file);
-        this.filePath = file.toPath();
     }
 
     @Override

@@ -1,5 +1,6 @@
 package com.whisent.kubeloader.impl;
 
+import com.whisent.kubeloader.Kubeloader;
 import com.whisent.kubeloader.definition.ContentPack;
 import com.whisent.kubeloader.definition.ContentPackProvider;
 
@@ -19,6 +20,7 @@ public final class ContentPackProviders {
     public static void register(ContentPackProvider... providers) {
         for (var provider : providers) {
             if (provider.isDynamic()) {
+                Kubeloader.LOGGER.debug("增加了动态Provider"+provider);
                 DYNAMIC_PROVIDERS.add(provider);
             } else {
                 STATIC_PROVIDERS.add(provider);
@@ -44,6 +46,7 @@ public final class ContentPackProviders {
         }
         var packs = new ArrayList<>(cachedPacks);
         for (var provider : DYNAMIC_PROVIDERS) {
+            Kubeloader.LOGGER.debug("尝试添加Pack"+provider);
             packs.add(provider.providePack());
         }
         return packs;

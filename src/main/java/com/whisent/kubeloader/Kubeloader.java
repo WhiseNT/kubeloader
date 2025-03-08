@@ -5,7 +5,7 @@ import com.whisent.kubeloader.definition.ContentPackProvider;
 import com.whisent.kubeloader.files.*;
 import com.whisent.kubeloader.impl.ContentPackProviders;
 import com.whisent.kubeloader.impl.mod.ModContentPackProvider;
-import dev.architectury.platform.Platform;
+import com.whisent.kubeloader.impl.zip.ZipContentPackProvider;
 import dev.latvian.mods.kubejs.KubeJS;
 import dev.latvian.mods.kubejs.KubeJSPaths;
 import net.minecraft.client.Minecraft;
@@ -21,12 +21,14 @@ import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import org.slf4j.Logger;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.zip.ZipFile;
 
 @Mod(Kubeloader.MODID)
 public class Kubeloader {
@@ -56,7 +58,8 @@ public class Kubeloader {
         modEventBus.addListener(this::ModLoding);
         FMLJavaModLoadingContext.get().getModEventBus().addListener(this::injectPacks);
 
-        registerContentPackProviders();
+        //registerContentPackProviders();
+        registerZipContentPackProviders();
     }
 
     private static void registerContentPackProviders() {
@@ -67,6 +70,19 @@ public class Kubeloader {
             .toArray(ContentPackProvider[]::new);
         ContentPackProviders.register(providers);
     }
+
+    private static void registerZipContentPackProviders() throws IOException {
+        List<ZipContentPackProvider> list = new ArrayList<>();
+        for (String s : FileIO.listZips(PackPath)) {
+            Kubeloader.LOGGER.debug("找到压缩包："+s);
+            File file = new File(s);
+            ZipContentPackProvider zipContentPackProvider = new ZipContentPackProvider(file);
+            list.add(zipContentPackProvider);
+        }
+        var providers = list.toArray(new ContentPackProvider[0]);
+        ContentPackProviders.register(providers);
+    }
+
 
     private void ModLoding(FMLClientSetupEvent event) {
         LOGGER.info("Setup启动事件");
