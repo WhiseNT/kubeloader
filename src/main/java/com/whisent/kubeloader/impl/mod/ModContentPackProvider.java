@@ -5,13 +5,12 @@ import com.whisent.kubeloader.definition.ContentPack;
 import com.whisent.kubeloader.definition.ContentPackProvider;
 import dev.latvian.mods.kubejs.script.*;
 import net.minecraftforge.forgespi.language.IModInfo;
-import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.jar.JarFile;
-import java.util.zip.ZipEntry;
 
 /**
  * @author ZZZank
@@ -37,11 +36,12 @@ public class ModContentPackProvider implements ContentPackProvider {
     }
 
     @Override
-    public @Nullable ContentPack providePack() {
+    public @NotNull Collection<? extends ContentPack> providePack() {
         var path = mod.getOwningFile()
             .getFile()
             .getFilePath();
-        return scanSingle(path);
+        var got = scanSingle(path);
+        return got == null ? List.of() : List.of(got);
     }
 
     private ContentPack scanSingle(Path path) {
