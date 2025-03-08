@@ -1,15 +1,15 @@
 package com.whisent.kubeloader.impl.zip;
 
-import com.whisent.kubeloader.Kubeloader;
 import com.whisent.kubeloader.definition.ContentPack;
 import com.whisent.kubeloader.definition.ContentPackProvider;
-import com.whisent.kubeloader.impl.mod.ModContentPack;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Path;
+import java.util.Collection;
 import java.util.Enumeration;
+import java.util.List;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
@@ -23,15 +23,12 @@ public class ZipContentPackProvider  implements ContentPackProvider {
     }
 
     @Override
-    public boolean isDynamic() {
-        return true;
+    public @NotNull Collection<? extends ContentPack> providePack() {
+        var got = scanSingle(zipFile);
+        return got == null ? List.of() : List.of(got);
     }
 
-    @Override
-    public @Nullable ContentPack providePack() {
-        return scanSingle(zipFile);
-    }
-
+    @Nullable
     private ContentPack scanSingle(ZipFile zipFile) {
         try {
             Enumeration<? extends ZipEntry> entries = zipFile.entries();

@@ -4,16 +4,13 @@ import com.whisent.kubeloader.Kubeloader;
 import com.whisent.kubeloader.definition.ContentPack;
 import com.whisent.kubeloader.definition.ContentPackProvider;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 
 /**
  * @author ZZZank
  */
 public final class ContentPackProviders {
-    private static List<ContentPack> cachedPacks = null;
+    private static List<? extends ContentPack> cachedPacks = null;
     private static final List<ContentPackProvider> STATIC_PROVIDERS = new ArrayList<>();
     private static final List<ContentPackProvider> DYNAMIC_PROVIDERS = new ArrayList<>();
 
@@ -41,13 +38,14 @@ public final class ContentPackProviders {
             cachedPacks = STATIC_PROVIDERS
                 .stream()
                 .map(ContentPackProvider::providePack)
+                .flatMap(Collection::stream)
                 .filter(Objects::nonNull)
                 .toList();
         }
-        var packs = new ArrayList<>(cachedPacks);
+        var packs = new ArrayList<ContentPack>(cachedPacks);
         for (var provider : DYNAMIC_PROVIDERS) {
             Kubeloader.LOGGER.debug("尝试添加Pack"+provider);
-            packs.add(provider.providePack());
+            packs.addAll(provider.providePack());
         }
         return packs;
     }
