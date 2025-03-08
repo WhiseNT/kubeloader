@@ -61,12 +61,12 @@ public class ZipContentPack implements ContentPack {
 
     private ScriptPack createPack(PackLoadingContext context) throws IOException {
         var pack = createEmptyPack(context);
-
             var parent = zipFile.getEntry(namespace);
             if (parent == null || !parent.isDirectory()) {
                 return null;
             }
-            zipFile.stream().filter(e -> !e.isDirectory())
+            zipFile.stream()
+                    .filter(e -> !e.isDirectory())
                     .filter(e -> e.getName().endsWith(".js"))
                     .filter(e -> e.getName().startsWith(namespace))
                     .forEach(zipEntry -> {
