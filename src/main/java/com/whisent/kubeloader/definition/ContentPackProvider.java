@@ -23,5 +23,5 @@ public interface ContentPackProvider {
      * @return 该 ContentPackProvider 所提供的 ContentPack，或者，如果其没有，返回一个空集合
      */
     @NotNull
-    Collection<? extends ContentPack> providePack();
+    Collection<? extends @NotNull ContentPack> providePack();
 }

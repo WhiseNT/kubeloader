@@ -49,7 +49,7 @@ public class ZipContentPack implements ContentPack {
             Kubeloader.LOGGER.debug(firstLevelFolders.toString());
             return "";
         } else {
-            Kubeloader.LOGGER.debug("获取namespace为"+firstLevelFolders.iterator().next().split("/")[0]);
+            Kubeloader.LOGGER.debug("获取namespace为{}", firstLevelFolders.iterator().next().split("/")[0]);
             return firstLevelFolders.iterator().next().split("/")[0];
         }
     }
@@ -84,5 +84,10 @@ public class ZipContentPack implements ContentPack {
                         context.loadFile(pack,zipFileInfo,scriptSource);
                     });
         return pack;
-    };
+    }
+
+    @Override
+    public String toString() {
+        return "ZipContentPack[namespace=%s]".formatted(getNamespace());
+    }
 }
