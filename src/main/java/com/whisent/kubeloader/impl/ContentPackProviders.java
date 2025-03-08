@@ -14,7 +14,7 @@ public final class ContentPackProviders {
     private static final List<ContentPackProvider> STATIC_PROVIDERS = new ArrayList<>();
     private static final List<ContentPackProvider> DYNAMIC_PROVIDERS = new ArrayList<>();
 
-    public static void register(ContentPackProvider... providers) {
+    public static void register(Collection<? extends ContentPackProvider> providers) {
         for (var provider : providers) {
             if (provider.isDynamic()) {
                 Kubeloader.LOGGER.debug("增加了动态Provider: {}", provider);
@@ -24,6 +24,10 @@ public final class ContentPackProviders {
                 STATIC_PROVIDERS.add(provider);
             }
         }
+    }
+
+    public static void register(ContentPackProvider... providers) {
+        register(Arrays.asList(providers));
     }
 
     public static List<ContentPackProvider> getDynamicProviders() {
