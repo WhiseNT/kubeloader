@@ -23,7 +23,7 @@ public class ZipContentPackProvider  implements ContentPackProvider {
     }
 
     @Override
-    public @NotNull Collection<? extends ContentPack> providePack() {
+    public @NotNull Collection<? extends @NotNull ContentPack> providePack() {
         var got = scanSingle(zipFile);
         return got == null ? List.of() : List.of(got);
     }

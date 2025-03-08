@@ -36,7 +36,7 @@ public class ModContentPackProvider implements ContentPackProvider {
     }
 
     @Override
-    public @NotNull Collection<? extends ContentPack> providePack() {
+    public @NotNull Collection<? extends @NotNull ContentPack> providePack() {
         var path = mod.getOwningFile()
             .getFile()
             .getFilePath();
@@ -55,5 +55,10 @@ public class ModContentPackProvider implements ContentPackProvider {
             // log
             return null;
         }
+    }
+
+    @Override
+    public String toString() {
+        return "ModContentPackProvider[mod=%s]".formatted(mod.getModId());
     }
 }

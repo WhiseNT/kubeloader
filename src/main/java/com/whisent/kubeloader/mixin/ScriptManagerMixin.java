@@ -45,7 +45,7 @@ public abstract class ScriptManagerMixin {
     private void injectPacks(CallbackInfo ci) {
         var context = new PackLoadingContext(thiz());
         for (var contentPack : ContentPackProviders.getPacks()) {
-            Kubeloader.LOGGER.debug("寻找到contentPack: " + contentPack);
+            Kubeloader.LOGGER.debug("寻找到contentPack: {}", contentPack);
             var pack = contentPack.getPack(context);
             if (pack != null) {
                 this.packs.put(contentPack.getNamespace(context), pack);
