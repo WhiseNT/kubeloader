@@ -23,16 +23,22 @@ import java.util.zip.ZipFile;
 
 public class ZipContentPack implements ContentPack {
     private final ZipFile zipFile;
-    private final String namespace;
+    private String namespace;
     private final Map<ScriptType, ScriptPack> packs = new EnumMap<>(ScriptType.class);
 
     public ZipContentPack(File file) throws IOException {
         this.zipFile = new ZipFile(file);
-        this.namespace = getNamespace();
     }
 
     @Override
     public @NotNull String getNamespace() {
+        if (namespace == null) {
+            namespace = computeNamespace();
+        }
+        return namespace;
+    }
+
+    private String computeNamespace() {
         Set<String> firstLevelFolders = zipFile.stream()
                 .map(ZipEntry::getName)
                 .filter(name -> name.endsWith("/"))
