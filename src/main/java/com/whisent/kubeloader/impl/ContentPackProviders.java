@@ -4,28 +4,30 @@ import com.whisent.kubeloader.Kubeloader;
 import com.whisent.kubeloader.definition.ContentPack;
 import com.whisent.kubeloader.definition.ContentPackProvider;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 
 /**
  * @author ZZZank
  */
 public final class ContentPackProviders {
-    private static List<ContentPack> cachedPacks = null;
+    private static List<? extends ContentPack> cachedPacks = null;
     private static final List<ContentPackProvider> STATIC_PROVIDERS = new ArrayList<>();
     private static final List<ContentPackProvider> DYNAMIC_PROVIDERS = new ArrayList<>();
 
-    public static void register(ContentPackProvider... providers) {
+    public static void register(Collection<? extends ContentPackProvider> providers) {
         for (var provider : providers) {
             if (provider.isDynamic()) {
-                Kubeloader.LOGGER.debug("增加了动态Provider"+provider);
+                Kubeloader.LOGGER.debug("增加了动态Provider: {}", provider);
                 DYNAMIC_PROVIDERS.add(provider);
             } else {
+                Kubeloader.LOGGER.debug("增加了静态Provider: {}", provider);
                 STATIC_PROVIDERS.add(provider);
             }
         }
+    }
+
+    public static void register(ContentPackProvider... providers) {
+        register(Arrays.asList(providers));
     }
 
     public static List<ContentPackProvider> getDynamicProviders() {
@@ -41,13 +43,14 @@ public final class ContentPackProviders {
             cachedPacks = STATIC_PROVIDERS
                 .stream()
                 .map(ContentPackProvider::providePack)
+                .flatMap(Collection::stream)
                 .filter(Objects::nonNull)
                 .toList();
         }
-        var packs = new ArrayList<>(cachedPacks);
+        var packs = new ArrayList<ContentPack>(cachedPacks);
         for (var provider : DYNAMIC_PROVIDERS) {
-            Kubeloader.LOGGER.debug("尝试添加Pack"+provider);
-            packs.add(provider.providePack());
+            Kubeloader.LOGGER.debug("尝试添加Pack: {}", provider);
+            packs.addAll(provider.providePack());
         }
         return packs;
     }

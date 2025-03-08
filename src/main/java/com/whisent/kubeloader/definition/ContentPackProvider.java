@@ -1,6 +1,8 @@
 package com.whisent.kubeloader.definition;
 
-import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.NotNull;
+
+import java.util.Collection;
 
 /**
  * @author ZZZank
@@ -18,8 +20,8 @@ public interface ContentPackProvider {
     }
 
     /**
-     * @return 该 ContentPackProvider 所提供的 ContentPack，或者，如果其没有，则返回 {@code null}
+     * @return 该 ContentPackProvider 所提供的 ContentPack，或者，如果其没有，返回一个空集合
      */
-    @Nullable
-    ContentPack providePack();
+    @NotNull
+    Collection<? extends @NotNull ContentPack> providePack();
 }

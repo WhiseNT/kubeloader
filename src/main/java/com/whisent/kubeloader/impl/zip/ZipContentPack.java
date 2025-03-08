@@ -23,16 +23,22 @@ import java.util.zip.ZipFile;
 
 public class ZipContentPack implements ContentPack {
     private final ZipFile zipFile;
-    private final String namespace;
+    private String namespace;
     private final Map<ScriptType, ScriptPack> packs = new EnumMap<>(ScriptType.class);
 
     public ZipContentPack(File file) throws IOException {
         this.zipFile = new ZipFile(file);
-        this.namespace = getNamespace();
     }
 
     @Override
     public @NotNull String getNamespace() {
+        if (namespace == null) {
+            namespace = computeNamespace();
+        }
+        return namespace;
+    }
+
+    private String computeNamespace() {
         Set<String> firstLevelFolders = zipFile.stream()
                 .map(ZipEntry::getName)
                 .filter(name -> name.endsWith("/"))
@@ -43,7 +49,7 @@ public class ZipContentPack implements ContentPack {
             Kubeloader.LOGGER.debug(firstLevelFolders.toString());
             return "";
         } else {
-            Kubeloader.LOGGER.debug("获取namespace为"+firstLevelFolders.iterator().next().split("/")[0]);
+            Kubeloader.LOGGER.debug("获取namespace为{}", firstLevelFolders.iterator().next().split("/")[0]);
             return firstLevelFolders.iterator().next().split("/")[0];
         }
     }
@@ -78,5 +84,10 @@ public class ZipContentPack implements ContentPack {
                         context.loadFile(pack,zipFileInfo,scriptSource);
                     });
         return pack;
-    };
+    }
+
+    @Override
+    public String toString() {
+        return "ZipContentPack[namespace=%s]".formatted(getNamespace());
+    }
 }

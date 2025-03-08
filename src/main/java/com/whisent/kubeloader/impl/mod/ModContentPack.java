@@ -63,4 +63,9 @@ public class ModContentPack implements ContentPack {
         }
         return pack;
     }
+
+    @Override
+    public String toString() {
+        return "ModContentPack[mod=%s]".formatted(mod.getModId());
+    }
 }
