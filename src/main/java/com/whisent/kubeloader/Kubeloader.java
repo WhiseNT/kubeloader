@@ -1,10 +1,10 @@
 package com.whisent.kubeloader;
 
 import com.mojang.logging.LogUtils;
-import com.whisent.kubeloader.definition.ContentPackProvider;
 import com.whisent.kubeloader.files.*;
 import com.whisent.kubeloader.impl.ContentPackProviders;
 import com.whisent.kubeloader.impl.mod.ModContentPackProvider;
+import com.whisent.kubeloader.impl.path.PathContentPackProvider;
 import com.whisent.kubeloader.impl.zip.ZipContentPackProvider;
 import dev.latvian.mods.kubejs.KubeJS;
 import dev.latvian.mods.kubejs.KubeJSPaths;
@@ -28,7 +28,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.zip.ZipFile;
 
 @Mod(Kubeloader.MODID)
 public class Kubeloader {
@@ -58,11 +57,16 @@ public class Kubeloader {
         modEventBus.addListener(this::ModLoding);
         FMLJavaModLoadingContext.get().getModEventBus().addListener(this::injectPacks);
 
-        //registerContentPackProviders();
+        //mod
+//        registerModContentPackProviders();
+        //zip
         registerZipContentPackProviders();
+        //path
+        ContentPackProviders.register(new PathContentPackProvider(PackPath));
     }
 
-    private static void registerContentPackProviders() {
+    private static void registerModContentPackProviders() {
+        // mod
         var providers = ModList.get()
             .getMods()
             .stream()
