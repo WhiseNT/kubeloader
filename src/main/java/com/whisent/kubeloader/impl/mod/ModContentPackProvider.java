@@ -3,7 +3,6 @@ package com.whisent.kubeloader.impl.mod;
 import com.whisent.kubeloader.Kubeloader;
 import com.whisent.kubeloader.definition.ContentPack;
 import com.whisent.kubeloader.definition.ContentPackProvider;
-import dev.latvian.mods.kubejs.script.*;
 import net.minecraftforge.forgespi.language.IModInfo;
 import org.jetbrains.annotations.NotNull;
 
