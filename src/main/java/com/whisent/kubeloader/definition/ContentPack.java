@@ -31,6 +31,12 @@ public interface ContentPack {
     @Nullable
     ScriptPack getPack(PackLoadingContext context);
 
+    @NotNull
+    default ScriptPack postProcessPack(PackLoadingContext context, @NotNull ScriptPack pack) {
+        pack.scripts.sort(null);
+        return pack;
+    }
+
     default ScriptPack createEmptyPack(PackLoadingContext context) {
         return new ScriptPack(context.manager(), new ScriptPackInfo(getNamespace(context), ""));
     }

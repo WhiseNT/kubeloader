@@ -48,7 +48,7 @@ public abstract class ScriptManagerMixin {
             Kubeloader.LOGGER.debug("寻找到contentPack: {}", contentPack);
             var pack = contentPack.getPack(context);
             if (pack != null) {
-                this.packs.put(contentPack.getNamespace(context), pack);
+                this.packs.put(contentPack.getNamespace(context), contentPack.postProcessPack(context, pack));
             }
         }
 
