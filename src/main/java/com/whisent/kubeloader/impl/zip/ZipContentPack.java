@@ -1,6 +1,9 @@
 package com.whisent.kubeloader.impl.zip;
 
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.whisent.kubeloader.Kubeloader;
+import com.whisent.kubeloader.cpconfig.JsonReader;
 import com.whisent.kubeloader.definition.ContentPack;
 import com.whisent.kubeloader.definition.PackLoadingContext;
 import dev.latvian.mods.kubejs.script.ScriptFileInfo;
@@ -10,10 +13,12 @@ import dev.latvian.mods.kubejs.script.ScriptType;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import javax.json.Json;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.Map;
 import java.util.Set;
@@ -24,10 +29,13 @@ import java.util.zip.ZipFile;
 public class ZipContentPack implements ContentPack {
     private final ZipFile zipFile;
     private String namespace;
+    private ArrayList<?> config;
     private final Map<ScriptType, ScriptPack> packs = new EnumMap<>(ScriptType.class);
 
     public ZipContentPack(File file) throws IOException {
         this.zipFile = new ZipFile(file);
+        this.config = getConfig();
+        Kubeloader.LOGGER.debug("得到config文件"+this.config);
     }
 
     @Override
@@ -83,9 +91,37 @@ public class ZipContentPack implements ContentPack {
                         };
                         context.loadFile(pack,zipFileInfo,scriptSource);
                     });
+
+
         return pack;
     }
+    private ArrayList<?> getConfig() {
+        final ArrayList<?>[] list = new ArrayList<?>[1];
+        //搜索config文件
+        zipFile.stream().filter(e -> !e.isDirectory()).filter(e -> e.getName().endsWith("config.json"))
+                .forEach(zipEntry -> {
+                    BufferedReader reader = null;
+                    try {
+                        reader = new BufferedReader(new InputStreamReader(zipFile.getInputStream(zipEntry)));
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                    StringBuilder jsonContent = new StringBuilder();
+                    String line;
+                    while (true) {
+                        try {
+                            if ((line = reader.readLine()) == null) break;
+                        } catch (IOException e) {
+                            throw new RuntimeException(e);
+                        }
+                        jsonContent.append(line);
+                    }
 
+                    JsonObject json = JsonParser.parseString(jsonContent.toString()).getAsJsonObject();
+                    list[0] = JsonReader.loadPackConfigByJson(json);
+                });
+        return list[0];
+    }
     @Override
     public String toString() {
         return "ZipContentPack[namespace=%s]".formatted(getNamespace());
