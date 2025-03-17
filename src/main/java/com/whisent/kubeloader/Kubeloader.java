@@ -1,6 +1,7 @@
 package com.whisent.kubeloader;
 
 import com.mojang.logging.LogUtils;
+import com.whisent.kubeloader.cpconfig.JsonReader;
 import com.whisent.kubeloader.files.*;
 import com.whisent.kubeloader.impl.ContentPackProviders;
 import com.whisent.kubeloader.impl.mod.ModContentPackProvider;
@@ -58,11 +59,14 @@ public class Kubeloader {
         FMLJavaModLoadingContext.get().getModEventBus().addListener(this::injectPacks);
 
         //mod
-//        registerModContentPackProviders();
+        //registerModContentPackProviders();
         //zip
         registerZipContentPackProviders();
         //path
         ContentPackProviders.register(new PathContentPackProvider(PackPath));
+
+        var config = JsonReader.loadContentPackConfig(Kubeloader.PackPath.resolve("config.json"));
+
     }
 
     private static void registerModContentPackProviders() {

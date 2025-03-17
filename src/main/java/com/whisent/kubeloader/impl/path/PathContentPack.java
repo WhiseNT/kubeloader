@@ -1,5 +1,7 @@
 package com.whisent.kubeloader.impl.path;
 
+import com.whisent.kubeloader.Kubeloader;
+import com.whisent.kubeloader.cpconfig.JsonReader;
 import com.whisent.kubeloader.definition.ContentPack;
 import com.whisent.kubeloader.definition.PackLoadingContext;
 import dev.latvian.mods.kubejs.KubeJS;
@@ -10,6 +12,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 
 /**
  * @author ZZZank
@@ -17,10 +20,13 @@ import java.nio.file.Path;
 public class PathContentPack implements ContentPack {
     private final Path base;
     private final String namespace;
+    private final ArrayList config;
 
     public PathContentPack(Path base) {
         this.base = base;
         namespace = base.getFileName().toString();
+        this.config = JsonReader.loadContentPackConfig(base.resolve("config.json"));
+        Kubeloader.LOGGER.debug("寻找到config"+this.config);
     }
 
     @Override
