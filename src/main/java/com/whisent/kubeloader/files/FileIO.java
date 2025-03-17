@@ -56,28 +56,7 @@ public class FileIO {
             throw new RuntimeException("Failed in batch copy operation", e);
         }
     }
-    public static List<String> listDirectories(Path path) {
-        try {
-            if (!Files.isDirectory(path)) {
-                throw new SecurityException("Access denied: Path is not a directory: " + path);
-            }
-            return Files.list(path)
-                    .filter(p -> {
-                        try {
-                            //validateAndNormalizePath(p.toString());
-                            return Files.isDirectory(p);
-                        } catch (SecurityException e) {
-                            return false;
-                        }
-                    }).map(path::relativize)
-                    .map(Path::toString)
-                    .collect(Collectors.toList());
-        } catch (SecurityException e) {
-            throw e;
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to list directories: " + path, e);
-        }
-    }
+
     public static List<String> listZips(Path path) {
         try {
             if (!Files.isDirectory(path)) {
