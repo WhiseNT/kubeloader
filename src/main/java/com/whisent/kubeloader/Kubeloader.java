@@ -35,6 +35,7 @@ public class Kubeloader {
     public static final String MODID = "kubeloader";
     public static final Logger LOGGER = LogUtils.getLogger();
     public static final String FOLDER_NAME = "contentpacks";
+    public static Path ConfigPath = KubeJSPaths.CONFIG.resolve(FOLDER_NAME);
     public static Path ResourcePath = KubeJSPaths.DIRECTORY.resolve("pack_resources");
     public static Path PackPath = KubeJSPaths.DIRECTORY.resolve(FOLDER_NAME);
 
@@ -52,6 +53,9 @@ public class Kubeloader {
         if (Files.notExists(PackPath)){
             Files.createDirectories(PackPath);
         }
+        if (Files.notExists(ConfigPath)){
+            Files.createDirectories(ConfigPath);
+        }
         Minecraft.getInstance().getResourceManager().listPacks().forEach(pack -> {
             Kubeloader.LOGGER.debug("搜索到资源包："+pack.toString());
         });
@@ -65,7 +69,6 @@ public class Kubeloader {
         //path
         ContentPackProviders.register(new PathContentPackProvider(PackPath));
 
-        var config = JsonReader.loadContentPackConfig(Kubeloader.PackPath.resolve("config.json"));
 
     }
 
