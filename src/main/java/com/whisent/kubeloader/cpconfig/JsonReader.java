@@ -1,26 +1,26 @@
 package com.whisent.kubeloader.cpconfig;
 
-import com.google.gson.JsonArray;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
+import com.google.gson.*;
 import com.whisent.kubeloader.Kubeloader;
+import dev.latvian.mods.kubejs.util.JsonIO;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.jar.JarEntry;
 
 public class JsonReader {
-    public static ArrayList<?> loadContentPackConfig(Path configPath) {
+    public static Map<String, Object> loadConfig(Path configPath) {
         try {
             JsonObject json = getJsonObject(configPath);
-            loadPackConfigByJson(json);
-            return loadPackConfigByJson(json);
+            return parseJsonObject(json); // 返回 Map 结构
         } catch (Exception e) {
-            // 处理异常
             e.printStackTrace();
+            return new HashMap<>();
         }
-        return null;
     }
     public static JsonObject getJsonObject(Path jsonPath) {
         try {
@@ -33,22 +33,43 @@ public class JsonReader {
         }
         return null;
     }
-    public static ArrayList<?> loadPackConfigByJson(JsonObject json) {
-        String packName = json.get("name").getAsString();
-        String packVersion = json.get("version").getAsString();
-        JsonArray authors = json.getAsJsonArray("authors").getAsJsonArray();
-        String description = json.get("description").getAsString();
-        String requireGameVersion = json.get("requireGameVersion").getAsString();
-        JsonArray requireMods = json.getAsJsonArray("requireMods").getAsJsonArray();
-        ArrayList<?> configs = new ArrayList<>(){{
-            add(packName);
-            add(packVersion);
-            add(authors);
-            add(description);
-            add(requireGameVersion);
-            add(requireMods);
-        }};
-        return configs;
-    }
 
+    // 解析 JSON 对象为 Map
+    public static Map<String, Object> parseJsonObject(JsonObject json) {
+        Map<String, Object> result = new HashMap<>();
+        for (Map.Entry<String, JsonElement> entry : json.entrySet()) {
+            String key = entry.getKey();
+            JsonElement value = entry.getValue();
+            result.put(key, parseJsonElement(value));
+        }
+        return result;
+    }
+    // 递归解析 JSON 元素
+    private static Object parseJsonElement(JsonElement element) {
+        if (element.isJsonObject()) {
+            return parseJsonObject(element.getAsJsonObject());
+        } else if (element.isJsonArray()) {
+            return parseJsonArray(element.getAsJsonArray());
+        } else if (element.isJsonPrimitive()) {
+            JsonPrimitive primitive = element.getAsJsonPrimitive();
+            if (primitive.isString()) {
+                return primitive.getAsString();
+            } else if (primitive.isBoolean()) {
+                return primitive.getAsBoolean();
+            } else if (primitive.isNumber()) {
+                return primitive.getAsNumber();
+            }
+        } else if (element.isJsonNull()) {
+            return null;
+        }
+        return "Unsupported JSON Type";
+    }
+    // 解析 JSON 数组为 List
+    private static List<Object> parseJsonArray(JsonArray jsonArray) {
+        List<Object> list = new ArrayList<>();
+        for (JsonElement element : jsonArray) {
+            list.add(parseJsonElement(element));
+        }
+        return list;
+    }
 }

@@ -6,10 +6,12 @@ import com.whisent.kubeloader.Kubeloader;
 import com.whisent.kubeloader.cpconfig.JsonReader;
 import com.whisent.kubeloader.definition.ContentPack;
 import com.whisent.kubeloader.definition.PackLoadingContext;
+import dev.latvian.mods.kubejs.core.mixin.common.mod.REITooltipMixin;
 import dev.latvian.mods.kubejs.script.ScriptFileInfo;
 import dev.latvian.mods.kubejs.script.ScriptPack;
 import dev.latvian.mods.kubejs.script.ScriptSource;
 import dev.latvian.mods.kubejs.script.ScriptType;
+import dev.latvian.mods.kubejs.util.JsonIO;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -18,6 +20,8 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.Map;
@@ -29,13 +33,35 @@ import java.util.zip.ZipFile;
 public class ZipContentPack implements ContentPack {
     private final ZipFile zipFile;
     private String namespace;
-    private ArrayList<?> config;
+    private Map config;
     private final Map<ScriptType, ScriptPack> packs = new EnumMap<>(ScriptType.class);
-
+    private JsonObject configJson;
     public ZipContentPack(File file) throws IOException {
         this.zipFile = new ZipFile(file);
-        this.config = getConfig();
+        configJson = parseConfig();
+        this.config = getCustomOrDefaultConfig();
+
         Kubeloader.LOGGER.debug("得到config文件"+this.config);
+        Kubeloader.LOGGER.debug("得到优先级"+this.config.get("priority"));
+    }
+    @Override
+    public Map getConfig() {
+        return config;
+    }
+    //若不存在自定义config则返回内部config
+    private Map getCustomOrDefaultConfig() {
+        Path customConfigPath = Kubeloader.ConfigPath.resolve(namespace + ".json");
+        if (Files.notExists(customConfigPath)) {
+            try {
+                JsonObject obj = parseConfig();
+                JsonIO.write(customConfigPath,obj);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+            return getObjectToMap(configJson);
+        } else {
+            return JsonReader.loadConfig(customConfigPath);
+        }
     }
 
     @Override
@@ -79,10 +105,11 @@ public class ZipContentPack implements ContentPack {
             if (parent == null || !parent.isDirectory()) {
                 return null;
             }
+        var prefix = namespace + '/' + context.folderName() + '/';
             zipFile.stream()
                     .filter(e -> !e.isDirectory())
                     .filter(e -> e.getName().endsWith(".js"))
-                    .filter(e -> e.getName().startsWith(namespace))
+                    .filter(e -> e.getName().startsWith(prefix))
                     .forEach(zipEntry -> {
                         var zipFileInfo = new ScriptFileInfo(pack.info,zipEntry.getName());
                         var scriptSource = (ScriptSource) info -> {
@@ -95,8 +122,8 @@ public class ZipContentPack implements ContentPack {
 
         return pack;
     }
-    private ArrayList<?> getConfig() {
-        final ArrayList<?>[] list = new ArrayList<?>[1];
+    private JsonObject parseConfig() {
+        final JsonObject[] list = new JsonObject[1];
         //搜索config文件
         zipFile.stream().filter(e -> !e.isDirectory()).filter(e -> e.getName().endsWith("config.json"))
                 .forEach(zipEntry -> {
@@ -118,12 +145,24 @@ public class ZipContentPack implements ContentPack {
                     }
 
                     JsonObject json = JsonParser.parseString(jsonContent.toString()).getAsJsonObject();
-                    list[0] = JsonReader.loadPackConfigByJson(json);
+                    list[0] = json;
                 });
         return list[0];
     }
+    private Map getObjectToMap(JsonObject object) {
+        return JsonReader.parseJsonObject(object);
+    }
+
+    @Override
+    public int getPriority() {
+        Object priority = this.config.get("priority");
+        return priority == null ? 0 : Integer.parseInt(priority.toString());
+
+    }
+
     @Override
     public String toString() {
         return "ZipContentPack[namespace=%s]".formatted(getNamespace());
     }
+
 }
