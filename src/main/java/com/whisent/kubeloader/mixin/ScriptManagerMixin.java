@@ -27,7 +27,6 @@ public abstract class ScriptManagerMixin {
         var context = new PackLoadingContext(thiz());
 
         var newPack = new LinkedHashMap<String,ScriptPack>();
-        var originPack = new HashMap<String,ScriptPack>();
         List<ContentPack>[] inferBuckets = new List[10];
         List<ContentPack>[] deferBuckets = new List[10];
 
@@ -49,8 +48,6 @@ public abstract class ScriptManagerMixin {
                         priorityInt = 1-priorityInt;
                         deferBuckets[priorityInt].add(contentPack);
                     }
-                } else {
-                    originPack.putAll(this.packs);
                 }
             }
         }
