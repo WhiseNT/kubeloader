@@ -41,7 +41,7 @@ public class PathContentPack implements ContentPack {
     }
     //若不存在自定义config则返回内部config
     private Map getCustomOrDefaultConfig() {
-        Path customConfigPath = Kubeloader.ConfigPath.resolve(namespace.toString() + ".json");
+        Path customConfigPath = Kubeloader.ConfigPath.resolve(namespace + ".json");
         if (Files.notExists(customConfigPath)) {
             try {
                 JsonObject obj = JsonReader.getJsonObject(base.resolve("config.json"));
