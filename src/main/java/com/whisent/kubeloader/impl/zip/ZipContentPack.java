@@ -50,7 +50,7 @@ public class ZipContentPack implements ContentPack {
     }
     //若不存在自定义config则返回内部config
     private Map getCustomOrDefaultConfig() {
-        Path customConfigPath = Kubeloader.ConfigPath.resolve(namespace + ".json");
+        Path customConfigPath = Kubeloader.ConfigPath.resolve(computeNamespace() + ".json");
         if (Files.notExists(customConfigPath)) {
             try {
                 JsonObject obj = parseConfig();

@@ -52,7 +52,6 @@ public abstract class ScriptManagerMixin {
             }
         }
         this.putPack(newPack,inferBuckets,context);
-        newPack.putAll(this.packs);
         this.putPack(newPack,deferBuckets,context);
         this.packs = newPack;
     }
@@ -76,6 +75,7 @@ public abstract class ScriptManagerMixin {
         int priorityInt = 0;
         if (priority != null) {
             priorityInt = Integer.parseInt(priority.toString());
+            return priorityInt;
         }
         return priorityInt;
     }
