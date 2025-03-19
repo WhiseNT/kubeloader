@@ -3,8 +3,9 @@ package com.whisent.kubeloader;
 import com.mojang.logging.LogUtils;
 import com.whisent.kubeloader.files.*;
 import com.whisent.kubeloader.impl.ContentPackProviders;
-
 import com.whisent.kubeloader.impl.mod.ModContentPackProvider;
+import com.whisent.kubeloader.impl.dummy.DummyContentPack;
+import com.whisent.kubeloader.impl.dummy.DummyContentPackProvider;
 import com.whisent.kubeloader.impl.path.PathContentPackProvider;
 import com.whisent.kubeloader.impl.zip.ZipContentPackProvider;
 import dev.latvian.mods.kubejs.KubeJS;
@@ -66,12 +67,12 @@ public class Kubeloader {
         //registerModContentPackProviders();
         //zip
         registerZipContentPackProviders();
-        //path
-        ContentPackProviders.register(new PathContentPackProvider(PackPath));
-
-
-
-
+        ContentPackProviders.register(
+            //path
+            new PathContentPackProvider(PackPath),
+            //kubejs dummy, for sorting content packs
+            new DummyContentPackProvider(List.of(new DummyContentPack(KubeJS.MOD_ID, Map.of())))
+        );
     }
 
     private static void registerModContentPackProviders() {
