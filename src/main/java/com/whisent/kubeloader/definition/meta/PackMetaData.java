@@ -25,6 +25,10 @@ public interface PackMetaData {
 
     List<PackDependency> dependencies();
 
+    static PackMetaData minimal(String id) {
+        return new ImmutableMetaData(id, Optional.empty(), Optional.empty(), Optional.empty(), List.of(), List.of());
+    }
+
     Codec<PackMetaData> CODEC = RecordCodecBuilder.create(
         builder -> builder.group(
             Codec.STRING.fieldOf("id").forGetter(PackMetaData::id),
@@ -32,7 +36,9 @@ public interface PackMetaData {
             Codec.STRING.optionalFieldOf("description").forGetter(PackMetaData::description),
             ImmutableMetaData.VERSION_CODEC.optionalFieldOf("version").forGetter(PackMetaData::version),
             Codec.STRING.listOf().optionalFieldOf("authors", List.of()).forGetter(PackMetaData::authors),
-            PackDependency.CODEC.listOf().optionalFieldOf("dependencies", List.of()).forGetter(PackMetaData::dependencies)
+            PackDependency.CODEC.listOf()
+                .optionalFieldOf("dependencies", List.of())
+                .forGetter(PackMetaData::dependencies)
         ).apply(builder, ImmutableMetaData::new)
     );
 }

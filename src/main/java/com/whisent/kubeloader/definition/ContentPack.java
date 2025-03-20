@@ -1,7 +1,11 @@
 package com.whisent.kubeloader.definition;
 
+import com.google.gson.JsonObject;
+import com.mojang.serialization.JsonOps;
+import com.whisent.kubeloader.definition.meta.PackMetaData;
 import dev.latvian.mods.kubejs.script.ScriptPack;
 import dev.latvian.mods.kubejs.script.ScriptPackInfo;
+import net.minecraft.Util;
 import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -19,7 +23,6 @@ public interface ContentPack {
     @NotNull
     String getNamespace();
 
-
     /**
      * 留作未来使用，或者可能也没用
      */
@@ -28,9 +31,18 @@ public interface ContentPack {
         return getNamespace();
     }
 
-    default Map getConfig() {return getConfig();}
+    default PackMetaData getMetaData() {
+        return PackMetaData.minimal(getNamespace());
+    }
 
-    default int getPriority() {return getPriority();}
+    default Map getConfig() {
+        return getConfig();
+    }
+
+    default int getPriority() {
+        return getPriority();
+    }
+
     /**
      * 如果该 ContentPack 没有{@link PackLoadingContext#type()} 对应的 {@link ScriptPack}，返回 {@code null}
      */
