@@ -22,6 +22,7 @@ public class JsonReader {
             return new HashMap<>();
         }
     }
+
     public static JsonObject getJsonObject(Path jsonPath) {
         try {
             String jsonString = Files.readString(jsonPath);
@@ -44,6 +45,7 @@ public class JsonReader {
         }
         return result;
     }
+
     // 递归解析 JSON 元素
     private static Object parseJsonElement(JsonElement element) {
         if (element.isJsonObject()) {
@@ -64,6 +66,7 @@ public class JsonReader {
         }
         return "Unsupported JSON Type";
     }
+
     // 解析 JSON 数组为 List
     private static List<Object> parseJsonArray(JsonArray jsonArray) {
         List<Object> list = new ArrayList<>();
