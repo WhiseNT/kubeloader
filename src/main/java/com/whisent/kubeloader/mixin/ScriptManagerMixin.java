@@ -49,9 +49,11 @@ public abstract class ScriptManagerMixin {
         sortedOrder.forEach(namespace->{
             if (!Objects.equals(namespace, "kubejs")) {
                 var contentPack = unsortedPacks.get(namespace);
-                Kubeloader.LOGGER.debug(namespace+"获取ContentPack为"+contentPack);
-                var pack = contentPack.getPack(context);
-                newPack.put(contentPack.getNamespace(context),contentPack.postProcessPack(context, pack));
+                if (contentPack != null) {
+                    Kubeloader.LOGGER.debug(namespace+"获取ContentPack为"+contentPack);
+                    var pack = contentPack.getPack(context);
+                    newPack.put(contentPack.getNamespace(context),contentPack.postProcessPack(context, pack));
+                }
             } else {
                 originPack.putAll(this.packs);
                 newPack.putAll(originPack);

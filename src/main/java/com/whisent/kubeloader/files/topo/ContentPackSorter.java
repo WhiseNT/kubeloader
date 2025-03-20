@@ -35,7 +35,12 @@ public class ContentPackSorter {
         for (ContentPack pack : contentPacks.values()) {
             PackNode current = packNodes.get(pack.getNamespace());
             PackNode target = packNodes.get(getRelative(pack));
-
+            //如果依赖自身,则默认为在kubejs之后加载
+            if (current.namespace.equals(target.namespace)) {
+                adjList.get("kubejs").add(pack.getNamespace());
+                current.inDegree++;
+                continue;
+            }
             if (getBeforeFlag(pack)) {
                 adjList.get(pack.getNamespace()).add(getRelative(pack));
                 target.inDegree++;
