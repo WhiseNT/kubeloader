@@ -7,17 +7,19 @@ import java.util.*;
 public class ContentPackSorter {
     LinkedHashMap<String, ContentPack> contentPacks;
     String originId;
-    HashMap<String,List<String>> adjList;
-    HashMap<String,PackNode> packNodes;
+    HashMap<String, List<String>> adjList;
+    HashMap<String, PackNode> packNodes;
     ArrayList<String> sortedPacks;
+
     public ContentPackSorter(LinkedHashMap<String, ContentPack> contentPacks) {
         this.contentPacks = contentPacks;
         this.originId = "kubejs";
-        adjList = new HashMap<String,List<String>>();
-        packNodes = new HashMap<String,PackNode>();
+        adjList = new HashMap<String, List<String>>();
+        packNodes = new HashMap<String, PackNode>();
         sortedPacks = new ArrayList<String>();
         init();
     }
+
     private void init() {
         for (ContentPack pack : contentPacks.values()) {
 
@@ -28,6 +30,7 @@ public class ContentPackSorter {
             packNodes.putIfAbsent(getRelative(pack), new PackNode(getRelative(pack)));
         }
     }
+
     public void buildDependencies() {
         for (ContentPack pack : contentPacks.values()) {
             PackNode current = packNodes.get(pack.getNamespace());
@@ -43,6 +46,7 @@ public class ContentPackSorter {
             }
         }
     }
+
     public List<String> getSortedPacks() {
         Queue<PackNode> queue = new LinkedList<>();
 
@@ -55,7 +59,7 @@ public class ContentPackSorter {
             PackNode node = queue.poll();
             sortedPacks.add(node.namespace);
 
-            for (String neighbor : adjList.getOrDefault(node.namespace,Collections.emptyList())) {
+            for (String neighbor : adjList.getOrDefault(node.namespace, Collections.emptyList())) {
                 PackNode neighborNode = packNodes.get(neighbor);
                 neighborNode.inDegree--;
                 if (neighborNode.inDegree == 0) {
@@ -69,10 +73,11 @@ public class ContentPackSorter {
         return sortedPacks;
     }
 
-    private String getRelative (ContentPack pack) {
+    private String getRelative(ContentPack pack) {
         return pack.getConfig().get("target").toString();
     }
-    private Boolean getBeforeFlag (ContentPack pack) {
+
+    private Boolean getBeforeFlag(ContentPack pack) {
         return pack.getConfig().get("isBefore").toString().equals("true");
     }
 }

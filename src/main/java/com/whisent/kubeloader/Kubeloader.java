@@ -1,10 +1,12 @@
 package com.whisent.kubeloader;
 
+import com.google.gson.Gson;
 import com.mojang.logging.LogUtils;
 import com.whisent.kubeloader.files.*;
 import com.whisent.kubeloader.impl.ContentPackProviders;
-
 import com.whisent.kubeloader.impl.mod.ModContentPackProvider;
+import com.whisent.kubeloader.impl.dummy.DummyContentPack;
+import com.whisent.kubeloader.impl.dummy.DummyContentPackProvider;
 import com.whisent.kubeloader.impl.path.PathContentPackProvider;
 import com.whisent.kubeloader.impl.zip.ZipContentPackProvider;
 import dev.latvian.mods.kubejs.KubeJS;
@@ -29,12 +31,15 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 @Mod(Kubeloader.MODID)
 public class Kubeloader {
     public static final String MODID = "kubeloader";
     public static final Logger LOGGER = LogUtils.getLogger();
     public static final String FOLDER_NAME = "contentpacks";
+    public static final String META_DATA_FILE_NAME = "contentpack.json";
+    public static final Gson GSON = new Gson();
     public static Path ConfigPath = KubeJSPaths.CONFIG.resolve(FOLDER_NAME);
     public static Path ResourcePath = KubeJSPaths.DIRECTORY.resolve("pack_resources");
     public static Path PackPath = KubeJSPaths.DIRECTORY.resolve(FOLDER_NAME);
@@ -66,12 +71,12 @@ public class Kubeloader {
         //registerModContentPackProviders();
         //zip
         registerZipContentPackProviders();
-        //path
-        ContentPackProviders.register(new PathContentPackProvider(PackPath));
-
-
-
-
+        ContentPackProviders.register(
+            //path
+            new PathContentPackProvider(PackPath),
+            //kubejs dummy, for sorting content packs
+            new DummyContentPackProvider(List.of(new DummyContentPack(KubeJS.MOD_ID, Map.of())))
+        );
     }
 
     private static void registerModContentPackProviders() {
