@@ -21,35 +21,40 @@ public class ContentPackSorter {
     }
 
     private void init() {
-        for (ContentPack pack : contentPacks.values()) {
+        if (!contentPacks.isEmpty()) {
+            for (ContentPack pack : contentPacks.values()) {
 
-            adjList.putIfAbsent(pack.getNamespace(), new ArrayList<>());
-            adjList.putIfAbsent(getRelative(pack), new ArrayList<>());
+                adjList.putIfAbsent(pack.getNamespace(), new ArrayList<>());
+                adjList.putIfAbsent(getRelative(pack), new ArrayList<>());
 
-            packNodes.putIfAbsent(pack.getNamespace(), new PackNode(pack.getNamespace()));
-            packNodes.putIfAbsent(getRelative(pack), new PackNode(getRelative(pack)));
+                packNodes.putIfAbsent(pack.getNamespace(), new PackNode(pack.getNamespace()));
+                packNodes.putIfAbsent(getRelative(pack), new PackNode(getRelative(pack)));
+            }
         }
     }
 
     public void buildDependencies() {
-        for (ContentPack pack : contentPacks.values()) {
-            PackNode current = packNodes.get(pack.getNamespace());
-            PackNode target = packNodes.get(getRelative(pack));
-            //如果依赖自身,则默认为在kubejs之后加载
-            if (current.namespace.equals(target.namespace)) {
-                adjList.get("kubejs").add(pack.getNamespace());
-                current.inDegree++;
-                continue;
-            }
-            if (getBeforeFlag(pack)) {
-                adjList.get(pack.getNamespace()).add(getRelative(pack));
-                target.inDegree++;
+        if (!contentPacks.isEmpty()) {
+            for (ContentPack pack : contentPacks.values()) {
+                PackNode current = packNodes.get(pack.getNamespace());
+                PackNode target = packNodes.get(getRelative(pack));
+                //如果依赖自身,则默认为在kubejs之后加载
+                if (current.namespace.equals(target.namespace)) {
+                    adjList.get("kubejs").add(pack.getNamespace());
+                    current.inDegree++;
+                    continue;
+                }
+                if (getBeforeFlag(pack)) {
+                    adjList.get(pack.getNamespace()).add(getRelative(pack));
+                    target.inDegree++;
 
-            } else {
-                adjList.get(getRelative(pack)).add(pack.getNamespace());
-                current.inDegree++;
+                } else {
+                    adjList.get(getRelative(pack)).add(pack.getNamespace());
+                    current.inDegree++;
+                }
             }
         }
+
     }
 
     public List<String> getSortedPacks() {
