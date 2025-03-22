@@ -5,7 +5,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 
-public class NbtItem  extends Item implements ItemKJS {
+public class NbtItem  extends Item {
     public CompoundTag nbt;
     public NbtItem(Properties properties, CompoundTag nbt) {
         super(properties);
