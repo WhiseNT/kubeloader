@@ -7,6 +7,7 @@ import com.whisent.kubeloader.item.NbtItemBuilder;
 import com.whisent.kubeloader.item.dynamic.DynamicPickAxeBuilder;
 import com.whisent.kubeloader.item.dynamic.DynamicPickAxeItem;
 import com.whisent.kubeloader.item.dynamic.DynamicSwordBuilder;
+import com.whisent.kubeloader.item.dynamic.DynamicTieredItemBuilder;
 import dev.latvian.mods.kubejs.KubeJSPlugin;
 import dev.latvian.mods.kubejs.registry.RegistryInfo;
 import dev.latvian.mods.kubejs.script.BindingsEvent;
@@ -24,6 +25,7 @@ public class KubeLoaderPlugin extends KubeJSPlugin {
         RegistryInfo.ITEM.addType("nbt", NbtItemBuilder.class,NbtItemBuilder::new);
         RegistryInfo.ITEM.addType("dynamic_sword", DynamicSwordBuilder.class,DynamicSwordBuilder::new);
         RegistryInfo.ITEM.addType("dynamic_pickaxe", DynamicPickAxeBuilder.class, DynamicPickAxeBuilder::new);
+        RegistryInfo.ITEM.addType("dynamic_main", DynamicTieredItemBuilder.class, DynamicTieredItemBuilder::new);
     }
     @Override
     public void registerBindings(BindingsEvent event) {
