@@ -2,8 +2,10 @@ package com.whisent.kubeloader.item.dynamic;
 
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
+import com.whisent.kubeloader.item.dynamic.attributes.DynamicAttributes;
 import com.whisent.kubeloader.item.dynamic.definition.DynamicItem;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.Tag;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.ai.attributes.Attribute;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
@@ -17,6 +19,7 @@ import net.minecraftforge.common.capabilities.ICapabilityProvider;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Map;
+import java.util.UUID;
 
 public class DynamicSwordItem extends SwordItem implements DynamicItem {
     public Map<String, Tier> enableTierMap;
@@ -43,10 +46,12 @@ public class DynamicSwordItem extends SwordItem implements DynamicItem {
     }
     @Override
     public Multimap<Attribute, AttributeModifier> getAttributeModifiers(EquipmentSlot slot, ItemStack stack) {
+
+
         Multimap<Attribute, AttributeModifier> modifiers = HashMultimap.create();
         if (slot == EquipmentSlot.MAINHAND) {
 
-            float attackBonus = stack.getTag().getInt(ATTACK_BONUS_TAG);
+            float attackBonus = stack.getTag().getInt(DynamicAttributes.ATTACK_BONUS_TAG);
             float attackSpeed = stack.getTag().getFloat(ATTACK_SPEED_TAG);
 
             modifiers.put(Attributes.ATTACK_DAMAGE,
@@ -64,6 +69,8 @@ public class DynamicSwordItem extends SwordItem implements DynamicItem {
                             attackSpeed,
                             AttributeModifier.Operation.ADDITION
                     ));
+            modifiers.put(Attributes.LUCK,new AttributeModifier(
+                    UUID.randomUUID(),"Weapon modifier",0,AttributeModifier.Operation.ADDITION));
         }
         return modifiers;
     }
@@ -72,10 +79,11 @@ public class DynamicSwordItem extends SwordItem implements DynamicItem {
     public ItemStack getDefaultInstance() {
         ItemStack stack = new ItemStack(this);
         CompoundTag tag = stack.getOrCreateTag();
-        tag.putString(TIER_TAG, baseTier);
-        tag.putInt(ATTACK_BONUS_TAG,baseAttack);
-        tag.putFloat(ATTACK_SPEED_TAG,baseAttackSpeed);
-        stack.setTag(tag);
+        tag.put("baseAttributes",new CompoundTag());
+        CompoundTag baseTag = tag.getCompound("baseAttributes");
+        baseTag.putString(TIER_TAG, baseTier);
+        baseTag.putInt(ATTACK_BONUS_TAG,baseAttack);
+        baseTag.putFloat(ATTACK_SPEED_TAG,baseAttackSpeed);
         return stack;
     }
 
