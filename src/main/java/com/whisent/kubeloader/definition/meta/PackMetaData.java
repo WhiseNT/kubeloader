@@ -3,7 +3,7 @@ package com.whisent.kubeloader.definition.meta;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import com.whisent.kubeloader.definition.meta.dependency.PackDependency;
-import org.apache.maven.artifact.versioning.ComparableVersion;
+import org.apache.maven.artifact.versioning.DefaultArtifactVersion;
 
 import java.util.List;
 import java.util.Optional;
@@ -19,7 +19,7 @@ public interface PackMetaData {
 
     Optional<String> description();
 
-    Optional<ComparableVersion> version();
+    Optional<DefaultArtifactVersion> version();
 
     List<String> authors();
 
