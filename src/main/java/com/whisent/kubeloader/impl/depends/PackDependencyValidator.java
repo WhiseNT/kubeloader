@@ -4,6 +4,7 @@ import com.whisent.kubeloader.Kubeloader;
 import com.whisent.kubeloader.definition.ContentPack;
 import com.whisent.kubeloader.definition.meta.dependency.DependencyType;
 import com.whisent.kubeloader.definition.meta.dependency.PackDependency;
+import dev.architectury.platform.Platform;
 import net.minecraft.network.chat.Component;
 import org.apache.maven.artifact.versioning.DefaultArtifactVersion;
 
@@ -36,7 +37,7 @@ public class PackDependencyValidator {
         return report;
     }
 
-    public void validateSingle(ContentPack pack, PackDependency dependency, DependencyReport report) {
+    protected void validateSingle(ContentPack pack, PackDependency dependency, DependencyReport report) {
         var target = this.named.get(dependency.id());
         var targetVersion = target != null
             ? target.getMetaData().version()
@@ -83,6 +84,21 @@ public class PackDependencyValidator {
                     // excluded version
                     reporter.accept(dependency.toReport(pack)
                         .append(", but ContentPack with such id is at version '%s'".formatted(targetVersion.get())));
+                }
+            }
+            case MOD -> {
+                var mod = Platform.getMod(dependency.id());
+                var modVersion = mod != null
+                    ? new DefaultArtifactVersion(mod.getVersion())
+                    : null;
+                if (mod == null) {
+                    // required but not found
+                    report.addError(dependency.toReport(pack).append(", but mod with such id is not present"));
+                } else if (dependency.versionRange().isPresent()
+                    && !dependency.versionRange().get().containsVersion(modVersion)) {
+                    // specific version but not matched
+                    report.addError(dependency.toReport(pack)
+                        .append(", but mod with such id is at version '%s'".formatted(targetVersion)));
                 }
             }
         }
