@@ -1,4 +1,4 @@
-package com.whisent.kubeloader.cpconfig;
+package com.whisent.kubeloader.utils;
 
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
