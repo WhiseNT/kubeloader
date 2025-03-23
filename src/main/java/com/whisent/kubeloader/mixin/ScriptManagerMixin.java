@@ -19,6 +19,7 @@ import java.util.*;
 public abstract class ScriptManagerMixin {
 
     @Mutable
+
     @Shadow
     @Final
     public Map<String, ScriptPack> packs;

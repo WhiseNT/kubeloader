@@ -20,5 +20,6 @@ public interface DynamicAttributes {
     public static final String LUCK_TAG = "luck";
     public static final String JUMP_STRENGTH_TAG = "jump_strength";
     public static final String DIG_SPEED_TAG = "dig_speed";
+    public static final String ENTITY_GRAVITY_TAG = "entity_gravity";
 
 }

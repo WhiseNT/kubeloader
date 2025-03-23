@@ -9,12 +9,14 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Tier;
 
 import java.util.HashMap;
+import java.util.Map;
 
 public class DynamicTieredItemBuilder extends ItemBuilder implements DynamicBuilder {
     public HashMap<String, Tier> enableTierMap = new HashMap<String, Tier>();
     public int baseAttack;
     public float baseAttackSpeed;
     public String baseTier;
+    public HashMap<String,HashMap<String,Object>> extendAttributesMap = new HashMap<>();
 
     public DynamicTieredItemBuilder(ResourceLocation i) {
         super(i);
@@ -48,9 +50,13 @@ public class DynamicTieredItemBuilder extends ItemBuilder implements DynamicBuil
         this.baseAttackSpeed = bassAttackSpeed;
         return this;
     }
+    public ItemBuilder putAttribute(String key, HashMap<String,Object> valueMap) {
+        extendAttributesMap.put(key,valueMap);
+        return this;
+    }
 
     @Override
     public Item createObject() {
-        return new DynamicTieredItem(baseAttack,baseAttackSpeed,baseTier,enableTierMap);
+        return new DynamicTieredItem(baseAttack,baseAttackSpeed,baseTier,enableTierMap,extendAttributesMap);
     }
 }
