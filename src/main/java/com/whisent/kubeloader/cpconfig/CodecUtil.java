@@ -3,6 +3,8 @@ package com.whisent.kubeloader.cpconfig;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
 
+import java.util.HashMap;
+import java.util.Locale;
 import java.util.function.Function;
 
 /**
@@ -10,8 +12,30 @@ import java.util.function.Function;
  */
 public class CodecUtil {
     public static <T extends Enum<T>> Codec<T> createEnumStringCodec(Class<T> type) {
+        return createEnumStringCodec(type, true);
+    }
+
+    public static <T extends Enum<T>> Codec<T> createEnumStringCodec(final Class<T> type, final boolean ignoreCase) {
+        var indexedValues = new HashMap<String, T>();
+        for (var value : type.getEnumConstants()) {
+            var name = value.name();
+            if (ignoreCase) {
+                name = name.toLowerCase(Locale.ROOT);
+            }
+            indexedValues.put(name, value);
+        }
         return Codec.STRING.comapFlatMap(
-            wrapUnsafeFn(name -> Enum.valueOf(type, name)),
+            wrapUnsafeFn(name -> {
+                if (name == null) {
+                    throw new NullPointerException("Name is null");
+                }
+                var result = indexedValues.get(ignoreCase ? name.toLowerCase(Locale.ROOT) : name);
+                if (result == null) {
+                    throw new IllegalArgumentException(
+                        "No enum constant " + type.getCanonicalName() + "." + name);
+                }
+                return result;
+            }),
             Enum::name
         );
     }
