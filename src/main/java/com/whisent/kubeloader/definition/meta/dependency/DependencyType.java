@@ -27,6 +27,10 @@ public enum DependencyType {
      * 一起运行可能导致崩溃。发现时打断加载。
      */
     INCOMPATIBLE,
+    /**
+     * 需要对应模组才能运行，否则崩溃。
+     */
+    MOD,
     ;
 
     public static final Codec<DependencyType> CODEC = CodecUtil.createEnumStringCodec(DependencyType.class);
