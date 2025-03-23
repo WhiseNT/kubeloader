@@ -27,12 +27,13 @@ public interface PackDependency {
 
     default MutableComponent toReport(ContentPack parent) {
         return Component.translatable(
-            "%s declared %s dependency with id '%s' and version range '%s'",
+            "%s declared %s dependency with id '%s' and version range '%s'%s",
             Component.literal(parent.toString()).withStyle(ChatFormatting.YELLOW, ChatFormatting.UNDERLINE),
             Component.literal(this.type().toString()),
             Component.literal(this.id()).withStyle(ChatFormatting.YELLOW),
             Component.literal(this.versionRange().map(VersionRange::toString).orElse("*"))
-                .withStyle(ChatFormatting.YELLOW)
+                .withStyle(ChatFormatting.YELLOW),
+            Component.literal(reason().map(", for reason '%s'"::formatted).orElse(""))
         );
     }
 
