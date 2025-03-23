@@ -2,6 +2,10 @@ package com.whisent.kubeloader.definition.meta.dependency;
 
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
+import com.whisent.kubeloader.definition.ContentPack;
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import org.apache.maven.artifact.versioning.VersionRange;
 
 import java.util.Optional;
@@ -20,6 +24,17 @@ public interface PackDependency {
     Optional<String> reason();
 
     Optional<LoadOrdering> ordering();
+
+    default MutableComponent toReport(ContentPack parent) {
+        return Component.translatable(
+            "%s declared %s dependency with id '%s' and version range '%s'",
+            Component.literal(parent.toString()).withStyle(ChatFormatting.YELLOW, ChatFormatting.UNDERLINE),
+            Component.literal(this.type().toString()),
+            Component.literal(this.id()).withStyle(ChatFormatting.YELLOW),
+            Component.literal(this.versionRange().map(VersionRange::toString).orElse("*"))
+                .withStyle(ChatFormatting.YELLOW)
+        );
+    }
 
     Codec<PackDependency> CODEC = RecordCodecBuilder.create(
         builder -> builder.group(
