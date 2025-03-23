@@ -4,6 +4,7 @@ import com.whisent.kubeloader.Kubeloader;
 import com.whisent.kubeloader.definition.ContentPack;
 import com.whisent.kubeloader.definition.PackLoadingContext;
 import com.whisent.kubeloader.impl.ContentPackProviders;
+import com.whisent.kubeloader.impl.depends.PackDependencyBuilder;
 import com.whisent.kubeloader.impl.depends.PackDependencyValidator;
 import com.whisent.kubeloader.impl.depends.SortableContentPack;
 import com.whisent.kubeloader.utils.topo.TopoNotSolved;
@@ -68,11 +69,14 @@ public abstract class ScriptManagerMixin {
 
         var sortablePacks = new ArrayList<SortableContentPack>();
         for (var entry : scriptPackMap.entrySet()) {
-            var id = entry.getKey();
+            var id = kjsName.equals(entry.getKey()) ? KubeJS.MOD_ID : entry.getKey();
             var scriptPack = entry.getValue();
-            var pack = indexed.get(kjsName.equals(id) ? KubeJS.MOD_ID : id);
+            var pack = indexed.get(id);
             sortablePacks.add(new SortableContentPack(id, pack, scriptPack));
         }
+
+        var dependencyBuilder = new PackDependencyBuilder();
+        dependencyBuilder.build(sortablePacks);
 
         try {
             return TopoSort.sort(sortablePacks)
