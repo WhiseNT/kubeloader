@@ -1,7 +1,7 @@
 package com.whisent.kubeloader.definition.meta.dependency;
 
 import com.mojang.serialization.Codec;
-import com.whisent.kubeloader.cpconfig.CodecUtil;
+import com.whisent.kubeloader.utils.CodecUtil;
 import org.apache.maven.artifact.versioning.VersionRange;
 
 import java.util.Optional;
@@ -9,7 +9,7 @@ import java.util.Optional;
 /**
  * @author ZZZank
  */
-public record ImmutableDependency(
+record ImmutableDependency(
     DependencyType type,
     String id,
     Optional<VersionRange> versionRange,
