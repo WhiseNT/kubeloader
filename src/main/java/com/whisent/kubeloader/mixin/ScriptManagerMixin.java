@@ -61,7 +61,7 @@ public abstract class ScriptManagerMixin {
         kl$contentPacks = packs;
     }
 
-    @Redirect(method = "load", at = @At(value = "INVOKE", target = "Ljava/util/Map;values()Ljava/util/Collection;"))
+    @Redirect(method = "load", at = @At(value = "INVOKE", target = "Ljava/util/Map;values()Ljava/util/Collection;"), remap = false)
     private Collection<ScriptPack> sortPack(Map<String, ScriptPack> scriptPackMap) {
         var indexed = this.kl$contentPacks.stream()
             .collect(Collectors.toMap(ContentPack::getNamespace, Function.identity()));
