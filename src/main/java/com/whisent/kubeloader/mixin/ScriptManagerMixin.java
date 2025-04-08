@@ -55,7 +55,7 @@ public abstract class ScriptManagerMixin {
         for (var contentPack : packs) {
             Kubeloader.LOGGER.debug("寻找到contentPack: {}", contentPack);
             var pack = contentPack.getPack(context);
-            if (contentPack.getClass() == PathContentPack.class || contentPack.getClass() == ZipContentPack.class) {
+            if (true) {
                 Kubeloader.LOGGER.debug("寻找到MetaData"+contentPack.getMetaData());
 
             }
