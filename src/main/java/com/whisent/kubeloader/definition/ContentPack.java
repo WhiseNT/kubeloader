@@ -1,11 +1,8 @@
 package com.whisent.kubeloader.definition;
 
-import com.google.gson.JsonObject;
-import com.mojang.serialization.JsonOps;
 import com.whisent.kubeloader.definition.meta.PackMetaData;
 import dev.latvian.mods.kubejs.script.ScriptPack;
 import dev.latvian.mods.kubejs.script.ScriptPackInfo;
-import net.minecraft.Util;
 import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;

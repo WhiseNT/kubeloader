@@ -5,7 +5,6 @@ import com.whisent.kubeloader.impl.path.PathContentPack;
 import com.whisent.kubeloader.impl.zip.ZipContentPack;
 import com.whisent.kubeloader.item.NbtItemBuilder;
 import com.whisent.kubeloader.item.dynamic.DynamicPickAxeBuilder;
-import com.whisent.kubeloader.item.dynamic.DynamicPickAxeItem;
 import com.whisent.kubeloader.item.dynamic.DynamicSwordBuilder;
 import com.whisent.kubeloader.item.dynamic.DynamicTieredItemBuilder;
 import dev.latvian.mods.kubejs.KubeJSPlugin;
@@ -18,7 +17,6 @@ public class KubeLoaderPlugin extends KubeJSPlugin {
     public static final HashMap<String, Object> STARTUPFIELD = new HashMap<>();
     public static final HashMap<String, Object> SERVERFIELD = new HashMap<>();
     public static final HashMap<String, Object> CLIENTFIELD = new HashMap<>();
-
 
     @Override
     public void init() {
