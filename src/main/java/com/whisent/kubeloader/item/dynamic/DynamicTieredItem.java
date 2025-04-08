@@ -126,29 +126,10 @@ public class DynamicTieredItem extends DiggerItem implements DynamicAttributes {
             float jumpStrength = tag.getFloat(JUMP_STRENGTH_TAG);
             float maxHealth = tag.getFloat(MAX_HEALTH_TAG);
             float entityGravity = tag.getFloat(ENTITY_GRAVITY_TAG);
-            modifiers.put(Attributes.ATTACK_DAMAGE,
-                    new AttributeModifier(
-                            BASE_ATTACK_DAMAGE_UUID,
-                            "modifier",
-                            attackBonus,
-                            AttributeModifier.Operation.ADDITION
-                    )
-            );
-            modifiers.put(Attributes.ATTACK_SPEED,
-                    new AttributeModifier(
-                            BASE_ATTACK_SPEED_UUID,
-                            "modifier",
-                            attackSpeed,
-                            AttributeModifier.Operation.ADDITION
-                    ));
-
-            modifiers.put(Attributes.ARMOR,new AttributeModifier(
-                    ARMOR_UUID,
-                    "modifier",
-                    armor,
-                    AttributeModifier.Operation.ADDITION
-            ));
-            this.putAttributes(modifiers,ARMOR_UUID,Attributes.ARMOR_TOUGHNESS,armorToughness);
+            this.putAttributes(modifiers,BASE_ATTACK_DAMAGE_UUID,Attributes.ATTACK_DAMAGE,attackBonus);
+            this.putAttributes(modifiers,BASE_ATTACK_SPEED_UUID,Attributes.ATTACK_SPEED,attackSpeed);
+            this.putAttributes(modifiers,ARMOR_UUID,Attributes.ARMOR,armor);
+            this.putAttributes(modifiers,ARMOR_TOUGHNESS_UUID,Attributes.ARMOR_TOUGHNESS,armorToughness);
             this.putAttributes(modifiers,MOVEMENT_SPEED_UUID,Attributes.MOVEMENT_SPEED,movementSpeed);
             this.putAttributes(modifiers,LUCK_UUID,Attributes.LUCK,luck);
             this.putAttributes(modifiers,FLY_SPEED_UUID,Attributes.FLYING_SPEED,flyingSpeed);

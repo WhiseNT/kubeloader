@@ -9,6 +9,7 @@ import com.whisent.kubeloader.impl.dummy.DummyContentPack;
 import com.whisent.kubeloader.impl.dummy.DummyContentPackProvider;
 import com.whisent.kubeloader.impl.path.PathContentPackProvider;
 import com.whisent.kubeloader.impl.zip.ZipContentPackProvider;
+import com.whisent.testcontent.Testcontent;
 import dev.latvian.mods.kubejs.KubeJS;
 import dev.latvian.mods.kubejs.KubeJSPaths;
 import net.minecraft.client.Minecraft;
@@ -22,6 +23,7 @@ import net.minecraftforge.fml.ModList;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
+import net.minecraftforge.fml.loading.FMLPaths;
 import org.slf4j.Logger;
 
 import java.io.File;

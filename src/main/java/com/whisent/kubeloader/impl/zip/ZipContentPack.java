@@ -2,10 +2,12 @@ package com.whisent.kubeloader.impl.zip;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.mojang.serialization.JsonOps;
 import com.whisent.kubeloader.Kubeloader;
 import com.whisent.kubeloader.cpconfig.JsonReader;
 import com.whisent.kubeloader.definition.ContentPack;
 import com.whisent.kubeloader.definition.PackLoadingContext;
+import com.whisent.kubeloader.definition.meta.PackMetaData;
 import dev.latvian.mods.kubejs.core.mixin.common.mod.REITooltipMixin;
 import dev.latvian.mods.kubejs.script.ScriptFileInfo;
 import dev.latvian.mods.kubejs.script.ScriptPack;
@@ -36,11 +38,12 @@ public class ZipContentPack implements ContentPack {
     private Map config;
     private final Map<ScriptType, ScriptPack> packs = new EnumMap<>(ScriptType.class);
     private JsonObject configJson;
+    private final PackMetaData metaData;
     public ZipContentPack(File file) throws IOException {
         this.zipFile = new ZipFile(file);
         configJson = parseConfig();
         this.config = getCustomOrDefaultConfig();
-
+        this.metaData = parseMetaData();
         Kubeloader.LOGGER.debug("得到config文件"+this.config);
         Kubeloader.LOGGER.debug("得到优先级"+this.config.get("priority"));
     }
@@ -61,6 +64,26 @@ public class ZipContentPack implements ContentPack {
             return getObjectToMap(configJson);
         } else {
             return JsonReader.loadConfig(customConfigPath);
+        }
+    }
+    @Override
+    public PackMetaData getMetaData() {
+        return metaData;
+    }
+    private PackMetaData parseMetaData() {
+        JsonObject jsonObject = searchMetaData();
+        if (jsonObject != null) {
+            var result = PackMetaData.CODEC.parse(
+                    JsonOps.INSTANCE,
+                    Kubeloader.GSON.fromJson(jsonObject, JsonObject.class)
+            );
+            if (result.result().isPresent()) {
+                return result.result().get();
+            } else {
+                return ContentPack.super.getMetaData();
+            }
+        } else {
+            return ContentPack.super.getMetaData();
         }
     }
 
@@ -126,6 +149,33 @@ public class ZipContentPack implements ContentPack {
         final JsonObject[] list = new JsonObject[1];
         //搜索config文件
         zipFile.stream().filter(e -> !e.isDirectory()).filter(e -> e.getName().endsWith("config.json"))
+                .forEach(zipEntry -> {
+                    BufferedReader reader = null;
+                    try {
+                        reader = new BufferedReader(new InputStreamReader(zipFile.getInputStream(zipEntry)));
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                    StringBuilder jsonContent = new StringBuilder();
+                    String line;
+                    while (true) {
+                        try {
+                            if ((line = reader.readLine()) == null) break;
+                        } catch (IOException e) {
+                            throw new RuntimeException(e);
+                        }
+                        jsonContent.append(line);
+                    }
+
+                    JsonObject json = JsonParser.parseString(jsonContent.toString()).getAsJsonObject();
+                    list[0] = json;
+                });
+        return list[0];
+    }
+    private JsonObject searchMetaData() {
+        final JsonObject[] list = new JsonObject[1];
+        //搜索config文件
+        zipFile.stream().filter(e -> !e.isDirectory()).filter(e -> e.getName().endsWith(Kubeloader.META_DATA_FILE_NAME))
                 .forEach(zipEntry -> {
                     BufferedReader reader = null;
                     try {
