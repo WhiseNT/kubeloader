@@ -1,82 +1,174 @@
-# KUBELOADER
+# KUBELOADER - KubeJS 内容包加载器使用指南
 
-KubeLoader是一个KubeJS附属模组，在现在处于早期开发阶段，仅支持Forge 1.20.1(因为模组所涉及内容与Minecraft本体关联度不大,所以版本的迁移很容易.在进度足够时会去尽快支持其他版本。)
+## 一、概述
 
-KubeLoader提供了一种类似于“资源包”或“数据包”的KubeJS脚本&资源集合，名为内容包（ContentPack），并支持 **从内容包文件夹**  和  **从模组资源** 两种读取方式。
+KubeLoader 是 KubeJS 的附属模组，当前支持 Forge 1.20.1。它提供了"内容包"(ContentPack)机制，用于组织和加载 KubeJS 脚本及资源集合。
 
-从内容包文件夹的方式为：在kubejs/contentpacks/下放置文件夹或zip格式压缩包 （如果没有，可以自行创建，或等待游戏启动后由模组创建）
+## 二、安装与配置
 
+### 1. 内容包存放位置
 
-在写入内容后，KubeLoader会在常规脚本路径下新建contentpack_scripts文件夹来存放脚本（不要修改该文件夹下的任何内容）
+- **文件夹形式**：`kubejs/contentpacks/` 目录下
+  - 游戏启动时会自动创建目录（如不存在）
+  - 支持文件夹或 ZIP 压缩包格式
 
-同时会创建pack_resources文件夹用于存放内容包的资源（assets + data）
+- **模组内置**：打包在模组资源的 `contentpacks/` 目录下
 
-内容包文件结构参考：
+## 三、内容包结构规范
+
+### 1. 文件夹类型结构
 
 ```
-文件夹类型
-namespace/ (文件夹)
-    └── server_scripts/
-    └── client_scripts/
-    └── server_scripts/
-    └── assets/
-    └── data/
-压缩包类型
-CustomName.zip (压缩包)
-    └── namespace/ 
-            └── server_scripts/
-            └── client_scripts/
-            └── server_scripts/
-            └── assets/
-            └── data/
-打包入模组资源
-Resources/ (模组资源)
-    └── assets/
-    └── data/
-    └── contentpack/ (注意,没有s)
-            └── server_scripts/
-            └── client_scripts/
-            └── server_scripts/
-    
+[命名空间]/  ← 必须使用唯一的命名空间名称
+    ├── server_scripts/    # 服务端脚本
+    ├── client_scripts/    # 客户端脚本
+    ├── startup_scripts/   # 启动脚本
+    ├── assets/            # 资源文件
+    ├── data/              # 数据文件
+    └── contentpack.json   # PackMetaData文件（必需）
 ```
 
-namespace在文件上不会对脚本产生约束,但是希望你使用非kubejs而是一个新的唯一的名称作为namespace（就像你在创建一个新的模组）。
+### 2. ZIP压缩包类型结构
 
-注意：在构建压缩包时若在目录中带有**其他文件夹**会导致内容包加载失败。
+```
+[自定义名称].zip
+    └── [命名空间]/        # 必须包含且只能包含一个命名空间目录
+            ├── ...        # 同上文件夹结构
+            └── contentpack.json
+```
+### 3. 模组类型结构
 
-脚本编写建议：
+```
+Resources
+    ├── assets/
+    ├── data/
+    └── contentpacks/        # 在模组Resource文件夹下
+            ├── server_scripts/    # 服务端脚本
+            ├── client_scripts/    # 客户端脚本
+            ├── startup_scripts/   # 启动脚本
+            └── contentpack.json 
+```
 
-因为KubeJS脚本没有根据namespace隔离的功能（只有对于不同type的脚本进行隔离的）
+## 四、PackMetaData文件配置
 
-所以如果你在编写一个内容包，请保持所有**非事件内**的变量的唯一性，避免冲突。
+### 1. 基础字段
 
-推荐以下写法：
-
-```jsx
-//对象写法
-
-//创建一个对象用于存储事件外的其他变量,防止污染作用域和冲突.
-const TestContentPackMod = {}
-//通过给key赋值来实现原本的“变量声明”.
-TestContentPackMod.MyTestTrigger = true
-//在事件中调用
-ItemEvents.rightClicked(event=>{
-    if (TestContentPackMod.MyTestTrigger) {
-        console.log("触发内容！")
-} else {
-        TestContentPackMod.MyTestTrigger = false
+```json
+{
+  "id": "包标识符",
+  "name": "显示名称",
+  "description": "描述信息",
+  "version": "版本号",
+  "authors": ["作者1", "作者2"]
 }
-})
-
-//IIEF写法
-
-(()=>{
-    //在大括号内部的变量不会影响全局作用域
-    let A = true
-    
-    ItemEvents.rightClicked(event=>{
-        event.player.tell(A)
-    })
-})()
-
 ```
+
+- `id`：内容包唯一标识（小写字母、数字、下划线）
+- `version`：推荐使用语义化版本（如 1.0.0）
+
+### 2. 依赖管理
+
+```json
+"dependencies": [
+  {
+    "type": "依赖类型",
+    "id": "依赖目标ID",
+    "versionRange": "版本范围",
+    "reason": "说明文字（可选）"
+  }
+]
+```
+
+#### 依赖类型说明表
+
+| 类型 | 说明 | 加载行为 |
+|------|------|---------|
+| REQUIRED | 必需依赖 | 缺失则阻止加载 |
+| OPTIONAL | 可选依赖 | 缺失仍可运行 |
+| RECOMMENDED | 推荐依赖 | 缺失仍可运行 |
+| DISCOURAGED | 不推荐依赖 | 输出警告 |
+| INCOMPATIBLE | 不兼容依赖 | 存在则阻止加载 |
+| MOD | 模组依赖 | 需要对应模组前置 |
+
+#### 版本范围语法
+
+| 语法 | 示例 | 说明 |
+|------|------|------|
+| 精确匹配 | [1.0.0] | 必须1.0.0版本 |
+| 范围匹配 | [1.0.0,2.0.0) | 1.0.0(含)到2.0.0(不含) |
+| 最低版本 | [1.0.0,) | 1.0.0及以上 |
+| 任意版本 | * | 不限制版本 |
+
+### 3. 完整示例
+
+```json
+{
+  "id": "rpg_expansion",
+  "name": "RPG扩展包",
+  "description": "添加魔法武器和怪物",
+  "version": "1.2.0",
+  "authors": ["开发者A"],
+  "dependencies": [
+    {
+      "type": "REQUIRED",
+      "id": "kubejs",
+      "versionRange": "[6.0.0,)"
+    },
+    {
+      "type": "RECOMMENDED",
+      "id": "jei",
+      "versionRange": "[10.0.0]",
+      "reason": "提供物品查看支持"
+    }
+  ]
+}
+```
+
+## 五、JavaScript功能
+
+### 1. 内容包间通信
+
+通过以下字段实现：
+- `startupField`：启动时通信
+- `serverField`：服务端通信
+- `clientField`：客户端通信
+
+可在Field中访问PackMetaData数据
+
+### 2. KubeJS增强功能
+
+#### NBT物品注册
+```javascript
+event.create("nbt_item", 'nbt').nbt({custom_data: true})
+```
+
+#### 自定义弓注册
+```javascript
+event.create('magic_bow','bow')
+    .callSuper("onCustomArrow", false)
+    .onCustomArrow(proj => {
+        proj.setNoGravity(true)
+        return proj
+    })
+```
+
+## 六、注意事项
+
+1. **命名空间规范**：
+   - 必须唯一且不能使用"kubejs"
+   - 建议使用小写字母和下划线
+
+2. **ZIP打包要求**：
+   - 根目录必须且只能包含一个命名空间文件夹
+   - 不能有其他无关文件
+
+3. **资源路径**：
+   - 所有资源自动存放在`pack_resources`文件夹
+
+## 七、问题排查
+
+若加载失败请检查：
+1. 命名空间是否符合规范
+2. ZIP压缩包结构是否正确
+3. PackMetaData文件是否存在且格式正确
+4. 依赖是否满足要求
