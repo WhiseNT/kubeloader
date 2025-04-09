@@ -33,28 +33,14 @@ public class KubeLoaderPlugin extends KubeJSPlugin {
         ContentPackProviders.getPacks().stream()
                 .filter(e -> e instanceof ZipContentPack || e instanceof PathContentPack)
                 .forEach(pack -> {
-                    if (pack instanceof ZipContentPack) {
-                        //Kubeloader.LOGGER.debug("内容包集合："+pack.getNamespace());
-                        switch (event.getType()) {
-                            case STARTUP :
-                                STARTUPFIELD.put(pack.getNamespace(), pack.getConfig());
-                            case SERVER :
-                                SERVERFIELD.put(pack.getNamespace(),pack.getConfig());
-                            case CLIENT :
-                                CLIENTFIELD.put(pack.getNamespace(), pack.getConfig());
-                        }
+                    switch (event.getType()) {
+                        case STARTUP :
+                            STARTUPFIELD.put(pack.getNamespace(), pack.getMetaData());
+                        case SERVER :
+                            SERVERFIELD.put(pack.getNamespace(), pack.getMetaData());
+                        case CLIENT :
+                            CLIENTFIELD.put(pack.getNamespace(), pack.getMetaData());
                     }
-                    if (pack instanceof PathContentPack) {
-                        switch (event.getType()) {
-                            case STARTUP :
-                                STARTUPFIELD.put(pack.getNamespace(), pack.getConfig());
-                            case SERVER :
-                                SERVERFIELD.put(pack.getNamespace(), pack.getConfig());
-                            case CLIENT :
-                                CLIENTFIELD.put(pack.getNamespace(), pack.getConfig());
-                        }
-                    }
-
                 });
         switch (event.getType()) {
             case STARTUP :
