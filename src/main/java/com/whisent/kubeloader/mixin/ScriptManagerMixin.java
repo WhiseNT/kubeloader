@@ -3,6 +3,7 @@ package com.whisent.kubeloader.mixin;
 import com.whisent.kubeloader.Kubeloader;
 import com.whisent.kubeloader.definition.ContentPack;
 import com.whisent.kubeloader.definition.PackLoadingContext;
+import com.whisent.kubeloader.definition.inject.SortablePacksHolder;
 import com.whisent.kubeloader.impl.ContentPackProviders;
 import com.whisent.kubeloader.impl.depends.DependencyReport;
 import com.whisent.kubeloader.impl.depends.PackDependencyBuilder;
@@ -25,11 +26,14 @@ import java.util.stream.Collectors;
 
 
 @Mixin(ScriptManager.class)
-public abstract class ScriptManagerMixin {
+public abstract class ScriptManagerMixin implements SortablePacksHolder {
+
+    @Unique
+    private Map<String, SortableContentPack> kubeLoader$sortablePacks;
 
     @Redirect(method = "load", at = @At(value = "INVOKE", target = "Ljava/util/Map;values()Ljava/util/Collection;"))
     private Collection<ScriptPack> injectPacks(Map<String, ScriptPack> original) {
-        var context = new PackLoadingContext(thiz());
+        var context = new PackLoadingContext((ScriptManager) (Object) this);
         var packs = ContentPackProviders.getPacks();
 
         var report = kubeloader$validateContentPacks(packs, context);
@@ -72,6 +76,8 @@ public abstract class ScriptManagerMixin {
             sortablePacks.put(namespace, sortable);
         }
 
+        kubeLoader$sortablePacks = Map.copyOf(sortablePacks);
+
         var dependencyBuilder = new PackDependencyBuilder();
         dependencyBuilder.build(sortablePacks.values());
 
@@ -88,6 +94,11 @@ public abstract class ScriptManagerMixin {
         }
     }
 
+    @Override
+    public Map<String, SortableContentPack> kubeLoader$sortablePacks() {
+        return kubeLoader$sortablePacks;
+    }
+
     @Unique
     private static @NotNull DependencyReport kubeloader$validateContentPacks(List<ContentPack> packs, PackLoadingContext context) {
         var validator = new PackDependencyValidator(PackDependencyValidator.DupeHandling.ERROR);
@@ -96,10 +107,5 @@ public abstract class ScriptManagerMixin {
         report.warnings().stream().map(Component::getString).forEach(context.console()::warn);
         report.errors().stream().map(Component::getString).forEach(context.console()::error);
         return report;
-    }
-
-    @Unique
-    private ScriptManager thiz() {
-        return (ScriptManager) (Object) this;
     }
 }
