@@ -71,7 +71,8 @@ public abstract class ScriptManagerMixin {
         try {
             return TopoSort.sort(sortablePacks)
                 .stream()
-                .map(SortableContentPack::scriptPack)
+                .map(SortableContentPack::scriptPacks)
+                .flatMap(Collection::stream)
                 .toList();
         } catch (TopoNotSolved | TopoPreconditionFailed e) {
             context.console().error(e);
