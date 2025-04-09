@@ -111,14 +111,14 @@ Resources
   "dependencies": [
     {
       "type": "REQUIRED",
-      "id": "kubejs",
+      "id": "star_lib",
       "versionRange": "[6.0.0,)"
     },
     {
       "type": "RECOMMENDED",
-      "id": "jei",
+      "id": "mystic_mobs",
       "versionRange": "[10.0.0]",
-      "reason": "提供物品查看支持"
+      "reason": "增加了新的怪物"
     }
   ]
 }
