@@ -17,10 +17,10 @@ public final class ContentPackProviders {
     public static void register(Collection<? extends ContentPackProvider> providers) {
         for (var provider : providers) {
             if (provider.isDynamic()) {
-                Kubeloader.LOGGER.debug("增加了动态Provider: {}", provider);
+                //Kubeloader.LOGGER.debug("增加了动态Provider: {}", provider);
                 DYNAMIC_PROVIDERS.add(provider);
             } else {
-                Kubeloader.LOGGER.debug("增加了静态Provider: {}", provider);
+                //Kubeloader.LOGGER.debug("增加了静态Provider: {}", provider);
                 STATIC_PROVIDERS.add(provider);
             }
         }
@@ -49,7 +49,7 @@ public final class ContentPackProviders {
         }
         var packs = new ArrayList<ContentPack>(cachedPacks);
         for (var provider : DYNAMIC_PROVIDERS) {
-            Kubeloader.LOGGER.debug("尝试添加Pack: {}", provider);
+            //Kubeloader.LOGGER.debug("尝试添加Pack: {}", provider);
             packs.addAll(provider.providePack());
         }
         return packs;

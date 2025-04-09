@@ -34,8 +34,6 @@ public class PathContentPack implements ContentPack {
         this.namespace = base.getFileName().toString();
         this.config = getCustomOrDefaultConfig();
         this.metaData = loadMetaData(base);
-
-        Kubeloader.LOGGER.debug("寻找到config" + this.config);
     }
 
     private PackMetaData loadMetaData(Path base) {

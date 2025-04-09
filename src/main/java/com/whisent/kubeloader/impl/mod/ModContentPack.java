@@ -29,7 +29,7 @@ public class ModContentPack implements ContentPack {
 
     public ModContentPack(IModInfo mod) {
         this.mod = mod;
-        this.metaData = parseMetaData();
+        this.metaData = loadMetaData();
     }
 
     @Override
@@ -75,7 +75,7 @@ public class ModContentPack implements ContentPack {
         return metaData;
     }
 
-    private PackMetaData parseMetaData() {
+    private PackMetaData loadMetaData() {
         JsonObject jsonObject = searchMetaData();
         if (jsonObject != null) {
             var result = PackMetaData.CODEC.parse(
@@ -93,7 +93,6 @@ public class ModContentPack implements ContentPack {
     }
     private JsonObject searchMetaData() {
         final JsonObject[] list = new JsonObject[1];
-        //搜索config文件
         try (var file = new JarFile(mod.getOwningFile().getFile().getFilePath().toFile())) {
             file.stream()
                     .filter(e -> !e.isDirectory())

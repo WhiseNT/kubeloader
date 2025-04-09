@@ -1,8 +1,6 @@
 package com.whisent.kubeloader.cpconfig;
 
 import com.google.gson.*;
-import com.whisent.kubeloader.Kubeloader;
-import dev.latvian.mods.kubejs.util.JsonIO;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -10,7 +8,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.jar.JarEntry;
 
 public class JsonReader {
     public static Map<String, Object> loadConfig(Path configPath) {

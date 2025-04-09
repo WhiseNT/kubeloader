@@ -76,7 +76,6 @@ public class FileIO {
             Files.walkFileTree(dir, new SimpleFileVisitor<Path>() {
                 @Override
                 public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-                    // 安全检查：确保文件路径在允许的基路径范围内
                     if (!file.startsWith(basePath)) {
                         Kubeloader.LOGGER.warn("Attempt to delete file outside of allowed base path: " + file);
                         return FileVisitResult.CONTINUE;
@@ -88,7 +87,6 @@ public class FileIO {
                 @Override
                 public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
                     if (exc == null) {
-                        // 安全检查：确保目录路径在允许的基路径范围内
                         if (!dir.startsWith(basePath)) {
                             Kubeloader.LOGGER.warn("Attempt to delete directory outside of allowed base path: " + dir);
                             return FileVisitResult.CONTINUE;
@@ -103,43 +101,17 @@ public class FileIO {
         }
     }
 
-    public static void extractAndCopyFromZip(Path zipFilePath, String subDir) throws IOException {
-        Path tempDir = Files.createTempDirectory("zip_extract");
-        Kubeloader.LOGGER.info("缓存路径"+tempDir.toString());
-        try {
-            unzipFile(zipFilePath, tempDir);
-            Path namespaceDir = validateNamespace(tempDir);
-            if (namespaceDir == null) {
-                throw new IOException("ZIP文件的根目录未找到任何命名空间文件夹");
-            }
-            Path sourceSubDir = namespaceDir.resolve(subDir);
-            if (!Files.exists(sourceSubDir)) {
-                return;
-            }
-            Path targetDir = Minecraft.getInstance().gameDirectory.toPath().resolve("kubejs").resolve(subDir)
-                    .resolve("contentpack_scripts").resolve(namespaceDir.getFileName());
-            Kubeloader.LOGGER.info("ZIP缓存路径"+sourceSubDir);
-            Kubeloader.LOGGER.info("ZIP写入路径"+targetDir);
-            copyAndReplaceAllFiles(sourceSubDir, targetDir);
-        } finally {
-            deleteDirectoryRecursively(tempDir,tempDir.getParent());
-        }
-    }
+
 
     public static void extractAssetCopyFromZip(Path zipFilePath, String subDir) throws IOException {
-        // 创建临时目录
         Path tempDir = Files.createTempDirectory("zip_extract");
 
         try {
-            // 解压ZIP文件的所有内容到临时目录
             unzipFile(zipFilePath, tempDir);
-            // 检查临时目录的根目录是否仅包含一个命名空间文件夹
             Path namespaceDir = validateNamespace(tempDir);
             if (namespaceDir == null) {
                 throw new IOException("ZIP文件的根目录未找到任何命名空间文件夹");
             }
-
-            // 获取指定子目录的路径
             Path sourceSubDir = namespaceDir.resolve(subDir);
             if (!Files.exists(sourceSubDir)) {
                 return;
@@ -147,10 +119,8 @@ public class FileIO {
             Path targetDir = Minecraft.getInstance().gameDirectory.toPath().resolve("kubejs").resolve("pack_resources")
                     .resolve(subDir).resolve(namespaceDir.getFileName()).resolve(subDir);
 
-            // 复制指定子目录下的所有内容到目标目录
             copyAndReplaceAllFiles(sourceSubDir, targetDir);
         } finally {
-            // 删除临时目录及其内容
             deleteDirectoryRecursively(tempDir,tempDir.getParent());
         }
     }
@@ -166,7 +136,7 @@ public class FileIO {
         if (!Files.isReadable(zipFilePath)) {
             throw new IOException("无法读取ZIP文件: " + zipFilePath.toAbsolutePath());
         }
-        Kubeloader.LOGGER.info("正在解压zip文件");
+        //Kubeloader.LOGGER.info("正在解压zip文件");
         try (ZipInputStream zis = new ZipInputStream(new FileInputStream(zipFilePath.toFile()))) {
             ZipEntry zipEntry;
             while ((zipEntry = zis.getNextEntry()) != null) {
@@ -182,19 +152,6 @@ public class FileIO {
         }
     }
 
-    public static void unzipJar(Path jarPath, Path destDir) throws IOException {
-        if (!Files.isReadable(jarPath)) {
-
-        }
-    }
-
-    /**
-     * 验证临时目录的根目录是否仅包含一个命名空间文件夹
-     *
-     * @param tempDir 临时目录路径
-     * @return 命名空间文件夹路径，如果没有找到则返回null
-     * @throws IOException 如果发生I/O错误
-     */
     private static Path validateNamespace(Path tempDir) throws IOException {
         try (DirectoryStream<Path> stream = Files.newDirectoryStream(tempDir)) {
             Path namespaceDir = null;
@@ -211,19 +168,14 @@ public class FileIO {
             return namespaceDir;
         }
     }
-
     public static void createMcMetaFile(String filePath) throws IOException {
-        // 确保父目录存在
         Path parentDir = Paths.get(filePath).getParent();
         if (parentDir != null && !Files.exists(parentDir)) {
             Files.createDirectories(parentDir);
         }
-        // 写入文件
         try (FileWriter writer = new FileWriter(filePath.toString())) {
             writer.write(FIXED_JSON_CONTENT);
-            System.out.println("成功创建 .mcmeta 文件: " + filePath);
         } catch (IOException e) {
-            System.err.println("创建 .mcmeta 文件时出错: " + e.getMessage());
             throw e;
         }
     }
@@ -243,7 +195,7 @@ public class FileIO {
             throw new IOException("路径不存在: " + path.toAbsolutePath());
         }
         if (!Files.isDirectory(path)) {
-            throw new IOException("给定路径不是一个目录: " + path.toAbsolutePath());
+            throw new IOException("路径不是一个目录: " + path.toAbsolutePath());
         }
 
         try (DirectoryStream<Path> stream = Files.newDirectoryStream(path)) {
@@ -259,11 +211,10 @@ public class FileIO {
         if (Files.isDirectory(path)) {
             try (DirectoryStream<Path> stream = Files.newDirectoryStream(path)) {
                 for (Path entry : stream) {
-                    deleteRecursively(entry); // 递归删除子目录中的内容
+                    deleteRecursively(entry);
                 }
             }
         }
-
-        Files.delete(path); // 删除文件或空目录
+        Files.delete(path);
     }
 }
