@@ -4,6 +4,7 @@ import com.whisent.kubeloader.Kubeloader;
 import com.whisent.kubeloader.definition.ContentPack;
 import com.whisent.kubeloader.definition.PackLoadingContext;
 import com.whisent.kubeloader.impl.ContentPackProviders;
+import com.whisent.kubeloader.impl.depends.DependencyReport;
 import com.whisent.kubeloader.impl.depends.PackDependencyBuilder;
 import com.whisent.kubeloader.impl.depends.PackDependencyValidator;
 import com.whisent.kubeloader.impl.depends.SortableContentPack;
@@ -13,6 +14,7 @@ import com.whisent.kubeloader.utils.topo.TopoSort;
 import dev.latvian.mods.kubejs.KubeJS;
 import dev.latvian.mods.kubejs.script.*;
 import net.minecraft.network.chat.Component;
+import org.jetbrains.annotations.NotNull;
 import org.spongepowered.asm.mixin.*;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
@@ -30,46 +32,51 @@ public abstract class ScriptManagerMixin {
         var context = new PackLoadingContext(thiz());
         var packs = ContentPackProviders.getPacks();
 
-        var validator = new PackDependencyValidator(PackDependencyValidator.DupeHandling.ERROR);
-        var report = validator.validate(packs);
-        report.infos().stream().map(Component::getString).forEach(context.console()::info);
-        report.warnings().stream().map(Component::getString).forEach(context.console()::warn);
-        report.errors().stream().map(Component::getString).forEach(context.console()::error);
-
+        var report = kubeloader$validateContentPacks(packs, context);
         if (!report.errors().isEmpty()) {
             // 在有错误发生的时候不加载任何 ContentPack
             return original.values();
         }
 
-        var merged = new HashMap<>(original);
+        var indexed = packs.stream().collect(Collectors.toMap(
+            ContentPack::getNamespace,
+            Function.identity()
+        ));
+
+        var sortablePacks = new HashMap<String, SortableContentPack>();
+
         for (var contentPack : packs) {
             Kubeloader.LOGGER.debug("寻找到contentPack: {}", contentPack);
-            var pack = contentPack.getPack(context);
-            if (pack != null) {
-                merged.put(contentPack.getNamespace(context), contentPack.postProcessPack(context, pack));
-            }
-        }
+            var scriptPack = contentPack.getPack(context);
+            var namespace = contentPack.getNamespace(context);
 
-        var indexed = packs.stream()
-            .collect(Collectors.toMap(ContentPack::getNamespace, Function.identity()));
-
-        var sortablePacks = new ArrayList<SortableContentPack>();
-        for (var entry : merged.entrySet()) {
-            // redirect xxxx_scripts to kubejs
-            var id = context.folderName().equals(entry.getKey()) ? KubeJS.MOD_ID : entry.getKey();
-            var scriptPack = entry.getValue();
-            var pack = indexed.get(id);
-            if (pack == null) {
-                pack = indexed.get(KubeJS.MOD_ID);
+            List<ScriptPack> scriptPacks;
+            if (KubeJS.MOD_ID.equals(namespace)) {
+                scriptPacks = original
+                    .values()
+                    .stream()
+                    .filter(p -> !indexed.containsKey(p.info.namespace))
+                    .toList();
+            } else if (scriptPack != null) {
+                scriptPacks = List.of(contentPack.postProcessPack(context, scriptPack));
+            } else {
+                // 空的，可以被诸如没有xxxx_scirpts文件夹之类的情况出发，此时仍然参与排序
+                scriptPacks = List.of();
             }
-            sortablePacks.add(new SortableContentPack(id, pack, scriptPack));
+
+            var sortable = new SortableContentPack(
+                namespace,
+                contentPack,
+                scriptPacks
+            );
+            sortablePacks.put(namespace, sortable);
         }
 
         var dependencyBuilder = new PackDependencyBuilder();
-        dependencyBuilder.build(sortablePacks);
+        dependencyBuilder.build(sortablePacks.values());
 
         try {
-            return TopoSort.sort(sortablePacks)
+            return TopoSort.sort(sortablePacks.values())
                 .stream()
                 .map(SortableContentPack::scriptPacks)
                 .flatMap(Collection::stream)
@@ -79,6 +86,16 @@ public abstract class ScriptManagerMixin {
             // TODO: 决定是否要在有错误发生的时候 不 加载 ContentPack
             return original.values();
         }
+    }
+
+    @Unique
+    private static @NotNull DependencyReport kubeloader$validateContentPacks(List<ContentPack> packs, PackLoadingContext context) {
+        var validator = new PackDependencyValidator(PackDependencyValidator.DupeHandling.ERROR);
+        var report = validator.validate(packs);
+        report.infos().stream().map(Component::getString).forEach(context.console()::info);
+        report.warnings().stream().map(Component::getString).forEach(context.console()::warn);
+        report.errors().stream().map(Component::getString).forEach(context.console()::error);
+        return report;
     }
 
     @Unique
