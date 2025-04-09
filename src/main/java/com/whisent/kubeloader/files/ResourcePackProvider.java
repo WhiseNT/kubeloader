@@ -39,7 +39,7 @@ public class ResourcePackProvider implements RepositorySource {
                 directory.mkdirs();
             }
             if (!directory.isDirectory()) {
-                throw new IllegalStateException("加载失败" + " from non-directory. " + directory.getAbsolutePath());
+                throw new IllegalStateException("LOAD FAILD" + " from non-directory. " + directory.getAbsolutePath());
             }
         }
     }
@@ -61,9 +61,9 @@ public class ResourcePackProvider implements RepositorySource {
                     );
                     if (pack != null) {
                         consumer.accept(pack);
-                        Kubeloader.LOGGER.info("资源包加载成功");
+                        //Kubeloader.LOGGER.info("资源包加载成功");
                     } else {
-                        Kubeloader.LOGGER.info("跳过资源加载");
+                        //Kubeloader.LOGGER.info("跳过资源加载");
                     }
                 }
             }

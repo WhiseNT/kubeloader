@@ -43,9 +43,7 @@ public class ZipContentPack implements ContentPack {
         this.zipFile = new ZipFile(file);
         configJson = parseConfig();
         this.config = getCustomOrDefaultConfig();
-        this.metaData = parseMetaData();
-        Kubeloader.LOGGER.debug("得到config文件"+this.config);
-        Kubeloader.LOGGER.debug("得到优先级"+this.config.get("priority"));
+        this.metaData = loadMetaData();
     }
     @Override
     public Map getConfig() {
@@ -70,7 +68,7 @@ public class ZipContentPack implements ContentPack {
     public PackMetaData getMetaData() {
         return metaData;
     }
-    private PackMetaData parseMetaData() {
+    private PackMetaData loadMetaData() {
         JsonObject jsonObject = searchMetaData();
         if (jsonObject != null) {
             var result = PackMetaData.CODEC.parse(
@@ -172,6 +170,17 @@ public class ZipContentPack implements ContentPack {
                 });
         return list[0];
     }
+
+    private Map getObjectToMap(JsonObject object) {
+        return JsonReader.parseJsonObject(object);
+    }
+
+    @Override
+    public int getPriority() {
+        Object priority = this.config.get("priority");
+        return priority == null ? 0 : Integer.parseInt(priority.toString());
+
+    }
     private JsonObject searchMetaData() {
         final JsonObject[] list = new JsonObject[1];
         //搜索config文件
@@ -199,17 +208,6 @@ public class ZipContentPack implements ContentPack {
                 });
         return list[0];
     }
-    private Map getObjectToMap(JsonObject object) {
-        return JsonReader.parseJsonObject(object);
-    }
-
-    @Override
-    public int getPriority() {
-        Object priority = this.config.get("priority");
-        return priority == null ? 0 : Integer.parseInt(priority.toString());
-
-    }
-
     @Override
     public String toString() {
         return "ZipContentPack[namespace=%s]".formatted(getNamespace());

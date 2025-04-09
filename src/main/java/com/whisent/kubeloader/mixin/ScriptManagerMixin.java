@@ -7,8 +7,6 @@ import com.whisent.kubeloader.impl.ContentPackProviders;
 import com.whisent.kubeloader.impl.depends.PackDependencyBuilder;
 import com.whisent.kubeloader.impl.depends.PackDependencyValidator;
 import com.whisent.kubeloader.impl.depends.SortableContentPack;
-import com.whisent.kubeloader.impl.path.PathContentPack;
-import com.whisent.kubeloader.impl.zip.ZipContentPack;
 import com.whisent.kubeloader.utils.topo.TopoNotSolved;
 import com.whisent.kubeloader.utils.topo.TopoPreconditionFailed;
 import com.whisent.kubeloader.utils.topo.TopoSort;
@@ -55,11 +53,6 @@ public abstract class ScriptManagerMixin {
         for (var contentPack : packs) {
             Kubeloader.LOGGER.debug("寻找到contentPack: {}", contentPack);
             var pack = contentPack.getPack(context);
-            if (true) {
-                Kubeloader.LOGGER.debug("寻找到MetaData"+contentPack.getMetaData());
-
-            }
-
             if (pack != null) {
                 this.packs.put(contentPack.getNamespace(), pack);
             }
