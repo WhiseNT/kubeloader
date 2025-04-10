@@ -39,7 +39,7 @@ public class ModContentPack implements ContentPack {
     }
 
     private ScriptPack createPack(PackLoadingContext context) {
-        var pack = createEmptyPack(context);
+        var pack = ContentPack.createEmptyPack(context, id());
 
         var prefix = Kubeloader.FOLDER_NAME + '/' + context.folderName() + '/';
         try (var file = new JarFile(mod.getOwningFile().getFile().getFilePath().toFile())) {

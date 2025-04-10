@@ -54,7 +54,7 @@ public class PathContentPack implements ContentPack {
         if (!Files.isDirectory(scriptPath)) {
             return null;
         }
-        var pack = createEmptyPack(context);
+        var pack = ContentPack.createEmptyPack(context, id());
         KubeJS.loadScripts(pack, scriptPath, "");
         for (var fileInfo : pack.info.scripts) {
             var scriptSource = (ScriptSource.FromPath) (info) -> scriptPath.resolve(info.file);

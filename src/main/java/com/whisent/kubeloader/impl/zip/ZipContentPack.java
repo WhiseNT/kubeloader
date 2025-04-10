@@ -75,7 +75,7 @@ public class ZipContentPack implements ContentPack {
     }
 
     private ScriptPack createPack(PackLoadingContext context) throws IOException {
-        var pack = createEmptyPack(context);
+        var pack = ContentPack.createEmptyPack(context, id());
         var prefix = context.folderName() + '/';
         zipFile.stream()
             .filter(e -> !e.isDirectory())
