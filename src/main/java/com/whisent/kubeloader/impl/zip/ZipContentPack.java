@@ -1,63 +1,35 @@
 package com.whisent.kubeloader.impl.zip;
 
 import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 import com.mojang.serialization.JsonOps;
 import com.whisent.kubeloader.Kubeloader;
-import com.whisent.kubeloader.cpconfig.JsonReader;
 import com.whisent.kubeloader.definition.ContentPack;
 import com.whisent.kubeloader.definition.PackLoadingContext;
 import com.whisent.kubeloader.definition.meta.PackMetaData;
+import com.whisent.kubeloader.files.FileIO;
 import dev.latvian.mods.kubejs.script.ScriptFileInfo;
 import dev.latvian.mods.kubejs.script.ScriptPack;
 import dev.latvian.mods.kubejs.script.ScriptSource;
 import dev.latvian.mods.kubejs.script.ScriptType;
-import dev.latvian.mods.kubejs.util.JsonIO;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.EnumMap;
 import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
-import java.util.zip.ZipEntry;
+import java.util.NoSuchElementException;
 import java.util.zip.ZipFile;
 
 public class ZipContentPack implements ContentPack {
     private final ZipFile zipFile;
-    private String namespace;
-    private Map config;
     private final Map<ScriptType, ScriptPack> packs = new EnumMap<>(ScriptType.class);
-    private JsonObject configJson;
     private final PackMetaData metaData;
 
     public ZipContentPack(File file) throws IOException {
         this.zipFile = new ZipFile(file);
-        configJson = parseConfig();
-        this.config = getCustomOrDefaultConfig();
         this.metaData = loadMetaData();
-    }
-
-    //若不存在自定义config则返回内部config
-    private Map getCustomOrDefaultConfig() {
-        Path customConfigPath = Kubeloader.ConfigPath.resolve(computeNamespace() + ".json");
-        if (Files.notExists(customConfigPath)) {
-            try {
-                JsonObject obj = parseConfig();
-                JsonIO.write(customConfigPath, obj);
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-            return getObjectToMap(configJson);
-        } else {
-            return JsonReader.loadConfig(customConfigPath);
-        }
     }
 
     @Override
@@ -66,36 +38,27 @@ public class ZipContentPack implements ContentPack {
     }
 
     private PackMetaData loadMetaData() {
-        var jsonObject = searchMetaData();
-        if (jsonObject == null) {
-            // or build on from mod itself?
-            throw new IllegalStateException("no metadata file found in mod file");
+        var entry = zipFile.getEntry(Kubeloader.META_DATA_FILE_NAME);
+        if (entry == null) {
+            throw new NoSuchElementException(String.format("No valid %s found", Kubeloader.META_DATA_FILE_NAME));
+        } else if (entry.isDirectory()) {
+            throw new IllegalArgumentException(String.format(
+                "%s should be a file, but got an directory",
+                Kubeloader.META_DATA_FILE_NAME
+            ));
         }
-        var result = PackMetaData.CODEC.parse(
-            JsonOps.INSTANCE,
-            Kubeloader.GSON.fromJson(jsonObject, JsonObject.class)
-        );
+        JsonObject jsonObject;
+        try (var reader = FileIO.stream2reader(zipFile.getInputStream(entry))) {
+            jsonObject = Kubeloader.GSON.fromJson(reader, JsonObject.class);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        var result = PackMetaData.CODEC.parse(JsonOps.INSTANCE, jsonObject);
         if (result.result().isPresent()) {
             return result.result().get();
         }
         var errorMessage = result.error().orElseThrow().message();
         throw new RuntimeException("Error when parsing metadata: " + errorMessage);
-    }
-
-    private String computeNamespace() {
-        Set<String> firstLevelFolders = zipFile.stream()
-            .map(ZipEntry::getName)
-            .filter(name -> name.endsWith("/"))
-            .filter(name -> name.chars().filter(c -> c == '/').count() == 1)
-            .collect(Collectors.toSet());
-        if (firstLevelFolders.size() != 1) {
-            Kubeloader.LOGGER.info("ContentPack根目录内包含多余文件夹或不包含任何文件夹");
-            Kubeloader.LOGGER.debug(firstLevelFolders.toString());
-            return "";
-        } else {
-            Kubeloader.LOGGER.debug("获取namespace为{}", firstLevelFolders.iterator().next().split("/")[0]);
-            return firstLevelFolders.iterator().next().split("/")[0];
-        }
     }
 
     @Override
@@ -113,11 +76,7 @@ public class ZipContentPack implements ContentPack {
 
     private ScriptPack createPack(PackLoadingContext context) throws IOException {
         var pack = createEmptyPack(context);
-        var parent = zipFile.getEntry(namespace);
-        if (parent == null || !parent.isDirectory()) {
-            return null;
-        }
-        var prefix = namespace + '/' + context.folderName() + '/';
+        var prefix = context.folderName() + '/';
         zipFile.stream()
             .filter(e -> !e.isDirectory())
             .filter(e -> e.getName().endsWith(".js"))
@@ -131,72 +90,7 @@ public class ZipContentPack implements ContentPack {
                 context.loadFile(pack, zipFileInfo, scriptSource);
             });
 
-
         return pack;
-    }
-
-    private JsonObject parseConfig() {
-        final JsonObject[] list = new JsonObject[1];
-        //搜索config文件
-        zipFile.stream().filter(e -> !e.isDirectory()).filter(e -> e.getName().endsWith("config.json"))
-            .forEach(zipEntry -> {
-                BufferedReader reader = null;
-                try {
-                    reader = new BufferedReader(new InputStreamReader(zipFile.getInputStream(zipEntry)));
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
-                StringBuilder jsonContent = new StringBuilder();
-                String line;
-                while (true) {
-                    try {
-                        if ((line = reader.readLine()) == null) {
-                            break;
-                        }
-                    } catch (IOException e) {
-                        throw new RuntimeException(e);
-                    }
-                    jsonContent.append(line);
-                }
-
-                JsonObject json = JsonParser.parseString(jsonContent.toString()).getAsJsonObject();
-                list[0] = json;
-            });
-        return list[0];
-    }
-
-    private Map getObjectToMap(JsonObject object) {
-        return JsonReader.parseJsonObject(object);
-    }
-
-    private JsonObject searchMetaData() {
-        final JsonObject[] list = new JsonObject[1];
-        //搜索config文件
-        zipFile.stream().filter(e -> !e.isDirectory()).filter(e -> e.getName().endsWith(Kubeloader.META_DATA_FILE_NAME))
-            .forEach(zipEntry -> {
-                BufferedReader reader = null;
-                try {
-                    reader = new BufferedReader(new InputStreamReader(zipFile.getInputStream(zipEntry)));
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
-                StringBuilder jsonContent = new StringBuilder();
-                String line;
-                while (true) {
-                    try {
-                        if ((line = reader.readLine()) == null) {
-                            break;
-                        }
-                    } catch (IOException e) {
-                        throw new RuntimeException(e);
-                    }
-                    jsonContent.append(line);
-                }
-
-                JsonObject json = JsonParser.parseString(jsonContent.toString()).getAsJsonObject();
-                list[0] = json;
-            });
-        return list[0];
     }
 
     @Override
