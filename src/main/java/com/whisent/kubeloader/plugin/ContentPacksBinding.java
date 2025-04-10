@@ -7,15 +7,14 @@ import com.whisent.kubeloader.definition.meta.PackMetaData;
 import com.whisent.kubeloader.impl.depends.SortableContentPack;
 import dev.latvian.mods.kubejs.script.ScriptType;
 
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 
 /**
  * @author ZZZank
  */
 public class ContentPacksBinding {
+    public static final Map<ScriptType, Map<String, Object>> TYPED_GLOBALS = new EnumMap<>(ScriptType.class);
+
     private final ScriptType type;
     private final Map<String, SortableContentPack> packs;
     private final Map<String, Object> globals;
@@ -23,7 +22,7 @@ public class ContentPacksBinding {
     public ContentPacksBinding(ScriptType type, SortablePacksHolder packsHolder) {
         this.type = type;
         this.packs = packsHolder.kubeLoader$sortablePacks();
-        this.globals = new HashMap<>();
+        this.globals = TYPED_GLOBALS.computeIfAbsent(type, t -> new HashMap<>());
     }
 
     public ScriptType type() {
