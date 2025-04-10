@@ -74,11 +74,6 @@ public class PathContentPack implements ContentPack {
     }
 
     @Override
-    public @NotNull String getNamespace() {
-        return namespace;
-    }
-
-    @Override
     public @Nullable ScriptPack getPack(PackLoadingContext context) {
         var scriptPath = base.resolve(context.folderName());
         if (!Files.isDirectory(scriptPath)) {

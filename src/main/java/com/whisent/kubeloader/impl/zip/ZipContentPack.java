@@ -79,14 +79,6 @@ public class ZipContentPack implements ContentPack {
         }
     }
 
-    @Override
-    public @NotNull String getNamespace() {
-        if (namespace == null) {
-            namespace = computeNamespace();
-        }
-        return namespace;
-    }
-
     private String computeNamespace() {
         Set<String> firstLevelFolders = zipFile.stream()
                 .map(ZipEntry::getName)
@@ -198,7 +190,6 @@ public class ZipContentPack implements ContentPack {
     }
     @Override
     public String toString() {
-        return "ZipContentPack[namespace=%s]".formatted(getNamespace());
+        return "ZipContentPack[namespace=%s]".formatted(metaData.id());
     }
-
 }

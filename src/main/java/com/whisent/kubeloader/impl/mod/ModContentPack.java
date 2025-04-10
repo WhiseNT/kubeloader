@@ -33,11 +33,6 @@ public class ModContentPack implements ContentPack {
     }
 
     @Override
-    public @NotNull String getNamespace() {
-        return mod.getModId();
-    }
-
-    @Override
     @Nullable
     public ScriptPack getPack(PackLoadingContext context) {
         return packs.computeIfAbsent(context.type(), k -> createPack(context));

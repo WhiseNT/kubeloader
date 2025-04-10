@@ -110,7 +110,7 @@ public class PackDependencyValidator {
     ) {
         var named = new HashMap<String, ContentPack>();
         for (var pack : packs) {
-            var namespace = pack.getNamespace();
+            var namespace = pack.id();
             var old = named.get(namespace);
             if (old == null) {
                 named.put(namespace, pack);

@@ -76,7 +76,7 @@ public class Kubeloader {
             //path
             new PathContentPackProvider(PackPath),
             //kubejs dummy, for sorting content packs
-            new DummyContentPackProvider(List.of(new DummyContentPack(KubeJS.MOD_ID, Map.of())))
+            new DummyContentPackProvider(List.of(new DummyContentPack(KubeJS.MOD_ID, cx -> null)))
         );
     }
 

@@ -43,7 +43,7 @@ public abstract class ScriptManagerMixin implements SortablePacksHolder {
         }
 
         var indexed = packs.stream().collect(Collectors.toMap(
-            ContentPack::getNamespace,
+            ContentPack::id,
             Function.identity()
         ));
 
@@ -52,7 +52,7 @@ public abstract class ScriptManagerMixin implements SortablePacksHolder {
         for (var contentPack : packs) {
             Kubeloader.LOGGER.debug("寻找到contentPack: {}", contentPack);
             var scriptPack = contentPack.getPack(context);
-            var namespace = contentPack.getNamespace(context);
+            var namespace = contentPack.id();
 
             List<ScriptPack> scriptPacks;
             if (KubeJS.MOD_ID.equals(namespace)) {
