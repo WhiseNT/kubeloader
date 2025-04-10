@@ -73,7 +73,16 @@ public class ContentPacksBinding {
         @see {@link type} Current script type
         @see {@link getAlSharedFor} View ContentPack shared data for another script type.""")
     public Object getShared(String id) {
-        return globals.get(id);
+        return getShared(this.type, id);
+    }
+
+    @Info("""
+        Get ContentPack shared data for specified script type
+        
+        @see {@link type} Current script type
+        @see {@link getAlSharedFor} View ContentPack shared data for another script type.""")
+    public Object getShared(ScriptType type, String id) {
+        return getAllSharedFor(type).get(id);
     }
 
     @Info("""
