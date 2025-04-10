@@ -1,12 +1,8 @@
 package com.whisent.kubeloader.impl.zip;
 
-import com.google.gson.JsonObject;
-import com.mojang.serialization.JsonOps;
-import com.whisent.kubeloader.Kubeloader;
 import com.whisent.kubeloader.definition.ContentPack;
 import com.whisent.kubeloader.definition.PackLoadingContext;
 import com.whisent.kubeloader.definition.meta.PackMetaData;
-import com.whisent.kubeloader.files.FileIO;
 import dev.latvian.mods.kubejs.script.ScriptFileInfo;
 import dev.latvian.mods.kubejs.script.ScriptPack;
 import dev.latvian.mods.kubejs.script.ScriptSource;
@@ -19,7 +15,6 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.EnumMap;
 import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.zip.ZipFile;
 
 public class ZipContentPack implements ContentPack {
@@ -27,38 +22,14 @@ public class ZipContentPack implements ContentPack {
     private final Map<ScriptType, ScriptPack> packs = new EnumMap<>(ScriptType.class);
     private final PackMetaData metaData;
 
-    public ZipContentPack(File file) throws IOException {
+    public ZipContentPack(File file, PackMetaData metaData) throws IOException {
         this.zipFile = new ZipFile(file);
-        this.metaData = loadMetaData();
+        this.metaData = metaData;
     }
 
     @Override
     public PackMetaData getMetaData() {
         return metaData;
-    }
-
-    private PackMetaData loadMetaData() {
-        var entry = zipFile.getEntry(Kubeloader.META_DATA_FILE_NAME);
-        if (entry == null) {
-            throw new NoSuchElementException(String.format("No valid %s found", Kubeloader.META_DATA_FILE_NAME));
-        } else if (entry.isDirectory()) {
-            throw new IllegalArgumentException(String.format(
-                "%s should be a file, but got an directory",
-                Kubeloader.META_DATA_FILE_NAME
-            ));
-        }
-        JsonObject jsonObject;
-        try (var reader = FileIO.stream2reader(zipFile.getInputStream(entry))) {
-            jsonObject = Kubeloader.GSON.fromJson(reader, JsonObject.class);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-        var result = PackMetaData.CODEC.parse(JsonOps.INSTANCE, jsonObject);
-        if (result.result().isPresent()) {
-            return result.result().get();
-        }
-        var errorMessage = result.error().orElseThrow().message();
-        throw new RuntimeException("Error when parsing metadata: " + errorMessage);
     }
 
     @Override

@@ -1,46 +1,57 @@
 package com.whisent.kubeloader.impl.zip;
 
+import com.whisent.kubeloader.Kubeloader;
 import com.whisent.kubeloader.definition.ContentPack;
 import com.whisent.kubeloader.definition.ContentPackProvider;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Collection;
-import java.util.Enumeration;
 import java.util.List;
-import java.util.zip.ZipEntry;
+import java.util.Objects;
 import java.util.zip.ZipFile;
 
-public class ZipContentPackProvider  implements ContentPackProvider {
-    private final File file;
-    private final ZipFile zipFile;
+public class ZipContentPackProvider implements ContentPackProvider {
+    private final Path basePath;
 
-    public ZipContentPackProvider(File file) throws IOException {
-        this.file = file;
-        this.zipFile = new ZipFile(file);
+    public ZipContentPackProvider(Path basePath) {
+        this.basePath = basePath;
     }
 
     @Override
     public @NotNull Collection<? extends @NotNull ContentPack> providePack() {
-        var got = scanSingle(zipFile);
-        return got == null ? List.of() : List.of(got);
+        try {
+            return Files.list(basePath)
+                .filter(Files::isRegularFile)
+                .map(Path::toFile)
+                .filter(f -> f.getName().endsWith(".zip"))
+                .map(this::safelyScanSingle)
+                .filter(Objects::nonNull)
+                .toList();
+        } catch (IOException e) {
+            Kubeloader.LOGGER.error("Error when scanning zip file for ContentPack, ignoring all zip");
+            return List.of();
+        }
     }
 
-    @Nullable
-    private ContentPack scanSingle(ZipFile zipFile) {
-        try {
-            Enumeration<? extends ZipEntry> entries = zipFile.entries();
-            while (entries.hasMoreElements()) {
-                ZipEntry entry = entries.nextElement();
-                if (entry != null && !entry.isDirectory()) {
-                    return new ZipContentPack(file);
-                }
+    private ContentPack safelyScanSingle(File file) {
+        try (var zipFile = new ZipFile(file)) {
+            var entry = zipFile.getEntry(Kubeloader.META_DATA_FILE_NAME);
+            if (entry == null) {
+                return null;
+            } else if (entry.isDirectory()) {
+                throw new RuntimeException(String.format(
+                    "%s should be a file, but got a directory",
+                    Kubeloader.META_DATA_FILE_NAME
+                ));
             }
-            return null;
-        } catch (IOException e) {
-            e.printStackTrace();
+            var metadata = ContentPack.loadMetaDataOrThrow(zipFile.getInputStream(entry));
+            return new ZipContentPack(file, metadata);
+        } catch (Exception e) {
+            Kubeloader.LOGGER.error("Error when scanning zip file: {}", file.getName(), e);
             return null;
         }
     }
