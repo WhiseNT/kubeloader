@@ -1,11 +1,13 @@
 package com.whisent.kubeloader.plugin;
 
+import com.google.common.collect.Maps;
 import com.whisent.kubeloader.definition.ContentPack;
 import com.whisent.kubeloader.definition.inject.SortablePacksHolder;
 import com.whisent.kubeloader.definition.meta.PackMetaData;
 import com.whisent.kubeloader.impl.depends.SortableContentPack;
 import dev.latvian.mods.kubejs.script.ScriptType;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -40,6 +42,10 @@ public class ContentPacksBinding {
             .orElse(null);
     }
 
+    public Map<String, PackMetaData> getAllMetadata() {
+        return Collections.unmodifiableMap(Maps.transformValues(packs, s -> s.pack().getMetaData()));
+    }
+
     public void putGlobalData(String id, Object o) {
         globals.put(id, o);
     }
@@ -50,5 +56,9 @@ public class ContentPacksBinding {
 
     public Object getGlobalDataOrEmpty(String id) {
         return globals.getOrDefault(id, Map.of());
+    }
+
+    public Map<String, Object> getAllGlobalData() {
+        return Collections.unmodifiableMap(globals);
     }
 }
