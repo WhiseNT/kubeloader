@@ -71,47 +71,50 @@ public class ModContentPack implements ContentPack {
     }
 
     private PackMetaData loadMetaData() {
-        JsonObject jsonObject = searchMetaData();
-        if (jsonObject != null) {
-            var result = PackMetaData.CODEC.parse(
-                    JsonOps.INSTANCE,
-                    Kubeloader.GSON.fromJson(jsonObject, JsonObject.class)
-            );
-            if (result.result().isPresent()) {
-                return result.result().get();
-            } else {
-                return ContentPack.super.getMetaData();
-            }
-        } else {
-            return ContentPack.super.getMetaData();
+        var jsonObject = searchMetaData();
+        if (jsonObject == null) {
+            // or build on from mod itself?
+            throw new IllegalStateException("no metadata file found in mod file");
         }
+        var result = PackMetaData.CODEC.parse(
+            JsonOps.INSTANCE,
+            Kubeloader.GSON.fromJson(jsonObject, JsonObject.class)
+        );
+        if (result.result().isPresent()) {
+            return result.result().get();
+        }
+        var errorMessage = result.error().orElseThrow().message();
+        throw new RuntimeException("Error when parsing metadata: " + errorMessage);
     }
+
     private JsonObject searchMetaData() {
         final JsonObject[] list = new JsonObject[1];
         try (var file = new JarFile(mod.getOwningFile().getFile().getFilePath().toFile())) {
             file.stream()
-                    .filter(e -> !e.isDirectory())
-                    .filter(e -> e.getName().endsWith(Kubeloader.META_DATA_FILE_NAME))
-                    .forEach(jarEntry -> {
-                        BufferedReader reader = null;
+                .filter(e -> !e.isDirectory())
+                .filter(e -> e.getName().endsWith(Kubeloader.META_DATA_FILE_NAME))
+                .forEach(jarEntry -> {
+                    BufferedReader reader = null;
+                    try {
+                        reader = new BufferedReader(new InputStreamReader(file.getInputStream(jarEntry)));
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                    StringBuilder jsonContent = new StringBuilder();
+                    String line;
+                    while (true) {
                         try {
-                            reader = new BufferedReader(new InputStreamReader(file.getInputStream(jarEntry)));
+                            if ((line = reader.readLine()) == null) {
+                                break;
+                            }
                         } catch (IOException e) {
                             throw new RuntimeException(e);
                         }
-                        StringBuilder jsonContent = new StringBuilder();
-                        String line;
-                        while (true) {
-                            try {
-                                if ((line = reader.readLine()) == null) break;
-                            } catch (IOException e) {
-                                throw new RuntimeException(e);
-                            }
-                            jsonContent.append(line);
-                        }
-                        JsonObject json = JsonParser.parseString(jsonContent.toString()).getAsJsonObject();
-                        list[0] = json;
-                    });
+                        jsonContent.append(line);
+                    }
+                    JsonObject json = JsonParser.parseString(jsonContent.toString()).getAsJsonObject();
+                    list[0] = json;
+                });
             return list[0];
         } catch (IOException e) {
             return null;
