@@ -1,15 +1,14 @@
 package com.whisent.kubeloader.impl.mod;
 
 import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 import com.mojang.serialization.JsonOps;
 import com.whisent.kubeloader.Kubeloader;
 import com.whisent.kubeloader.definition.ContentPack;
 import com.whisent.kubeloader.definition.PackLoadingContext;
 import com.whisent.kubeloader.definition.meta.PackMetaData;
+import com.whisent.kubeloader.files.FileIO;
 import dev.latvian.mods.kubejs.script.*;
 import net.minecraftforge.forgespi.language.IModInfo;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.BufferedReader;
@@ -17,6 +16,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.EnumMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.jar.JarFile;
 
 /**
@@ -88,34 +88,21 @@ public class ModContentPack implements ContentPack {
     }
 
     private JsonObject searchMetaData() {
-        final JsonObject[] list = new JsonObject[1];
         try (var file = new JarFile(mod.getOwningFile().getFile().getFilePath().toFile())) {
-            file.stream()
+            // TODO: it's a bad idea to scan through all files, we need an explicit path
+            return file.stream()
                 .filter(e -> !e.isDirectory())
                 .filter(e -> e.getName().endsWith(Kubeloader.META_DATA_FILE_NAME))
-                .forEach(jarEntry -> {
-                    BufferedReader reader = null;
-                    try {
-                        reader = new BufferedReader(new InputStreamReader(file.getInputStream(jarEntry)));
+                .map(entry -> {
+                    try (var reader = FileIO.stream2reader(file.getInputStream(entry))) {
+                        return Kubeloader.GSON.fromJson(reader, JsonObject.class);
                     } catch (IOException e) {
-                        throw new RuntimeException(e);
+                        return null;
                     }
-                    StringBuilder jsonContent = new StringBuilder();
-                    String line;
-                    while (true) {
-                        try {
-                            if ((line = reader.readLine()) == null) {
-                                break;
-                            }
-                        } catch (IOException e) {
-                            throw new RuntimeException(e);
-                        }
-                        jsonContent.append(line);
-                    }
-                    JsonObject json = JsonParser.parseString(jsonContent.toString()).getAsJsonObject();
-                    list[0] = json;
-                });
-            return list[0];
+                })
+                .filter(Objects::nonNull)
+                .findFirst()
+                .orElse(null);
         } catch (IOException e) {
             return null;
         }
