@@ -24,14 +24,12 @@ public class ContentPacksBinding {
 
     private final ScriptType type;
     private final SortablePacksHolder packsHolder;
-    private final Map<String, Object> globals;
 
     public ContentPacksBinding(ScriptType type, SortablePacksHolder packsHolder) {
         this.type = type;
         // "why not get packsHolder.kubeLoader$sortablePacks() in advance", you might ask
-        // Well, at this stage, packs in script manager is not initialized yet, so we defer accessing
+        // Well, at this stage, packs map in script manager is not initialized yet, so we defer accessing
         this.packsHolder = packsHolder;
-        this.globals = TYPED_GLOBALS.get(type);
     }
 
     public ScriptType type() {
@@ -69,7 +67,7 @@ public class ContentPacksBinding {
         @see {@link type} Current script type
         @see {@link getAllSharedFor} View ContentPack shared data for another script type.""")
     public void putShared(String id, Object o) {
-        globals.put(id, o);
+        TYPED_GLOBALS.get(type).put(id, o);
     }
 
     @Info("""
