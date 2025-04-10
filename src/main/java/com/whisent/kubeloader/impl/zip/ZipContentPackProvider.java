@@ -49,7 +49,7 @@ public class ZipContentPackProvider implements ContentPackProvider {
                 ));
             }
             var metadata = ContentPack.loadMetaDataOrThrow(zipFile.getInputStream(entry));
-            return new ZipContentPack(file, metadata);
+            return new ZipContentPack(file.toPath(), metadata);
         } catch (Exception e) {
             Kubeloader.LOGGER.error("Error when scanning zip file: {}", file.getName(), e);
             return null;

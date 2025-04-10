@@ -10,20 +10,20 @@ import dev.latvian.mods.kubejs.script.ScriptType;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.BufferedReader;
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.nio.file.Path;
 import java.util.EnumMap;
 import java.util.Map;
 import java.util.zip.ZipFile;
 
 public class ZipContentPack implements ContentPack {
-    private final ZipFile zipFile;
+    private final Path path;
     private final Map<ScriptType, ScriptPack> packs = new EnumMap<>(ScriptType.class);
     private final PackMetaData metaData;
 
-    public ZipContentPack(File file, PackMetaData metaData) throws IOException {
-        this.zipFile = new ZipFile(file);
+    public ZipContentPack(Path path, PackMetaData metaData) {
+        this.path = path;
         this.metaData = metaData;
     }
 
@@ -48,20 +48,22 @@ public class ZipContentPack implements ContentPack {
     private ScriptPack createPack(PackLoadingContext context) throws IOException {
         var pack = ContentPack.createEmptyPack(context, id());
         var prefix = context.folderName() + '/';
-        zipFile.stream()
-            .filter(e -> !e.isDirectory())
-            .filter(e -> e.getName().endsWith(".js"))
-            .filter(e -> e.getName().startsWith(prefix))
-            .forEach(zipEntry -> {
-                var zipFileInfo = new ScriptFileInfo(pack.info, zipEntry.getName());
-                var scriptSource = (ScriptSource) info -> {
-                    var reader = new BufferedReader(new InputStreamReader(zipFile.getInputStream(zipEntry)));
-                    return reader.lines().toList();
-                };
-                context.loadFile(pack, zipFileInfo, scriptSource);
-            });
+        try (var zipFile = new ZipFile(path.toFile())) {
+            zipFile.stream()
+                .filter(e -> !e.isDirectory())
+                .filter(e -> e.getName().endsWith(".js"))
+                .filter(e -> e.getName().startsWith(prefix))
+                .forEach(zipEntry -> {
+                    var zipFileInfo = new ScriptFileInfo(pack.info, zipEntry.getName());
+                    var scriptSource = (ScriptSource) info -> {
+                        var reader = new BufferedReader(new InputStreamReader(zipFile.getInputStream(zipEntry)));
+                        return reader.lines().toList();
+                    };
+                    context.loadFile(pack, zipFileInfo, scriptSource);
+                });
 
-        return pack;
+            return pack;
+        }
     }
 
     @Override
