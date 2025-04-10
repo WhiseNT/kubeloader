@@ -23,12 +23,14 @@ public class ContentPacksBinding {
     }
 
     private final ScriptType type;
-    private final Map<String, SortableContentPack> packs;
+    private final SortablePacksHolder packsHolder;
     private final Map<String, Object> globals;
 
     public ContentPacksBinding(ScriptType type, SortablePacksHolder packsHolder) {
         this.type = type;
-        this.packs = packsHolder.kubeLoader$sortablePacks();
+        // "why not get packsHolder.kubeLoader$sortablePacks() in advance", you might ask
+        // Well, at this stage, packs in script manager is not initialized yet, so we defer accessing
+        this.packsHolder = packsHolder;
         this.globals = TYPED_GLOBALS.get(type);
     }
 
@@ -39,13 +41,13 @@ public class ContentPacksBinding {
     @Info("""
         @return `true` if a ContentPack with provided `id` is present, `false` otherwise""")
     public boolean isLoaded(String id) {
-        return packs.containsKey(id);
+        return packsHolder.kubeLoader$sortablePacks().containsKey(id);
     }
 
     @Info("""
         @return The metadata from ContentPack with provided `id`, or `null` if there's no such ContentPack""")
     public PackMetaData getMetadata(String id) {
-        var sortableContentPack = packs.get(id);
+        var sortableContentPack = packsHolder.kubeLoader$sortablePacks().get(id);
         return Optional.ofNullable(sortableContentPack)
             .map(SortableContentPack::pack)
             .map(ContentPack::getMetaData)
@@ -55,7 +57,10 @@ public class ContentPacksBinding {
     @Info("""
         ContentPack id -> ContentPack metadata""")
     public Map<String, PackMetaData> getAllMetadata() {
-        return Collections.unmodifiableMap(Maps.transformValues(packs, s -> s.pack().getMetaData()));
+        return Collections.unmodifiableMap(Maps.transformValues(
+            packsHolder.kubeLoader$sortablePacks(),
+            s -> s.pack().getMetaData()
+        ));
     }
 
     @Info("""
