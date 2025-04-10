@@ -14,13 +14,17 @@ import java.util.List;
 public class SortableContentPack implements TopoSortable<SortableContentPack> {
     private final String id;
     private final ContentPack pack;
-    private final ScriptPack scriptPack;
+    private final List<ScriptPack> scriptPacks;
     private final List<SortableContentPack> dependencies = new ArrayList<>();
 
-    public SortableContentPack(String id, ContentPack pack, ScriptPack scriptPack) {
+    public SortableContentPack(String id, ContentPack pack, Collection<ScriptPack> scriptPacks) {
         this.id = id;
         this.pack = pack;
-        this.scriptPack = scriptPack;
+        this.scriptPacks = List.copyOf(scriptPacks);
+    }
+
+    public SortableContentPack(String id, ContentPack pack, ScriptPack scriptPack) {
+        this(id, pack, List.of(scriptPack));
     }
 
     @Override
@@ -41,7 +45,7 @@ public class SortableContentPack implements TopoSortable<SortableContentPack> {
         return id;
     }
 
-    public ScriptPack scriptPack() {
-        return scriptPack;
+    public List<ScriptPack> scriptPacks() {
+        return scriptPacks;
     }
 }

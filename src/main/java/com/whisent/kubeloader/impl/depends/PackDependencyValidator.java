@@ -126,12 +126,12 @@ public class PackDependencyValidator {
                 case ERROR -> report.addError(error);
                 case PREFER_LAST -> {
                     named.put(namespace, pack);
-                    Kubeloader.LOGGER.error(Component.empty()
+                    Kubeloader.LOGGER.warn(Component.empty()
                         .append(error)
                         .append(", overwriting old one")
                         .getString());
                 }
-                case PREFER_FIRST -> Kubeloader.LOGGER.error(Component.empty()
+                case PREFER_FIRST -> Kubeloader.LOGGER.warn(Component.empty()
                     .append(error)
                     .append(", keeping old one")
                     .getString());

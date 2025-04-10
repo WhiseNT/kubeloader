@@ -8,7 +8,6 @@ import com.whisent.kubeloader.cpconfig.JsonReader;
 import com.whisent.kubeloader.definition.ContentPack;
 import com.whisent.kubeloader.definition.PackLoadingContext;
 import com.whisent.kubeloader.definition.meta.PackMetaData;
-import dev.latvian.mods.kubejs.core.mixin.common.mod.REITooltipMixin;
 import dev.latvian.mods.kubejs.script.ScriptFileInfo;
 import dev.latvian.mods.kubejs.script.ScriptPack;
 import dev.latvian.mods.kubejs.script.ScriptSource;
@@ -17,14 +16,12 @@ import dev.latvian.mods.kubejs.util.JsonIO;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import javax.json.Json;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.Map;
 import java.util.Set;
@@ -45,10 +42,7 @@ public class ZipContentPack implements ContentPack {
         this.config = getCustomOrDefaultConfig();
         this.metaData = loadMetaData();
     }
-    @Override
-    public Map getConfig() {
-        return config;
-    }
+
     //若不存在自定义config则返回内部config
     private Map getCustomOrDefaultConfig() {
         Path customConfigPath = Kubeloader.ConfigPath.resolve(computeNamespace() + ".json");
@@ -175,12 +169,6 @@ public class ZipContentPack implements ContentPack {
         return JsonReader.parseJsonObject(object);
     }
 
-    @Override
-    public int getPriority() {
-        Object priority = this.config.get("priority");
-        return priority == null ? 0 : Integer.parseInt(priority.toString());
-
-    }
     private JsonObject searchMetaData() {
         final JsonObject[] list = new JsonObject[1];
         //搜索config文件

@@ -57,11 +57,6 @@ public class PathContentPack implements ContentPack {
         return metaData;
     }
 
-    @Override
-    public Map getConfig() {
-        return config;
-    }
-
     //若不存在自定义config则返回内部config
     private Map getCustomOrDefaultConfig() {
         Path customConfigPath = Kubeloader.ConfigPath.resolve(namespace + ".json");

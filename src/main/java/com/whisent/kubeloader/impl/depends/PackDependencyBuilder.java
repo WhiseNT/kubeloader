@@ -21,6 +21,9 @@ public class PackDependencyBuilder {
                     continue;
                 }
                 var target = indexed.get(dependency.id());
+                if (dependency.type() == DependencyType.OPTIONAL && target == null) {
+                    continue;
+                }
                 switch (dependency.ordering().orElse(LoadOrdering.NONE)) {
                     case NONE -> {}
                     case AFTER -> sortable.getTopoDependencies().add(target);
