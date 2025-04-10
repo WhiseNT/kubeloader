@@ -15,12 +15,12 @@ import java.util.Optional;
  */
 public class ContentPacksBinding {
     private final ScriptType type;
-    private final SortablePacksHolder packsHolder;
+    private final Map<String, SortableContentPack> packs;
     private final Map<String, Object> globals;
 
     public ContentPacksBinding(ScriptType type, SortablePacksHolder packsHolder) {
         this.type = type;
-        this.packsHolder = packsHolder;
+        this.packs = packsHolder.kubeLoader$sortablePacks();
         this.globals = new HashMap<>();
     }
 
@@ -28,8 +28,12 @@ public class ContentPacksBinding {
         return type;
     }
 
+    public boolean isLoaded(String id) {
+        return packs.containsKey(id);
+    }
+
     public PackMetaData getMetadata(String id) {
-        var sortableContentPack = packsHolder.kubeLoader$sortablePacks().get(id);
+        var sortableContentPack = packs.get(id);
         return Optional.ofNullable(sortableContentPack)
             .map(SortableContentPack::pack)
             .map(ContentPack::getMetaData)
