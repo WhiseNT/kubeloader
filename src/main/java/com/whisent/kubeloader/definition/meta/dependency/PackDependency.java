@@ -3,6 +3,7 @@ package com.whisent.kubeloader.definition.meta.dependency;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import com.whisent.kubeloader.definition.ContentPack;
+import com.whisent.kubeloader.impl.depends.ImmutableDependency;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;

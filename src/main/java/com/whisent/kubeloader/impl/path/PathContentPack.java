@@ -4,6 +4,7 @@ import com.google.gson.JsonObject;
 import com.mojang.serialization.JsonOps;
 import com.whisent.kubeloader.Kubeloader;
 import com.whisent.kubeloader.definition.ContentPack;
+import com.whisent.kubeloader.definition.ContentPackUtils;
 import com.whisent.kubeloader.definition.PackLoadingContext;
 import com.whisent.kubeloader.definition.meta.PackMetaData;
 import dev.latvian.mods.kubejs.KubeJS;
@@ -54,7 +55,7 @@ public class PathContentPack implements ContentPack {
         if (!Files.isDirectory(scriptPath)) {
             return null;
         }
-        var pack = ContentPack.createEmptyPack(context, id());
+        var pack = ContentPackUtils.createEmptyPack(context, id());
         KubeJS.loadScripts(pack, scriptPath, "");
         for (var fileInfo : pack.info.scripts) {
             var scriptSource = (ScriptSource.FromPath) (info) -> scriptPath.resolve(info.file);

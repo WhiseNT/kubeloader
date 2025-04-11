@@ -1,7 +1,7 @@
 package com.whisent.kubeloader.impl.mod;
 
 import com.whisent.kubeloader.Kubeloader;
-import com.whisent.kubeloader.definition.ContentPack;
+import com.whisent.kubeloader.definition.ContentPackUtils;
 import com.whisent.kubeloader.definition.PackLoadingContext;
 import com.whisent.kubeloader.definition.meta.PackMetaData;
 import com.whisent.kubeloader.impl.ContentPackBase;
@@ -28,7 +28,7 @@ public class ModContentPack extends ContentPackBase {
     @Override
     @Nullable
     protected ScriptPack createPack(PackLoadingContext context) {
-        var pack = ContentPack.createEmptyPack(context, id());
+        var pack = ContentPackUtils.createEmptyPack(context, id());
 
         var prefix = Kubeloader.FOLDER_NAME + '/' + context.folderName() + '/';
         try (var file = new JarFile(mod.getOwningFile().getFile().getFilePath().toFile())) {

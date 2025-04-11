@@ -1,7 +1,6 @@
 package com.whisent.kubeloader.impl.zip;
 
-import com.whisent.kubeloader.Kubeloader;
-import com.whisent.kubeloader.definition.ContentPack;
+import com.whisent.kubeloader.definition.ContentPackUtils;
 import com.whisent.kubeloader.definition.PackLoadingContext;
 import com.whisent.kubeloader.definition.meta.PackMetaData;
 import com.whisent.kubeloader.impl.ContentPackBase;
@@ -27,7 +26,7 @@ public class ZipContentPack extends ContentPackBase {
     @Override
     @Nullable
     protected ScriptPack createPack(PackLoadingContext context) {
-        var pack = ContentPack.createEmptyPack(context, id());
+        var pack = ContentPackUtils.createEmptyPack(context, id());
         var prefix = context.folderName() + '/';
         try (var zipFile = new ZipFile(path.toFile())) {
             zipFile.stream()

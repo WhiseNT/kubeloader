@@ -3,6 +3,7 @@ package com.whisent.kubeloader.impl.zip;
 import com.whisent.kubeloader.Kubeloader;
 import com.whisent.kubeloader.definition.ContentPack;
 import com.whisent.kubeloader.definition.ContentPackProvider;
+import com.whisent.kubeloader.definition.ContentPackUtils;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.File;
@@ -48,7 +49,7 @@ public class ZipContentPackProvider implements ContentPackProvider {
                     Kubeloader.META_DATA_FILE_NAME
                 ));
             }
-            var metadata = ContentPack.loadMetaDataOrThrow(zipFile.getInputStream(entry));
+            var metadata = ContentPackUtils.loadMetaDataOrThrow(zipFile.getInputStream(entry));
             return new ZipContentPack(file.toPath(), metadata);
         } catch (Exception e) {
             Kubeloader.LOGGER.error("Error when scanning zip file: {}", file.getName(), e);

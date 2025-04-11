@@ -3,6 +3,7 @@ package com.whisent.kubeloader.definition.meta;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import com.whisent.kubeloader.definition.meta.dependency.PackDependency;
+import com.whisent.kubeloader.impl.depends.ImmutableMetaData;
 import org.apache.maven.artifact.versioning.ArtifactVersion;
 
 import java.util.List;
