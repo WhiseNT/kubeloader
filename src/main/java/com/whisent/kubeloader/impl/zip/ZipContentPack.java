@@ -1,51 +1,32 @@
 package com.whisent.kubeloader.impl.zip;
 
+import com.whisent.kubeloader.Kubeloader;
 import com.whisent.kubeloader.definition.ContentPack;
 import com.whisent.kubeloader.definition.PackLoadingContext;
 import com.whisent.kubeloader.definition.meta.PackMetaData;
+import com.whisent.kubeloader.impl.ContentPackBase;
 import dev.latvian.mods.kubejs.script.ScriptFileInfo;
 import dev.latvian.mods.kubejs.script.ScriptPack;
 import dev.latvian.mods.kubejs.script.ScriptSource;
-import dev.latvian.mods.kubejs.script.ScriptType;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.file.Path;
-import java.util.EnumMap;
-import java.util.Map;
 import java.util.zip.ZipFile;
 
-public class ZipContentPack implements ContentPack {
+public class ZipContentPack extends ContentPackBase {
     private final Path path;
-    private final Map<ScriptType, ScriptPack> packs = new EnumMap<>(ScriptType.class);
-    private final PackMetaData metaData;
 
     public ZipContentPack(Path path, PackMetaData metaData) {
+        super(metaData);
         this.path = path;
-        this.metaData = metaData;
     }
 
     @Override
-    public PackMetaData getMetaData() {
-        return metaData;
-    }
-
-    @Override
-    public @Nullable ScriptPack getPack(PackLoadingContext context) {
-        return packs.computeIfAbsent(
-            context.type(), k -> {
-                try {
-                    return createPack(context);
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
-            }
-        );
-    }
-
-    private ScriptPack createPack(PackLoadingContext context) throws IOException {
+    @Nullable
+    protected ScriptPack createPack(PackLoadingContext context) {
         var pack = ContentPack.createEmptyPack(context, id());
         var prefix = context.folderName() + '/';
         try (var zipFile = new ZipFile(path.toFile())) {
@@ -61,8 +42,10 @@ public class ZipContentPack implements ContentPack {
                     };
                     context.loadFile(pack, zipFileInfo, scriptSource);
                 });
-
             return pack;
+        } catch (IOException e) {
+            // TODO: log
+            return null;
         }
     }
 

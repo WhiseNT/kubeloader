@@ -4,6 +4,7 @@ import com.whisent.kubeloader.Kubeloader;
 import com.whisent.kubeloader.definition.ContentPack;
 import com.whisent.kubeloader.definition.PackLoadingContext;
 import com.whisent.kubeloader.definition.meta.PackMetaData;
+import com.whisent.kubeloader.impl.ContentPackBase;
 import dev.latvian.mods.kubejs.script.*;
 import net.minecraftforge.forgespi.language.IModInfo;
 import org.jetbrains.annotations.Nullable;
@@ -11,30 +12,22 @@ import org.jetbrains.annotations.Nullable;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.util.EnumMap;
-import java.util.Map;
 import java.util.jar.JarFile;
 
 /**
  * @author ZZZank
  */
-public class ModContentPack implements ContentPack {
+public class ModContentPack extends ContentPackBase {
     private final IModInfo mod;
-    private final Map<ScriptType, ScriptPack> packs = new EnumMap<>(ScriptType.class);
-    private final PackMetaData metaData;
 
     public ModContentPack(IModInfo mod, PackMetaData metaData) {
+        super(metaData);
         this.mod = mod;
-        this.metaData = metaData;
     }
 
     @Override
     @Nullable
-    public ScriptPack getPack(PackLoadingContext context) {
-        return packs.computeIfAbsent(context.type(), k -> createPack(context));
-    }
-
-    private ScriptPack createPack(PackLoadingContext context) {
+    protected ScriptPack createPack(PackLoadingContext context) {
         var pack = ContentPack.createEmptyPack(context, id());
 
         var prefix = Kubeloader.FOLDER_NAME + '/' + context.folderName() + '/';
@@ -55,15 +48,10 @@ public class ModContentPack implements ContentPack {
                     };
                     context.loadFile(pack, fileInfo, scriptSource);
                 });
+            return pack;
         } catch (IOException e) {
             return null;
         }
-        return pack;
-    }
-
-    @Override
-    public PackMetaData getMetaData() {
-        return metaData;
     }
 
     @Override
