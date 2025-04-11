@@ -38,13 +38,19 @@ public class ModContentPackProvider implements ContentPackProvider {
 
     private ContentPack scanSingle(Path path) {
         try (var file = new JarFile(path.toFile())) {
-            var entry = file.getEntry(Kubeloader.FOLDER_NAME);
-            if (entry == null || !entry.isDirectory()) {
+            var entry = file.getEntry(Kubeloader.FOLDER_NAME + '/' + Kubeloader.META_DATA_FILE_NAME);
+            if (entry == null) {
                 return null;
+            } else if (entry.isDirectory()) {
+                throw new RuntimeException(String.format(
+                    "%s should be a file, but got a directory",
+                    Kubeloader.META_DATA_FILE_NAME
+                ));
             }
-            return new ModContentPack(mod);
-        } catch (IOException e) {
+            return new ModContentPack(mod, ContentPack.loadMetaDataOrThrow(file.getInputStream(entry)));
+        } catch (Exception e) {
             // log
+            Kubeloader.LOGGER.error("Error when searching for ModContentPack in mod '{}'", mod.getModId(), e);
             return null;
         }
     }

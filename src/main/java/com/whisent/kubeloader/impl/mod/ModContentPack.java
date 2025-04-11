@@ -1,12 +1,9 @@
 package com.whisent.kubeloader.impl.mod;
 
-import com.google.gson.JsonObject;
-import com.mojang.serialization.JsonOps;
 import com.whisent.kubeloader.Kubeloader;
 import com.whisent.kubeloader.definition.ContentPack;
 import com.whisent.kubeloader.definition.PackLoadingContext;
 import com.whisent.kubeloader.definition.meta.PackMetaData;
-import com.whisent.kubeloader.files.FileIO;
 import dev.latvian.mods.kubejs.script.*;
 import net.minecraftforge.forgespi.language.IModInfo;
 import org.jetbrains.annotations.Nullable;
@@ -16,7 +13,6 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.EnumMap;
 import java.util.Map;
-import java.util.Objects;
 import java.util.jar.JarFile;
 
 /**
@@ -27,9 +23,9 @@ public class ModContentPack implements ContentPack {
     private final Map<ScriptType, ScriptPack> packs = new EnumMap<>(ScriptType.class);
     private final PackMetaData metaData;
 
-    public ModContentPack(IModInfo mod) {
+    public ModContentPack(IModInfo mod, PackMetaData metaData) {
         this.mod = mod;
-        this.metaData = loadMetaData();
+        this.metaData = metaData;
     }
 
     @Override
@@ -68,44 +64,6 @@ public class ModContentPack implements ContentPack {
     @Override
     public PackMetaData getMetaData() {
         return metaData;
-    }
-
-    private PackMetaData loadMetaData() {
-        var jsonObject = searchMetaData();
-        if (jsonObject == null) {
-            // or build on from mod itself?
-            throw new IllegalStateException("no metadata file found in mod file");
-        }
-        var result = PackMetaData.CODEC.parse(
-            JsonOps.INSTANCE,
-            Kubeloader.GSON.fromJson(jsonObject, JsonObject.class)
-        );
-        if (result.result().isPresent()) {
-            return result.result().get();
-        }
-        var errorMessage = result.error().orElseThrow().message();
-        throw new RuntimeException("Error when parsing metadata: " + errorMessage);
-    }
-
-    private JsonObject searchMetaData() {
-        try (var file = new JarFile(mod.getOwningFile().getFile().getFilePath().toFile())) {
-            // TODO: it's a bad idea to scan through all files, we need an explicit path
-            return file.stream()
-                .filter(e -> !e.isDirectory())
-                .filter(e -> e.getName().endsWith(Kubeloader.META_DATA_FILE_NAME))
-                .map(entry -> {
-                    try (var reader = FileIO.stream2reader(file.getInputStream(entry))) {
-                        return Kubeloader.GSON.fromJson(reader, JsonObject.class);
-                    } catch (IOException e) {
-                        return null;
-                    }
-                })
-                .filter(Objects::nonNull)
-                .findFirst()
-                .orElse(null);
-        } catch (IOException e) {
-            return null;
-        }
     }
 
     @Override
