@@ -20,6 +20,7 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.EnumMap;
@@ -32,32 +33,13 @@ import java.util.zip.ZipFile;
 public class ZipContentPack implements ContentPack {
     private final ZipFile zipFile;
     private String namespace;
-    private Map config;
     private final Map<ScriptType, ScriptPack> packs = new EnumMap<>(ScriptType.class);
-    private JsonObject configJson;
     private final PackMetaData metaData;
     public ZipContentPack(File file) throws IOException {
         this.zipFile = new ZipFile(file);
-        configJson = parseConfig();
-        this.config = getCustomOrDefaultConfig();
         this.metaData = loadMetaData();
     }
 
-    //若不存在自定义config则返回内部config
-    private Map getCustomOrDefaultConfig() {
-        Path customConfigPath = Kubeloader.ConfigPath.resolve(computeNamespace() + ".json");
-        if (Files.notExists(customConfigPath)) {
-            try {
-                JsonObject obj = parseConfig();
-                JsonIO.write(customConfigPath,obj);
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-            return getObjectToMap(configJson);
-        } else {
-            return JsonReader.loadConfig(customConfigPath);
-        }
-    }
     @Override
     public PackMetaData getMetaData() {
         return metaData;
@@ -128,7 +110,8 @@ public class ZipContentPack implements ContentPack {
                     .forEach(zipEntry -> {
                         var zipFileInfo = new ScriptFileInfo(pack.info,zipEntry.getName());
                         var scriptSource = (ScriptSource) info -> {
-                                var reader = new BufferedReader(new InputStreamReader(zipFile.getInputStream(zipEntry)));
+                                var reader = new BufferedReader(new InputStreamReader(
+                                        zipFile.getInputStream(zipEntry), StandardCharsets.UTF_8));
                             return reader.lines().toList();
                         };
                         context.loadFile(pack,zipFileInfo,scriptSource);
@@ -136,33 +119,6 @@ public class ZipContentPack implements ContentPack {
 
 
         return pack;
-    }
-    private JsonObject parseConfig() {
-        final JsonObject[] list = new JsonObject[1];
-        //搜索config文件
-        zipFile.stream().filter(e -> !e.isDirectory()).filter(e -> e.getName().endsWith("config.json"))
-                .forEach(zipEntry -> {
-                    BufferedReader reader = null;
-                    try {
-                        reader = new BufferedReader(new InputStreamReader(zipFile.getInputStream(zipEntry)));
-                    } catch (IOException e) {
-                        throw new RuntimeException(e);
-                    }
-                    StringBuilder jsonContent = new StringBuilder();
-                    String line;
-                    while (true) {
-                        try {
-                            if ((line = reader.readLine()) == null) break;
-                        } catch (IOException e) {
-                            throw new RuntimeException(e);
-                        }
-                        jsonContent.append(line);
-                    }
-
-                    JsonObject json = JsonParser.parseString(jsonContent.toString()).getAsJsonObject();
-                    list[0] = json;
-                });
-        return list[0];
     }
 
     private Map getObjectToMap(JsonObject object) {
