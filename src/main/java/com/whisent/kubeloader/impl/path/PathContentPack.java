@@ -27,12 +27,9 @@ public class PathContentPack implements ContentPack {
     private final String namespace;
     private final PackMetaData metaData;
 
-    private final Map config;
-
     public PathContentPack(Path base) {
         this.base = base;
         this.namespace = base.getFileName().toString();
-        this.config = getCustomOrDefaultConfig();
         this.metaData = loadMetaData(base);
     }
 
