@@ -4,6 +4,7 @@ import com.google.gson.JsonObject;
 import com.mojang.serialization.DataResult;
 import com.mojang.serialization.JsonOps;
 import com.whisent.kubeloader.Kubeloader;
+import com.whisent.kubeloader.definition.meta.dependency.DependencySource;
 import com.whisent.kubeloader.impl.depends.ImmutableMetaData;
 import com.whisent.kubeloader.definition.meta.PackMetaData;
 import com.whisent.kubeloader.definition.meta.dependency.DependencyType;
@@ -62,6 +63,7 @@ public class ContentPackUtils {
     public static PackDependency dependencyFromMod(IModInfo.ModVersion modDep) {
         return new ImmutableDependency(
             modDep.isMandatory() ? DependencyType.REQUIRED : DependencyType.OPTIONAL,
+            DependencySource.MOD,
             modDep.getModId(),
             Optional.of(modDep.getVersionRange()),
             modDep.getReferralURL().map(URL::toString),

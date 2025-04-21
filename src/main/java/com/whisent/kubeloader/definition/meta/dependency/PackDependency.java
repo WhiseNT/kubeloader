@@ -18,6 +18,8 @@ public interface PackDependency {
 
     DependencyType type();
 
+    DependencySource source();
+
     String id();
 
     Optional<VersionRange> versionRange();
@@ -41,8 +43,10 @@ public interface PackDependency {
     Codec<PackDependency> CODEC = RecordCodecBuilder.create(
         builder -> builder.group(
             DependencyType.CODEC.fieldOf("type").forGetter(PackDependency::type),
+            DependencySource.CODEC.optionalFieldOf("source", DependencySource.PACK).forGetter(PackDependency::source),
             Codec.STRING.fieldOf("id").forGetter(PackDependency::id),
-            ImmutableDependency.VERSION_RANGE_CODEC.optionalFieldOf("versionRange").forGetter(PackDependency::versionRange),
+            ImmutableDependency.VERSION_RANGE_CODEC.optionalFieldOf("versionRange")
+                .forGetter(PackDependency::versionRange),
             Codec.STRING.optionalFieldOf("reason").forGetter(PackDependency::reason),
             LoadOrdering.CODEC.optionalFieldOf("ordering").forGetter(PackDependency::ordering)
         ).apply(builder, ImmutableDependency::new)

@@ -1,6 +1,7 @@
 package com.whisent.kubeloader.impl.depends;
 
 import com.mojang.serialization.Codec;
+import com.whisent.kubeloader.definition.meta.dependency.DependencySource;
 import com.whisent.kubeloader.definition.meta.dependency.DependencyType;
 import com.whisent.kubeloader.definition.meta.dependency.LoadOrdering;
 import com.whisent.kubeloader.definition.meta.dependency.PackDependency;
@@ -14,6 +15,7 @@ import java.util.Optional;
  */
 public record ImmutableDependency(
     DependencyType type,
+    DependencySource source,
     String id,
     Optional<VersionRange> versionRange,
     Optional<String> reason,
