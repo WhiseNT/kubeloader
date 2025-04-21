@@ -36,7 +36,8 @@ public class ZipContentPack extends ContentPackBase {
                 .forEach(zipEntry -> {
                     var zipFileInfo = new ScriptFileInfo(pack.info, zipEntry.getName());
                     var scriptSource = (ScriptSource) info -> {
-                        var reader = new BufferedReader(new InputStreamReader(zipFile.getInputStream(zipEntry)));
+                                var reader = new BufferedReader(new InputStreamReader(
+                                        zipFile.getInputStream(zipEntry), StandardCharsets.UTF_8));
                         return reader.lines().toList();
                     };
                     context.loadFile(pack, zipFileInfo, scriptSource);

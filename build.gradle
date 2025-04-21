@@ -108,11 +108,8 @@ dependencies {
 
     minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
     implementation fg.deobf("dev.latvian.mods:kubejs-forge:${kubejs_version}")
-
     implementation fg.deobf("dev.latvian.mods:rhino-forge:${rhino_version}")
     implementation fg.deobf("dev.architectury:architectury-forge:${architectury_version}")
-    implementation fg.deobf("blank:testcontent-${minecraft_version}:1.0.0")
-    implementation fg.deobf("blank:testcontentpackmod-${minecraft_version}:1.0.0")
     annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
 
 }

@@ -72,7 +72,7 @@ Resources
 "dependencies": [
   {
     "type": "依赖类型",
-    "id": "依赖目标ID",
+    "id": "依赖目标内容包ID",
     "versionRange": "版本范围",
     "reason": "说明文字（可选）"
   }
@@ -129,11 +129,16 @@ Resources
 ### 1. 内容包间通信
 
 通过以下字段实现：
-- `startupField`：启动时通信
-- `serverField`：服务端通信
-- `clientField`：客户端通信
-
-可在Field中访问PackMetaData数据
+`ContentPacks`
+```JavaScript
+ContentPacks.isLoaded(id) //确定某个id的ContentPack是否记载
+ContentPacks.getMetaData(id) //获取某个id的ContentPack的元数据，没有则为null
+ContentPacks.putShared(id, o) //将 o 放入“全局”数据，同脚本类型的ContentPack可以根据 id 获取
+ContentPacks.getShared(id) //读取"全局"数据，本质上是同脚本类型的ContentPack先前放入的数据
+ContentPacks.getAllSharedFor(scriptType)
+ContentPacks.getShared(type, id) //跨脚本类型读取，但是不允许跨脚本类型写入
+```
+可在ContentPacks中访问PackMetaData数据，以及通过put和get信息来实现内容包之间的通信。
 
 ### 2. KubeJS增强功能
 
@@ -145,7 +150,7 @@ event.create("nbt_item", 'nbt').nbt({custom_data: true})
 #### 自定义弓注册
 ```javascript
 event.create('magic_bow','bow')
-    .callSuper("onCustomArrow", false)
+    .callSuper("onCustomArrow", false) //阻止调用弓的super方法
     .onCustomArrow(proj => {
         proj.setNoGravity(true)
         return proj

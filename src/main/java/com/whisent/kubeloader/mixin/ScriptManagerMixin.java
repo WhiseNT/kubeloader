@@ -25,7 +25,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 
-@Mixin(ScriptManager.class)
+@Mixin(value = ScriptManager.class,remap = false)
 public abstract class ScriptManagerMixin implements SortablePacksHolder {
 
     @Unique
