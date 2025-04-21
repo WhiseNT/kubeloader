@@ -6,6 +6,7 @@ import com.whisent.kubeloader.definition.meta.dependency.DependencyType;
 import com.whisent.kubeloader.definition.meta.dependency.PackDependency;
 import dev.architectury.platform.Platform;
 import net.minecraft.network.chat.Component;
+import org.apache.maven.artifact.versioning.ArtifactVersion;
 import org.apache.maven.artifact.versioning.DefaultArtifactVersion;
 
 import java.util.*;
@@ -38,10 +39,25 @@ public class PackDependencyValidator {
     }
 
     protected void validateSingle(ContentPack pack, PackDependency dependency, DependencyReport report) {
-        var target = this.named.get(dependency.id());
-        var targetVersion = target != null
-            ? target.getMetaData().version()
-            : Optional.<DefaultArtifactVersion>empty();
+        boolean targetPresent;
+        ArtifactVersion targetVersion;
+        switch (dependency.source()) {
+            case PACK -> {
+                var target = this.named.get(dependency.id());
+                targetPresent = target != null;
+                targetVersion = targetPresent
+                    ? target.getMetaData().version().orElse(null)
+                    : null;
+            }
+            case MOD -> {
+                var target = Platform.getMod(dependency.id());
+                targetPresent = target != null;
+                targetVersion = targetPresent
+                    ? new DefaultArtifactVersion(target.getVersion())
+                    : null;
+            }
+            default -> throw new IllegalStateException("Unexpected dependency source: " + dependency.source());
+        }
 
         var type = dependency.type();
         switch (type) {
@@ -52,21 +68,21 @@ public class PackDependencyValidator {
                     case RECOMMENDED -> report::addInfo;
                     default -> throw new IllegalStateException();
                 };
-                if (target == null) {
+                if (!targetPresent) {
                     // required but not found
                     reporter.accept(dependency.toReport(pack).append(", but ContentPack with such id is not present"));
                 } else if (dependency.versionRange().isPresent()) {
-                    if (targetVersion.isEmpty()) {
+                    if (targetVersion == null) {
                         // specific version but no version
                         reporter.accept(dependency.toReport(pack).append(", but ContentPack with such id did not provide a version info"));
-                    } else if (!dependency.versionRange().get().containsVersion(targetVersion.get())) {
+                    } else if (!dependency.versionRange().get().containsVersion(targetVersion)) {
                         // specific version but not matched
                         reporter.accept(dependency.toReport(pack).append(", but ContentPack with such id is at version '%s'".formatted(targetVersion)));
                     }
                 }
             }
             case INCOMPATIBLE, DISCOURAGED -> {
-                if (target == null) {
+                if (!targetPresent) {
                     return;
                 }
                 Consumer<Component> reporter = type == DependencyType.INCOMPATIBLE
@@ -76,29 +92,14 @@ public class PackDependencyValidator {
                     // any version not allowed
                     reporter.accept(dependency.toReport(pack)
                         .append(", but ContentPack with such id exists"));
-                } else if (targetVersion.isEmpty()) {
+                } else if (targetVersion == null) {
                     // specific version, but got none
                     reporter.accept(dependency.toReport(pack)
                         .append(", but ContentPack with such id did not provide version information"));
-                } else if (dependency.versionRange().get().containsVersion(targetVersion.get())) {
+                } else if (dependency.versionRange().get().containsVersion(targetVersion)) {
                     // excluded version
                     reporter.accept(dependency.toReport(pack)
-                        .append(", but ContentPack with such id is at version '%s'".formatted(targetVersion.get())));
-                }
-            }
-            case MOD -> {
-                var mod = Platform.getMod(dependency.id());
-                var modVersion = mod != null
-                    ? new DefaultArtifactVersion(mod.getVersion())
-                    : null;
-                if (mod == null) {
-                    // required but not found
-                    report.addError(dependency.toReport(pack).append(", but mod with such id is not present"));
-                } else if (dependency.versionRange().isPresent()
-                    && !dependency.versionRange().get().containsVersion(modVersion)) {
-                    // specific version but not matched
-                    report.addError(dependency.toReport(pack)
-                        .append(", but mod with such id is at version '%s'".formatted(targetVersion)));
+                        .append(", but ContentPack with such id is at version '%s'".formatted(targetVersion)));
                 }
             }
         }

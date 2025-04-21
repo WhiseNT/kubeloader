@@ -30,9 +30,10 @@ public interface PackDependency {
 
     default MutableComponent toReport(ContentPack parent) {
         return Component.translatable(
-            "%s declared %s dependency with id '%s' and version range '%s'%s",
+            "%s declared %s %s dependency with id '%s' and version range '%s'%s",
             Component.literal(parent.toString()).withStyle(ChatFormatting.YELLOW, ChatFormatting.UNDERLINE),
             Component.literal(this.type().toString()),
+            Component.literal(this.source().toString()),
             Component.literal(this.id()).withStyle(ChatFormatting.YELLOW),
             Component.literal(this.versionRange().map(VersionRange::toString).orElse("*"))
                 .withStyle(ChatFormatting.YELLOW),
