@@ -1,50 +1,34 @@
 package com.whisent.kubeloader.impl.mod;
 
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
-import com.mojang.serialization.JsonOps;
 import com.whisent.kubeloader.Kubeloader;
-import com.whisent.kubeloader.definition.ContentPack;
+import com.whisent.kubeloader.definition.ContentPackUtils;
 import com.whisent.kubeloader.definition.PackLoadingContext;
 import com.whisent.kubeloader.definition.meta.PackMetaData;
+import com.whisent.kubeloader.impl.ContentPackBase;
 import dev.latvian.mods.kubejs.script.*;
 import net.minecraftforge.forgespi.language.IModInfo;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.util.EnumMap;
-import java.util.Map;
 import java.util.jar.JarFile;
 
 /**
  * @author ZZZank
  */
-public class ModContentPack implements ContentPack {
+public class ModContentPack extends ContentPackBase {
     private final IModInfo mod;
-    private final Map<ScriptType, ScriptPack> packs = new EnumMap<>(ScriptType.class);
-    private final PackMetaData metaData;
 
-    public ModContentPack(IModInfo mod) {
+    public ModContentPack(IModInfo mod, PackMetaData metaData) {
+        super(metaData);
         this.mod = mod;
-        this.metaData = loadMetaData();
-    }
-
-    @Override
-    public @NotNull String getNamespace() {
-        return mod.getModId();
     }
 
     @Override
     @Nullable
-    public ScriptPack getPack(PackLoadingContext context) {
-        return packs.computeIfAbsent(context.type(), k -> createPack(context));
-    }
-
-    private ScriptPack createPack(PackLoadingContext context) {
-        var pack = createEmptyPack(context);
+    protected ScriptPack createPack(PackLoadingContext context) {
+        var pack = ContentPackUtils.createEmptyPack(context, id());
 
         var prefix = Kubeloader.FOLDER_NAME + '/' + context.folderName() + '/';
         try (var file = new JarFile(mod.getOwningFile().getFile().getFilePath().toFile())) {
@@ -64,60 +48,7 @@ public class ModContentPack implements ContentPack {
                     };
                     context.loadFile(pack, fileInfo, scriptSource);
                 });
-        } catch (IOException e) {
-            return null;
-        }
-        return pack;
-    }
-
-    @Override
-    public PackMetaData getMetaData() {
-        return metaData;
-    }
-
-    private PackMetaData loadMetaData() {
-        JsonObject jsonObject = searchMetaData();
-        if (jsonObject != null) {
-            var result = PackMetaData.CODEC.parse(
-                    JsonOps.INSTANCE,
-                    Kubeloader.GSON.fromJson(jsonObject, JsonObject.class)
-            );
-            if (result.result().isPresent()) {
-                return result.result().get();
-            } else {
-                return ContentPack.super.getMetaData();
-            }
-        } else {
-            return ContentPack.super.getMetaData();
-        }
-    }
-    private JsonObject searchMetaData() {
-        final JsonObject[] list = new JsonObject[1];
-        try (var file = new JarFile(mod.getOwningFile().getFile().getFilePath().toFile())) {
-            file.stream()
-                    .filter(e -> !e.isDirectory())
-                    .filter(e -> e.getName().endsWith(Kubeloader.META_DATA_FILE_NAME))
-                    .forEach(jarEntry -> {
-                        BufferedReader reader = null;
-                        try {
-                            reader = new BufferedReader(new InputStreamReader(file.getInputStream(jarEntry)));
-                        } catch (IOException e) {
-                            throw new RuntimeException(e);
-                        }
-                        StringBuilder jsonContent = new StringBuilder();
-                        String line;
-                        while (true) {
-                            try {
-                                if ((line = reader.readLine()) == null) break;
-                            } catch (IOException e) {
-                                throw new RuntimeException(e);
-                            }
-                            jsonContent.append(line);
-                        }
-                        JsonObject json = JsonParser.parseString(jsonContent.toString()).getAsJsonObject();
-                        list[0] = json;
-                    });
-            return list[0];
+            return pack;
         } catch (IOException e) {
             return null;
         }

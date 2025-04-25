@@ -22,17 +22,14 @@ import net.minecraftforge.fml.ModList;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
-import net.minecraftforge.fml.loading.FMLPaths;
 import org.slf4j.Logger;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 @Mod(Kubeloader.MODID)
 public class Kubeloader {
@@ -70,13 +67,13 @@ public class Kubeloader {
 
         //mod
         //registerModContentPackProviders();
-        //zip
-        registerZipContentPackProviders();
         ContentPackProviders.register(
             //path
             new PathContentPackProvider(PackPath),
+            // zip
+            new ZipContentPackProvider(PackPath),
             //kubejs dummy, for sorting content packs
-            new DummyContentPackProvider(List.of(new DummyContentPack(KubeJS.MOD_ID, Map.of())))
+            new DummyContentPackProvider(List.of(new DummyContentPack(KubeJS.MOD_ID, cx -> null)))
         );
     }
 
@@ -89,18 +86,6 @@ public class Kubeloader {
             .toList();
         ContentPackProviders.register(providers);
     }
-
-    private static void registerZipContentPackProviders() throws IOException {
-        List<ZipContentPackProvider> list = new ArrayList<>();
-        for (String s : FileIO.listZips(PackPath)) {
-            Kubeloader.LOGGER.debug("找到压缩包："+s);
-            File file = new File(s);
-            ZipContentPackProvider zipContentPackProvider = new ZipContentPackProvider(file);
-            list.add(zipContentPackProvider);
-        }
-        ContentPackProviders.register(list);
-    }
-
 
     private void ModLoding(FMLClientSetupEvent event) {
         LOGGER.info("Setup启动事件");

@@ -3,10 +3,10 @@ package com.whisent.kubeloader.impl.mod;
 import com.whisent.kubeloader.Kubeloader;
 import com.whisent.kubeloader.definition.ContentPack;
 import com.whisent.kubeloader.definition.ContentPackProvider;
+import com.whisent.kubeloader.definition.ContentPackUtils;
 import net.minecraftforge.forgespi.language.IModInfo;
 import org.jetbrains.annotations.NotNull;
 
-import java.io.IOException;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.jar.JarFile;
@@ -38,13 +38,19 @@ public class ModContentPackProvider implements ContentPackProvider {
 
     private ContentPack scanSingle(Path path) {
         try (var file = new JarFile(path.toFile())) {
-            var entry = file.getEntry(Kubeloader.FOLDER_NAME);
-            if (entry == null || !entry.isDirectory()) {
+            var entry = file.getEntry(Kubeloader.FOLDER_NAME + '/' + Kubeloader.META_DATA_FILE_NAME);
+            if (entry == null) {
                 return null;
+            } else if (entry.isDirectory()) {
+                throw new RuntimeException(String.format(
+                    "%s should be a file, but got a directory",
+                    Kubeloader.META_DATA_FILE_NAME
+                ));
             }
-            return new ModContentPack(mod);
-        } catch (IOException e) {
+            return new ModContentPack(mod, ContentPackUtils.loadMetaDataOrThrow(file.getInputStream(entry)));
+        } catch (Exception e) {
             // log
+            Kubeloader.LOGGER.error("Error when searching for ModContentPack in mod '{}'", mod.getModId(), e);
             return null;
         }
     }
