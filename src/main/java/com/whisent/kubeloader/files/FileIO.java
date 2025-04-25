@@ -4,6 +4,7 @@ import com.whisent.kubeloader.Kubeloader;
 import net.minecraft.client.Minecraft;
 
 import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.List;
@@ -216,5 +217,9 @@ public class FileIO {
             }
         }
         Files.delete(path);
+    }
+
+    public static BufferedReader stream2reader(InputStream stream) {
+        return new BufferedReader(new InputStreamReader(stream, StandardCharsets.UTF_8));
     }
 }

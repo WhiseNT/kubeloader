@@ -2,7 +2,6 @@ package com.whisent.kubeloader.definition;
 
 import com.whisent.kubeloader.definition.meta.PackMetaData;
 import dev.latvian.mods.kubejs.script.ScriptPack;
-import dev.latvian.mods.kubejs.script.ScriptPackInfo;
 import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -15,20 +14,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public interface ContentPack {
 
-    @NotNull
-    String getNamespace();
-
-    /**
-     * 留作未来使用，或者可能也没用
-     */
-    @NotNull
-    default String getNamespace(PackLoadingContext context) {
-        return getNamespace();
-    }
-
-    default PackMetaData getMetaData() {
-        return PackMetaData.minimal(getNamespace());
-    }
+    PackMetaData getMetaData();
 
     /**
      * 如果该 ContentPack 没有{@link PackLoadingContext#type()} 对应的 {@link ScriptPack}，返回 {@code null}
@@ -37,12 +23,13 @@ public interface ContentPack {
     ScriptPack getPack(PackLoadingContext context);
 
     @NotNull
+    default String id() {
+        return this.getMetaData().id();
+    }
+
+    @NotNull
     default ScriptPack postProcessPack(PackLoadingContext context, @NotNull ScriptPack pack) {
         pack.scripts.sort(null);
         return pack;
-    }
-
-    default ScriptPack createEmptyPack(PackLoadingContext context) {
-        return new ScriptPack(context.manager(), new ScriptPackInfo(getNamespace(context), ""));
     }
 }
