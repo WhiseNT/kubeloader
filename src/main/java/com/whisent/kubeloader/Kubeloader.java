@@ -59,9 +59,6 @@ public class Kubeloader {
         if (Files.notExists(ConfigPath)){
             Files.createDirectories(ConfigPath);
         }
-        Minecraft.getInstance().getResourceManager().listPacks().forEach(pack -> {
-            Kubeloader.LOGGER.debug("搜索到资源包："+pack.toString());
-        });
         modEventBus.addListener(this::ModLoding);
         FMLJavaModLoadingContext.get().getModEventBus().addListener(this::injectPacks);
 

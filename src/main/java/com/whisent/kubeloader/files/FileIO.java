@@ -1,6 +1,9 @@
 package com.whisent.kubeloader.files;
 
+import com.google.gson.JsonObject;
+import com.mojang.serialization.JsonOps;
 import com.whisent.kubeloader.Kubeloader;
+import com.whisent.kubeloader.definition.meta.PackMetaData;
 import net.minecraft.client.Minecraft;
 
 import java.io.*;
@@ -106,13 +109,10 @@ public class FileIO {
 
     public static void extractAssetCopyFromZip(Path zipFilePath, String subDir) throws IOException {
         Path tempDir = Files.createTempDirectory("zip_extract");
-
         try {
             unzipFile(zipFilePath, tempDir);
-            Path namespaceDir = validateNamespace(tempDir);
-            if (namespaceDir == null) {
-                throw new IOException("ZIP文件的根目录未找到任何命名空间文件夹");
-            }
+            Path metaDir = tempDir.resolve(Kubeloader.META_DATA_FILE_NAME);
+            Path namespaceDir = tempDir;
             Path sourceSubDir = namespaceDir.resolve(subDir);
             if (!Files.exists(sourceSubDir)) {
                 return;
@@ -125,7 +125,21 @@ public class FileIO {
             deleteDirectoryRecursively(tempDir,tempDir.getParent());
         }
     }
-
+    public static PackMetaData loadMetaData(Path base) {
+        try (var reader = Files.newBufferedReader(base.resolve(Kubeloader.META_DATA_FILE_NAME))) {
+            var result = PackMetaData.CODEC.parse(
+                    JsonOps.INSTANCE,
+                    Kubeloader.GSON.fromJson(reader, JsonObject.class)
+            );
+            if (result.result().isPresent()) {
+                return result.result().get();
+            }
+            var errorMessage = result.error().orElseThrow().message();
+            throw new RuntimeException("Error when parsing metadata: " + errorMessage);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
     /**
      * 解压ZIP文件到指定目录
      *

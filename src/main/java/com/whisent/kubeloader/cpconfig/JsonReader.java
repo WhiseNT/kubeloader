@@ -26,7 +26,6 @@ public class JsonReader {
             JsonObject json = JsonParser.parseString(jsonString).getAsJsonObject();
             return json;
         } catch (Exception e) {
-            // 处理异常
             e.printStackTrace();
         }
         return null;
@@ -43,7 +42,6 @@ public class JsonReader {
         return result;
     }
 
-    // 递归解析 JSON 元素
     private static Object parseJsonElement(JsonElement element) {
         if (element.isJsonObject()) {
             return parseJsonObject(element.getAsJsonObject());
