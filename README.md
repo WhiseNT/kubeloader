@@ -1,5 +1,20 @@
 # KUBELOADER - KubeJS 内容包加载器使用指南
 
+## 零、测试中更新摘要
+
+ - 去掉了 ContentPack 的 namespace，全部用 metadata 中的 id
+ - 提供"type": "MOD" 被分离到了 DependencySource ，依赖模组与依赖内容包因此都可以使用 5 种依赖类型
+     - "source": "PACK"：不填写时的默认值，表明这项依赖关系是对另一个ContentPack的关系
+     - "source": "MOD"：表明这项依赖关系是对模组的依赖关系
+ - contentpack.json 的读取提前，metadata有效成为ContentPack有效的先决条件，比加载ContentPack的内容更早
+     - 对于每种 ContentPack ，其 contentpack.json 的路径都假定只有一处，预防扫描全部文件的性能问题
+ - ZipContentPack 每次重载都会重新在路径里扫描，因此可以在游戏运行时加减 ContentPack
+ - zip形式内容包现在需要把文件放在根目录。一个zip内含一个内容包是之前已经定下来的，所以除了少一层文件夹之外没有什么功能变化
+     - namespace 先前是由文件夹名提供，现在标准化为 metadata 中的 id。
+
+
+
+
 ## 一、概述
 
 KubeLoader 是 KubeJS 的附属模组，当前支持 Forge 1.20.1。它提供了"内容包"(ContentPack)机制，用于组织和加载 KubeJS 脚本及资源集合。
