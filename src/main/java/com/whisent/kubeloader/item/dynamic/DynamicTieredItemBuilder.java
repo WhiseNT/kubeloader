@@ -13,8 +13,8 @@ import java.util.Map;
 
 public class DynamicTieredItemBuilder extends ItemBuilder implements DynamicBuilder {
     public HashMap<String, Tier> enableTierMap = new HashMap<String, Tier>();
-    public int baseAttack;
-    public float baseAttackSpeed;
+    public int baseAttack = 0;
+    public float baseAttackSpeed = -3;
     public String baseTier;
     public HashMap<String,HashMap<String,Object>> extendAttributesMap = new HashMap<>();
 
@@ -40,16 +40,25 @@ public class DynamicTieredItemBuilder extends ItemBuilder implements DynamicBuil
         this.baseTier = tierName;
         return this;
     }
+    @Info("基础攻击会和nbt攻击共同组成最终的攻击力")
     @Override
     public ItemBuilder setBaseAttack(int baseAttack) {
         this.baseAttack = baseAttack;
         return this;
     }
+    @Info("基础攻击速度会和nbt攻击速度共同组成最终的攻击速度")
     @Override
     public ItemBuilder setBassAttackSpeed(float bassAttackSpeed) {
         this.baseAttackSpeed = bassAttackSpeed;
         return this;
     }
+    @Info(value = """
+            为武器添加新的属性nbt
+            Example usage:
+            ```javascript
+            putAttribute(nbtName,{base:1,uuid:'',attributes:''})
+            ```
+            """)
     public ItemBuilder putAttribute(String key, HashMap<String,Object> valueMap) {
         extendAttributesMap.put(key,valueMap);
         return this;

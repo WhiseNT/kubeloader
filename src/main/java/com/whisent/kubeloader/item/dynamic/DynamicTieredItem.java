@@ -45,7 +45,6 @@ public class DynamicTieredItem extends DiggerItem implements DynamicAttributes {
     private final UUID ARMOR_UUID = UUID.fromString("2de1b442-56aa-ba93-37d6-27216aad7c7e");
     private final UUID ENTITY_GRAVITY_UUID = UUID.fromString("F9984215-BFB6-E9BB-12E7-A3D313082F10");
 
-
     public DynamicTieredItem(int baseAttack, float baseAttackSpeed, String baseTier, Map<String,Tier> enableTierMap,
                              HashMap<String,HashMap<String,Object>> extendAttributesMap) {
         super(baseAttack,baseAttackSpeed,Tiers.WOOD,BlockTags.MINEABLE_WITH_PICKAXE, new Properties());
@@ -56,8 +55,11 @@ public class DynamicTieredItem extends DiggerItem implements DynamicAttributes {
         this.baseTierName = baseTier;
         this.extendAttributesMap = extendAttributesMap;
     }
+    public CompoundTag getDynamic (ItemStack stack) {
+        return stack.getTag().getCompound("KLDynamic");
+    }
     public TagKey<Block> getBlocks (ItemStack stack) {
-        String toolType = stack.getTag().getCompound("dynamic").getString(TOOL_TAG);
+        String toolType = getDynamic(stack).getString(TOOL_TAG);
         return switch (toolType) {
             case "shovel" -> BlockTags.MINEABLE_WITH_SHOVEL;
             case "pickaxe" -> BlockTags.MINEABLE_WITH_PICKAXE;
@@ -68,7 +70,7 @@ public class DynamicTieredItem extends DiggerItem implements DynamicAttributes {
     }
 
     public Tier getTier(ItemStack stack) {
-        CompoundTag tag = stack.getOrCreateTag().getCompound("dynamic");
+        CompoundTag tag = stack.getOrCreateTag().getCompound("KLDynamic");
         String tierName = tag.getString(TIER_TAG);
         enableTierMap.get(tierName);
         if (enableTierMap.get(tierName) != null) {
@@ -77,7 +79,7 @@ public class DynamicTieredItem extends DiggerItem implements DynamicAttributes {
     }
 
     public Float getDigSpeed(ItemStack stack) {
-        CompoundTag tag = stack.getOrCreateTag().getCompound("dynamic");
+        CompoundTag tag = getDynamic(stack);
         if (tag.getFloat(DIG_SPEED_TAG) == 0) {
             return 1.0F;
         } else {
@@ -88,8 +90,8 @@ public class DynamicTieredItem extends DiggerItem implements DynamicAttributes {
     @Override
     public @NotNull ItemStack getDefaultInstance() {
         ItemStack stack = new ItemStack(this);
-        stack.getOrCreateTag().put("dynamic", new CompoundTag());
-        CompoundTag tag = stack.getOrCreateTag().getCompound("dynamic");
+        stack.getOrCreateTag().put("KLDynamic", new CompoundTag());
+        CompoundTag tag = getDynamic(stack);
         tag.putString(TIER_TAG, baseTierName);
         /*
         tag.putInt(ATTACK_BONUS_TAG,baseAttack);
@@ -114,7 +116,7 @@ public class DynamicTieredItem extends DiggerItem implements DynamicAttributes {
     public Multimap<Attribute, AttributeModifier> getAttributeModifiers(EquipmentSlot slot, ItemStack stack) {
         Multimap<Attribute, AttributeModifier> modifiers = HashMultimap.create();
         if (slot == EquipmentSlot.MAINHAND) {
-            CompoundTag tag = stack.getOrCreateTag().getCompound("dynamic");
+            CompoundTag tag = getDynamic(stack);
             float attackBonus = baseAttack + tag.getInt(ATTACK_BONUS_TAG);
             float attackSpeed = baseAttackSpeed + tag.getFloat(ATTACK_SPEED_TAG);
             float armor = tag.getInt(ARMOR_TAG);
@@ -139,7 +141,7 @@ public class DynamicTieredItem extends DiggerItem implements DynamicAttributes {
             this.putAttributes(modifiers,ENTITY_GRAVITY_UUID,ForgeMod.ENTITY_GRAVITY.get(),entityGravity);
 
             this.extendAttributesMap.forEach((key,value)->{
-                float addValue = baseAttack + tag.getFloat(key);
+                float addValue = (Float)value.get("base") + tag.getFloat(key);
                 this.putAttributes(modifiers,(UUID) value.get("uuid"),(Attribute) value.get("attribute"),addValue);
             });
             return modifiers;
@@ -198,9 +200,9 @@ public class DynamicTieredItem extends DiggerItem implements DynamicAttributes {
                 p_40992_.broadcastBreakEvent(EquipmentSlot.MAINHAND);
             });
         }
-
         return true;
     }
+
     public boolean isCorrectToolForDrops(ItemStack stack, BlockState state) {
         return state.is(this.getBlocks(stack)) && TierSortingRegistry.isCorrectTierForDrops(this.getTier(stack), state);
     }

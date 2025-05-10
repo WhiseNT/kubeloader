@@ -42,7 +42,7 @@ public class KubeBowItem extends BowItem {
     @Override
     public ItemStack getDefaultInstance() {
         ItemStack stack = new ItemStack(this);
-        stack.getTag().merge(nbt);
+        stack.getOrCreateTag().merge(nbt);
         return stack;
     }
 
