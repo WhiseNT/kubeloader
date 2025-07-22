@@ -11,7 +11,6 @@ import com.whisent.kubeloader.impl.path.PathContentPackProvider;
 import com.whisent.kubeloader.impl.zip.ZipContentPackProvider;
 import dev.latvian.mods.kubejs.KubeJS;
 import dev.latvian.mods.kubejs.KubeJSPaths;
-import net.minecraft.client.Minecraft;
 import net.minecraft.server.packs.PackType;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.event.AddPackFindersEvent;
@@ -63,7 +62,7 @@ public class Kubeloader {
         FMLJavaModLoadingContext.get().getModEventBus().addListener(this::injectPacks);
 
         //mod
-        //registerModContentPackProviders();
+        registerModContentPackProviders();
         ContentPackProviders.register(
             //path
             new PathContentPackProvider(PackPath),
@@ -90,8 +89,8 @@ public class Kubeloader {
 
     private void injectPacks(AddPackFindersEvent event){
         //资源写入
-        InjectFiles(PackPath,"assets");
-        InjectFiles(PackPath,"data");
+        //InjectFiles(PackPath,"assets");
+        //InjectFiles(PackPath,"data");
         switch (event.getPackType()) {
             case CLIENT_RESOURCES -> {
                 event.addRepositorySource(new ResourcePackProvider(ResourcePath, PackType.CLIENT_RESOURCES));
@@ -136,11 +135,9 @@ public class Kubeloader {
         }
     }
 
-    private void CleanPacks() {
-        LOGGER.info("清理不存在的ContentPack");
-        Path MinecraftDir = Minecraft.getInstance().gameDirectory.toPath();
-        Path assetsDir = MinecraftDir.resolve("kubejs").resolve("pack_resources").resolve("assets");
-        Path dataDir = MinecraftDir.resolve("kubejs").resolve("pack_resources").resolve("data");
+    private static void CleanPacks() {
+        Path assetsDir = KubeJSPaths.DIRECTORY.resolve("pack_resources").resolve("assets");
+        Path dataDir = KubeJSPaths.DIRECTORY.resolve("pack_resources").resolve("data");
         List<Path> pathCollection = new ArrayList<>();
         pathCollection.addAll(List.of(assetsDir, dataDir));
         pathCollection.forEach(path -> {
@@ -153,6 +150,7 @@ public class Kubeloader {
             }
         });
     }
+
     @SubscribeEvent
     public void onServerStarting(ServerStartingEvent event) {
     }

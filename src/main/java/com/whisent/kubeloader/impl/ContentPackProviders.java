@@ -3,7 +3,14 @@ package com.whisent.kubeloader.impl;
 import com.whisent.kubeloader.Kubeloader;
 import com.whisent.kubeloader.definition.ContentPack;
 import com.whisent.kubeloader.definition.ContentPackProvider;
+import com.whisent.kubeloader.files.FileIO;
+import dev.latvian.mods.kubejs.KubeJSPaths;
+import net.minecraft.client.Minecraft;
+import net.minecraftforge.fml.loading.FMLLoader;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.*;
 
 /**
@@ -27,6 +34,7 @@ public final class ContentPackProviders {
     }
 
     public static void register(ContentPackProvider... providers) {
+
         register(Arrays.asList(providers));
     }
 
@@ -54,4 +62,5 @@ public final class ContentPackProviders {
         }
         return packs;
     }
+
 }

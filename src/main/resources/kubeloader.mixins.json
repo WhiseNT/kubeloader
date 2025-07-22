@@ -5,8 +5,15 @@
   "compatibilityLevel": "JAVA_8",
   "refmap": "kubeloader.refmap.json",
   "mixins": [
+    "AccessScriptFileInfo",
     "AccessScriptManager",
-    "ScriptManagerMixin"
+    "EntityMixin",
+    "ItemBuilderMixin",
+    "ItemMixin",
+    "ScriptFileInfoMixin",
+    "ScriptFileMixin",
+    "ScriptManagerMixin",
+    "ServerPlayerMixin"
   ],
   "client": [
   ],
