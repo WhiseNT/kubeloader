@@ -2,6 +2,7 @@ package com.whisent.kubeloader;
 
 import com.google.gson.Gson;
 import com.mojang.logging.LogUtils;
+import com.whisent.kubeloader.event.KubeLoaderClientEventHandler;
 import com.whisent.kubeloader.files.*;
 import com.whisent.kubeloader.impl.ContentPackProviders;
 import com.whisent.kubeloader.impl.mod.ModContentPackProvider;
@@ -9,10 +10,12 @@ import com.whisent.kubeloader.impl.dummy.DummyContentPack;
 import com.whisent.kubeloader.impl.dummy.DummyContentPackProvider;
 import com.whisent.kubeloader.impl.path.PathContentPackProvider;
 import com.whisent.kubeloader.impl.zip.ZipContentPackProvider;
+import com.whisent.kubeloader.utils.mod_gen.PackModGenerator;
 import dev.latvian.mods.kubejs.KubeJS;
 import dev.latvian.mods.kubejs.KubeJSPaths;
 import net.minecraft.server.packs.PackType;
 import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.common.capabilities.CapabilityManager;
 import net.minecraftforge.event.AddPackFindersEvent;
 import net.minecraftforge.event.server.ServerStartingEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
@@ -21,6 +24,7 @@ import net.minecraftforge.fml.ModList;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
+import net.minecraftforge.fml.lowcodemod.LowCodeModContainer;
 import org.slf4j.Logger;
 
 import java.io.IOException;
@@ -60,7 +64,7 @@ public class Kubeloader {
         }
         modEventBus.addListener(this::ModLoding);
         FMLJavaModLoadingContext.get().getModEventBus().addListener(this::injectPacks);
-
+        KubeLoaderClientEventHandler.init();
         //mod
         registerModContentPackProviders();
         ContentPackProviders.register(
@@ -71,6 +75,7 @@ public class Kubeloader {
             //kubejs dummy, for sorting content packs
             new DummyContentPackProvider(List.of(new DummyContentPack(KubeJS.MOD_ID, cx -> null)))
         );
+
     }
 
     private static void registerModContentPackProviders() {

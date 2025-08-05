@@ -4,7 +4,7 @@ import dev.latvian.mods.kubejs.core.ItemKJS;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-
+@Deprecated
 public class NbtItem  extends Item {
     public CompoundTag nbt;
     public NbtItem(Properties properties, CompoundTag nbt) {

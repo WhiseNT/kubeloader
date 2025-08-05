@@ -12,6 +12,7 @@ import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -19,46 +20,57 @@ public class FileIO {
 
 
     public static void copyAndReplaceAllFiles(Path sourceDir, Path targetDir) throws IOException {
-        try {
+        if (!Files.exists(sourceDir)) {
+            throw new NoSuchFileException("Source directory does not exist: " + sourceDir);
+        }
+        if (!Files.isDirectory(sourceDir)) {
+            throw new NotDirectoryException("Source is not a directory: " + sourceDir);
+        }
 
-            // 删除目标目录下的所有文件和子目录
-            deleteDirectoryRecursively(targetDir, Minecraft.getInstance().gameDirectory.toPath());
-            // 确保目标目录存在
-            if (!Files.exists(targetDir)) {
-                Files.createDirectories(targetDir);
-            }
-            // 遍历源目录并复制所有文件
-            Files.walk(sourceDir)
-                    .filter(path -> {
-                        try {
-                            //validateAndNormalizePath(path.toString());
-                            return Files.isRegularFile(path); // 只复制普通文件
-                        } catch (SecurityException e) {
-                            Kubeloader.LOGGER.warn("Skipping unsafe path in batch copy: " + path);
-                            return false;
-                        }
-                    })
+        // 2. 删除目标目录内容（如果存在）
+        if (Files.exists(targetDir)) {
+            deleteDirectoryRecursively(targetDir,targetDir.getParent());
+        }
+
+        // 3. 创建目标目录
+        Files.createDirectories(targetDir);
+
+        // 4. 遍历并复制
+        try (Stream<Path> stream = Files.walk(sourceDir)) {
+            stream
+                    .filter(Files::isRegularFile) // 只处理文件
                     .forEach(source -> {
                         try {
-                            // 计算目标文件路径
-                            Path target = targetDir.resolve(sourceDir.relativize(source));
-                            // 确保目标文件的父目录存在
+                            // 计算相对路径，防止路径穿越
+                            Path relativePath = sourceDir.relativize(source);
+                            Path target = targetDir.resolve(relativePath);
+
+                            // 确保目标父目录存在
                             Files.createDirectories(target.getParent());
-                            // 复制文件，如果目标文件已存在则覆盖
+
+                            // 复制并覆盖
                             Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
-                        } catch (SecurityException | IOException e) {
-                            Kubeloader.LOGGER.error("Error copying file: " + source, e);
+
+                        } catch (IOException e) {
+                            throw new UncheckedIOException("Failed to copy: " + source + " -> " + targetDir, e);
+                        } catch (Exception e) {
+                            throw new RuntimeException("Unexpected error during copy: " + source, e);
                         }
                     });
-
-            System.out.println("All files copied and replaced successfully.");
-        } catch (SecurityException e) {
-            Kubeloader.LOGGER.error("Security violation in batch copy operation: " + sourceDir + " -> " + targetDir, e);
-            throw e;
-        } catch (IOException e) {
-            Kubeloader.LOGGER.error("Error in batch copy operation", e);
-            throw new RuntimeException("Failed in batch copy operation", e);
+        } catch (RuntimeException e) {
+            // 重新抛出被包装的异常
+            if (e.getCause() instanceof IOException) {
+                throw (IOException) e.getCause();
+            } else {
+                throw new IOException("Error during file copy", e);
+            }
         }
+
+        System.out.println("✅ All files copied and replaced successfully from " + sourceDir + " to " + targetDir);
+    }
+
+    public static void copy(Path source, Path target) throws IOException {
+        Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
     }
 
     public static List<String> listZips(Path path) {
@@ -235,5 +247,8 @@ public class FileIO {
 
     public static BufferedReader stream2reader(InputStream stream) {
         return new BufferedReader(new InputStreamReader(stream, StandardCharsets.UTF_8));
+    }
+    public static BufferedReader file2reader(File file) throws FileNotFoundException {
+        return new BufferedReader(new FileReader(file));
     }
 }

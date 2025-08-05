@@ -18,7 +18,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
-
+@Deprecated
 public class KubeBowItem extends BowItem {
     private final Map<String, Boolean> superFlags;
     private final Map<String , Object> callbacks;
@@ -55,6 +55,7 @@ public class KubeBowItem extends BowItem {
         Consumer<ConsumerContext.releaseUsingContext> callback = getCallback("onRelease");
         if (callback != null) {
             callback.accept(context);
+
         }
     }
 

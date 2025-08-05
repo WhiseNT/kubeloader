@@ -12,7 +12,7 @@ import net.minecraft.world.item.UseAnim;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.*;
-
+@Deprecated
 public class BowItemBuilder extends ItemBuilder {
     private int useDuration = 72000;
     private final Map<String, Boolean> superFlags = new HashMap<>();

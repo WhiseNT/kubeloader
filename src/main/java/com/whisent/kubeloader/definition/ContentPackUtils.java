@@ -18,6 +18,7 @@ import net.minecraftforge.forgespi.language.IModInfo;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
 
@@ -37,6 +38,14 @@ public class ContentPackUtils {
             return DataResult.error(e::toString);
         }
     }
+    public static DataResult<PackMetaData> loadMetaData(Path path) {
+        try (var reader = FileIO.file2reader(path.toFile())) {
+            var json = Kubeloader.GSON.fromJson(reader, JsonObject.class);
+            return PackMetaData.CODEC.parse(JsonOps.INSTANCE, json);
+        } catch (IOException e) {
+            return DataResult.error(e::toString);
+        }
+    }
 
     public static PackMetaData loadMetaDataOrThrow(InputStream stream) {
         var result = loadMetaData(stream);
@@ -46,6 +55,13 @@ public class ContentPackUtils {
         return result.result().orElseThrow();
     }
 
+    public static PackMetaData loadMetaDataOrThrow(Path path) {
+        var result = loadMetaData(path);
+        if (result.error().isPresent()) {
+            throw new RuntimeException(result.error().get().message());
+        }
+        return result.result().orElseThrow();
+    }
     public static PackMetaData metadataFromMod(IModInfo mod) {
         return new ImmutableMetaData(
             mod.getModId(),

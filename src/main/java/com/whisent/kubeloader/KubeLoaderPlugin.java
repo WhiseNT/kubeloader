@@ -1,17 +1,27 @@
 package com.whisent.kubeloader;
 
 import com.whisent.kubeloader.definition.inject.SortablePacksHolder;
-import com.whisent.kubeloader.files.FileIO;
-import com.whisent.kubeloader.item.NbtItemBuilder;
-import com.whisent.kubeloader.item.dynamic.DynamicTieredItemBuilder;
+import com.whisent.kubeloader.event.kjs.BlockEntityEvents;
+import com.whisent.kubeloader.event.kjs.ItemEntityEvents;
+import com.whisent.kubeloader.event.kjs.KubeLoaderEvents;
 import com.whisent.kubeloader.item.vanilla.bow.BowItemBuilder;
 import com.whisent.kubeloader.plugin.ContentPacksBinding;
+import com.whisent.kubeloader.utils.KLUtil;
+import com.whisent.kubeloader.utils.PerformanceUtil;
+import com.whisent.kubeloader.utils.mod_gen.ContentPackGenerator;
+import com.whisent.kubeloader.utils.mod_gen.PackModGenerator;
 import dev.latvian.mods.kubejs.KubeJSPlugin;
 import dev.latvian.mods.kubejs.registry.RegistryInfo;
 import dev.latvian.mods.kubejs.script.BindingsEvent;
+import dev.latvian.mods.kubejs.script.ScriptType;
+import dev.latvian.mods.rhino.util.wrap.TypeWrappers;
 import net.minecraft.core.registries.Registries;
+import net.minecraft.world.entity.ai.attributes.Attribute;
+import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 
 public class KubeLoaderPlugin extends KubeJSPlugin {
+
+
     @Override
     public void init() {
         //RegistryInfo.ITEM.addType("nbt", NbtItemBuilder.class, NbtItemBuilder::new);
@@ -26,7 +36,19 @@ public class KubeLoaderPlugin extends KubeJSPlugin {
         var packsHolder = (SortablePacksHolder) event.manager;
         event.add("ContentPacks", new ContentPacksBinding(event.getType(), packsHolder));
         event.add("Registries", Registries.class);
+        event.add("Perf",new PerformanceUtil(event.getType()));
+        event.add("KLUtils", KLUtil.class);
+        event.add("ModGen", PackModGenerator.class);
+        event.add("PackGen", ContentPackGenerator.class);
+        BlockEntityEvents.GROUP.register();
+        ItemEntityEvents.GROUP.register();
+        KubeLoaderEvents.GROUP.register();
+
     }
 
+    @Override
+    public void registerTypeWrappers(ScriptType type, TypeWrappers typeWrappers) {
+        super.registerTypeWrappers(type, typeWrappers);
 
+    }
 }
