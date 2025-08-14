@@ -32,8 +32,12 @@ public abstract class ItemStackMixin {
                     value = "INVOKE",
                     target = "Lnet/minecraft/world/item/ItemStack;setDamageValue(I)V"
             ),
-            cancellable = true)
-    private <T> void onHurt(int originalDamage, RandomSource random, @Nullable ServerPlayer player, CallbackInfoReturnable<Boolean> cir) {
+            cancellable = true,
+            locals = LocalCapture.CAPTURE_FAILHARD)
+    private <T> void onHurt(int originalDamage, RandomSource random, @Nullable ServerPlayer player,
+                            CallbackInfoReturnable<Boolean> cir,
+                            int i
+                            ) {
         EventResult result = KubeLoaderEvents.ITEM_HURT.post(
                 new ItemHurtEventJS((ItemStack) (Object) this, player, originalDamage),this.getItem().asItem());
         if (result.interruptFalse()) {

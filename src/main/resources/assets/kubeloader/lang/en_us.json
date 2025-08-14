@@ -1,0 +1,21 @@
+{
+  "chat.kubeloader.mod.start": "🔄 Starting to generate Mod: %s",
+  "chat.kubeloader.mod.dir_created": "📁 Directory structure created",
+  "chat.kubeloader.mod.mods_toml_done": "📄 mods.toml generated",
+  "chat.kubeloader.mod.resources_copied": "🎨 Resources (assets/data) copied",
+  "chat.kubeloader.mod.scripts_copied": "📜 Content scripts copied",
+  "chat.kubeloader.mod.mcmeta_done": "📦 pack.mcmeta generated",
+  "chat.kubeloader.mod.jar_created": "✅ Jar packaged: %s",
+  "chat.kubeloader.mod.cleanup_done": "🧹 Temporary files cleaned up",
+  "chat.kubeloader.mod.success": "🎉 Mod generation completed! File exported.",
+  "chat.kubeloader.mod.failed": "❌ Generation failed: %s",
+
+  "chat.kubeloader.contentpack.start": "📦 Starting to generate content pack: %s",
+  "chat.kubeloader.contentpack.root_created": "📁 Root directory created",
+  "chat.kubeloader.contentpack.dir_created": "✅ Directory created: %s",
+  "chat.kubeloader.contentpack.dir_failed": "❌ Failed to create directory: %s",
+  "chat.kubeloader.contentpack.serializing": "📝 Serializing metadata...",
+  "chat.kubeloader.contentpack.meta_written": "📄 Metadata written: %s",
+  "chat.kubeloader.contentpack.success": "🎉 Content pack %s generated successfully!",
+  "chat.kubeloader.contentpack.failed": "❌ Failed to generate content pack: %s"
+}

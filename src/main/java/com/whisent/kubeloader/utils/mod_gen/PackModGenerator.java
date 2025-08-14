@@ -1,10 +1,14 @@
 package com.whisent.kubeloader.utils.mod_gen;
 
 import com.whisent.kubeloader.Kubeloader;
+import com.whisent.kubeloader.definition.meta.PackMetaData;
 import com.whisent.kubeloader.files.FileIO;
 import dev.latvian.mods.kubejs.KubeJSPaths;
+import dev.latvian.mods.kubejs.typings.Info;
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
@@ -12,22 +16,16 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.jar.Attributes;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
-import java.util.jar.Manifest;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipOutputStream;
 
 public class PackModGenerator {
-    public static void generateMod(ContentPackInfo packInfo) throws IOException {
+    @Info("You should use /kl mod <modid> command to generate it, rather than calling this method directly.")
+    public static void generateMod(ContentPackModInfo packInfo) throws IOException {
         String modId = packInfo.id;
         Path outputDir = KubeJSPaths.LOCAL_CACHE.resolve(modId+"-generated");
 
@@ -50,13 +48,74 @@ public class PackModGenerator {
         System.out.println("📁 项目目录: " + outputDir.toAbsolutePath());
         System.out.println("📦 JAR 文件: " + jarFile.toAbsolutePath());
     }
+    @Info("You should use /kl mod <modid> command to generate it, rather than calling this method directly.")
+    public static void generateMod(ContentPackModInfo packInfo, ServerPlayer player) throws IOException {
+        String modId = packInfo.id;
+        Path outputDir = KubeJSPaths.LOCAL_CACHE.resolve(modId + "-generated");
+
+        // ✅ 使用 translatable 发送消息
+        sendPlayerMessage(player, Component.translatable("chat.kubeloader.mod.start", modId).withStyle(ChatFormatting.GOLD));
+
+        try {
+            // 1. 创建目录结构
+            createDirectoryStructure(outputDir, modId);
+            sendPlayerMessage(player, Component.translatable("chat.kubeloader.mod.dir_created").withStyle(ChatFormatting.GREEN));
+
+            // 2. 生成 mods.toml
+            generateModsToml(outputDir, packInfo);
+            sendPlayerMessage(player, Component.translatable("chat.kubeloader.mod.mods_toml_done").withStyle(ChatFormatting.GREEN));
+
+            // 3. 生成资源和脚本
+            generateDefaultResources(outputDir, modId);
+            sendPlayerMessage(player, Component.translatable("chat.kubeloader.mod.resources_copied").withStyle(ChatFormatting.GREEN));
+
+            generateDefaultScripts(outputDir, modId);
+            sendPlayerMessage(player, Component.translatable("chat.kubeloader.mod.scripts_copied").withStyle(ChatFormatting.GREEN));
+
+            generatePackMcmeta(outputDir, modId, 15);
+            sendPlayerMessage(player, Component.translatable("chat.kubeloader.mod.mcmeta_done").withStyle(ChatFormatting.GREEN));
+
+            // 4. 打包为 JAR
+            Path jarFile = KubeJSPaths.EXPORT.resolve(modId + "-" + packInfo.version + ".jar");
+            createJar(outputDir, jarFile);
+            sendPlayerMessage(player, Component.translatable("chat.kubeloader.mod.jar_created", jarFile.getFileName().toString())
+                    .withStyle(ChatFormatting.AQUA));
+
+            // 5. 清理缓存
+            cleanCache(outputDir);
+            sendPlayerMessage(player, Component.translatable("chat.kubeloader.mod.cleanup_done").withStyle(ChatFormatting.GRAY));
+
+            // ✅ 最终成功提示
+            Component successMsg = Component.translatable("chat.kubeloader.mod.success")
+                    .withStyle(ChatFormatting.LIGHT_PURPLE);
+            sendPlayerMessage(player, successMsg);
+
+            // ✅ 服务端日志
+            Kubeloader.LOGGER.info("Mod 生成完成: {} -> {}", modId, jarFile.getFileName());
+            System.out.println("Mod 生成完成！");
+            System.out.println("项目目录: " + outputDir.toAbsolutePath());
+            System.out.println("JAR 文件: " + jarFile.toAbsolutePath());
+
+        } catch (IOException e) {
+            // ❌ 失败消息也国际化
+            Component errorMsg = Component.translatable("chat.kubeloader.mod.failed", e.getMessage())
+                    .withStyle(ChatFormatting.RED);
+            sendPlayerMessage(player, errorMsg);
+
+            Kubeloader.LOGGER.error("Mod 生成失败 (ModId: {})", modId, e);
+            throw e;
+        }
+    }
+    private static void sendPlayerMessage(ServerPlayer player, Component message) {
+        player.sendSystemMessage(message);
+    }
 
     private static void createDirectoryStructure(Path outputDir, String modId) throws IOException {
         Files.createDirectories(outputDir.resolve("META-INF"));
         Files.createDirectories(outputDir.resolve("contentpacks"));
     }
 
-    private static void generateModsToml(Path outputDir, ContentPackInfo info) throws IOException {
+    private static void generateModsToml(Path outputDir, ContentPackModInfo info) throws IOException {
         Path tomlPath = outputDir.resolve("META-INF/mods.toml");
         if (!Files.exists(outputDir.resolve("META-INF"))) {
             Files.createDirectories(outputDir.resolve("META-INF"));
@@ -79,33 +138,6 @@ public class PackModGenerator {
             for (ModDependency dep : info.modDependencies) {
                 writer.println(dep.toTomlString(info.id));
             }
-        }
-    }
-    private static void generateManifestMF(Path outputDir, ContentPackInfo info) throws IOException {
-        Path manifestPath = outputDir.resolve("META-INF/MANIFEST.MF");
-        Files.createDirectories(manifestPath.getParent());
-
-        // 构建时间戳：ISO 格式，如 2025-07-11T22:09:29+0800
-        String timestamp = java.time.ZonedDateTime.now(ZoneId.systemDefault())
-                .format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssXXX"));
-
-        try (PrintWriter writer = new PrintWriter(Files.newBufferedWriter(manifestPath))) {
-            // === 标准头部 ===
-            writer.println("Manifest-Version: 1.0");
-
-            // === 规范元数据（API 层）===
-            writer.println("Specification-Title: " + info.id); // 通常用 modId 作为规范名
-            writer.println("Specification-Vendor: " + String.join(", ", info.authors));
-            writer.println("Specification-Version: " + 1); // 如 1.0.4 → 1
-
-            // === 实现元数据（实现层）===
-            writer.println("Implementation-Title: " + info.name);
-            writer.println("Implementation-Version: " + info.version);
-            writer.println("Implementation-Vendor: " + String.join(", ", info.authors));
-            writer.println("Implementation-Timestamp: " + timestamp);
-
-            // 必须以空行结束（JAR 规范要求）
-            writer.println();
         }
     }
 
@@ -233,11 +265,17 @@ public class PackModGenerator {
         } // ✅ jos 和 stream 都在这里自动关闭
     }
     public static void fastGenerateMod(String packId) throws IOException {
-        ContentPackInfo info = new ContentPackInfo(packId);
+        ContentPackModInfo info = ContentPackModInfo.createPackInfo(packId).fromMetaData(packId).build();
         generateMod(info);
     }
-    public static ContentPackInfo newPackInfo(String packId) {
-        return new ContentPackInfo(packId);
+    public static ContentPackModInfo.Builder createModInfo(String packId) {
+        return new ContentPackModInfo.Builder();
+    }
+    public static ContentPackModInfo.Builder createModInfo(String packId,PackMetaData metaData) {
+        return new ContentPackModInfo.Builder().fromMetaData(metaData);
+    }
+    public static ModDependency.Builder createModDependency(String modId) {
+        return ModDependency.create(modId);
     }
 
 

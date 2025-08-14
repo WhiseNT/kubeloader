@@ -1,0 +1,21 @@
+{
+  "chat.kubeloader.mod.start": "🔄 开始生成 Mod: %s",
+  "chat.kubeloader.mod.dir_created": "📁 目录结构已创建",
+  "chat.kubeloader.mod.mods_toml_done": "📄 已生成 mods.toml",
+  "chat.kubeloader.mod.resources_copied": "🎨 资源文件 (assets/data) 已复制",
+  "chat.kubeloader.mod.scripts_copied": "📜 内容包脚本已复制",
+  "chat.kubeloader.mod.mcmeta_done": "📦 pack.mcmeta 已生成",
+  "chat.kubeloader.mod.jar_created": "✅ 已打包为 Jar: %s",
+  "chat.kubeloader.mod.cleanup_done": "🧹 临时文件已清理",
+  "chat.kubeloader.mod.success": "🎉 Mod 生成完成！文件已导出。",
+  "chat.kubeloader.mod.failed": "❌ 生成失败：%s",
+
+  "chat.kubeloader.contentpack.start": "📦 开始生成内容包: %s",
+  "chat.kubeloader.contentpack.root_created": "📁 已创建内容包根目录",
+  "chat.kubeloader.contentpack.dir_created": "✅ 已生成目录: %s",
+  "chat.kubeloader.contentpack.dir_failed": "❌ 创建目录失败: %s",
+  "chat.kubeloader.contentpack.serializing": "📝 正在序列化元数据...",
+  "chat.kubeloader.contentpack.meta_written": "📄 元数据文件已写入: %s",
+  "chat.kubeloader.contentpack.success": "🎉 内容包 %s 生成成功！",
+  "chat.kubeloader.contentpack.failed": "❌ 生成内容包失败: %s"
+}

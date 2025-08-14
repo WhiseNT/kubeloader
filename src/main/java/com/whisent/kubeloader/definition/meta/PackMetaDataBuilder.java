@@ -4,6 +4,7 @@ import com.whisent.kubeloader.definition.meta.dependency.DependencySource;
 import com.whisent.kubeloader.definition.meta.dependency.DependencyType;
 import com.whisent.kubeloader.definition.meta.dependency.LoadOrdering;
 import com.whisent.kubeloader.definition.meta.dependency.PackDependency;
+import com.whisent.kubeloader.event.KubeLoaderServerEventHandler;
 import com.whisent.kubeloader.impl.depends.ImmutableMetaData;
 import org.apache.maven.artifact.versioning.ArtifactVersion;
 import org.apache.maven.artifact.versioning.DefaultArtifactVersion;
@@ -63,7 +64,7 @@ public class PackMetaDataBuilder {
         this.authors.addAll(Objects.requireNonNull(authors));
         return this;
     }
-    public PackMetaDataBuilder setAuthors(List<String> authors) {
+    public PackMetaDataBuilder withAuthors(List<String> authors) {
         this.authors.clear();
         this.authors.addAll(Objects.requireNonNull(authors));
         return this;
@@ -80,7 +81,7 @@ public class PackMetaDataBuilder {
     }
 
     public PackMetaData build() {
-        return new ImmutableMetaData(
+        ImmutableMetaData data = new ImmutableMetaData(
                 id,
                 Optional.ofNullable(name),
                 Optional.ofNullable(description),
@@ -88,5 +89,7 @@ public class PackMetaDataBuilder {
                 List.copyOf(authors),
                 List.copyOf(dependencies)
         );
+        KubeLoaderServerEventHandler.putMetaData(id, data);
+        return data;
     }
 }

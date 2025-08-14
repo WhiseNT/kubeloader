@@ -22,7 +22,7 @@ public abstract class EntityMixin {
                         ,itemEntity.getItem().getItem(),
                         new ItemEntityEventJS(itemEntity, self.level(), self.position()));
             } else {
-                ItemEntityEvents.ITEM_ENTITY_REMOVED.post(
+                 ItemEntityEvents.ITEM_ENTITY_REMOVED.post(
                         ScriptType.SERVER
                         ,itemEntity.getItem().getItem(),
                         new ItemEntityEventJS(itemEntity, self.level(), self.position()));

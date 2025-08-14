@@ -1,6 +1,7 @@
 package com.whisent.kubeloader;
 
 import com.whisent.kubeloader.definition.inject.SortablePacksHolder;
+import com.whisent.kubeloader.event.KubeLoaderServerEventHandler;
 import com.whisent.kubeloader.event.kjs.BlockEntityEvents;
 import com.whisent.kubeloader.event.kjs.ItemEntityEvents;
 import com.whisent.kubeloader.event.kjs.KubeLoaderEvents;
@@ -40,6 +41,10 @@ public class KubeLoaderPlugin extends KubeJSPlugin {
         event.add("KLUtils", KLUtil.class);
         event.add("ModGen", PackModGenerator.class);
         event.add("PackGen", ContentPackGenerator.class);
+        if (event.getType() == ScriptType.SERVER) {
+            KubeLoaderServerEventHandler.init();
+        }
+
         BlockEntityEvents.GROUP.register();
         ItemEntityEvents.GROUP.register();
         KubeLoaderEvents.GROUP.register();
