@@ -1,7 +1,7 @@
 package com.whisent.kubeloader.event;
 
-import com.whisent.kubeloader.event.kjs.BlockEntityEvents;
 import com.whisent.kubeloader.event.kjs.BlockEntityEventJS;
+import com.whisent.kubeloader.event.kjs.BlockEntityEvents;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.LevelAccessor;
 import net.minecraft.world.level.block.Block;

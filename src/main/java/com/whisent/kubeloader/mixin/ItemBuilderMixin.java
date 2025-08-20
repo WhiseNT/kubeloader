@@ -5,7 +5,6 @@ import dev.latvian.mods.kubejs.item.ItemBuilder;
 import net.minecraft.nbt.CompoundTag;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
-import org.spongepowered.asm.mixin.injection.Inject;
 
 @Mixin(value = ItemBuilder.class)
 public class ItemBuilderMixin implements NbtBuilder {

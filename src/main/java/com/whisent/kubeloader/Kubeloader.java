@@ -105,6 +105,7 @@ public class Kubeloader {
             }
         }
     }
+    @Deprecated
     private void InjectFiles(Path PackPath,String type) {
         try (DirectoryStream<Path> namespaces = Files.newDirectoryStream(PackPath)) {
             for (Path namespaceDir : namespaces) {

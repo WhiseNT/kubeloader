@@ -31,6 +31,7 @@ public class ScriptFileMixin {
 
     @Inject(method = "load", at = @At("HEAD"))
     public void kubeLoader$load(CallbackInfo ci) {
+        /*
         System.out.println("正在加载文件：");
         String mixinPath = ((ScriptFileInfoInterface) this.info).getMixinProperty();
         System.out.println(((ScriptFileInfoInterface) this.info).getMixinProperty());
@@ -53,8 +54,10 @@ public class ScriptFileMixin {
             System.out.println(reconstructed);
             System.out.println("提取代码");
             converter.findFunctionNodesByName(root, "onTest");
-        }
 
+
+        }
+        */
 
     }
 

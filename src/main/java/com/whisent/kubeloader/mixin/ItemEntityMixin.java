@@ -3,12 +3,10 @@ package com.whisent.kubeloader.mixin;
 import com.whisent.kubeloader.event.kjs.ItemEntityEventJS;
 import com.whisent.kubeloader.event.kjs.ItemEntityEvents;
 import com.whisent.kubeloader.event.kjs.ItemEntityHurtEventJS;
-import dev.latvian.mods.kubejs.event.EventExceptionHandler;
-import dev.latvian.mods.kubejs.event.EventJS;
+
 import dev.latvian.mods.kubejs.event.EventResult;
 
 import dev.latvian.mods.kubejs.script.ScriptType;
-import dev.latvian.mods.kubejs.script.ScriptTypeHolder;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.item.ItemEntity;
 

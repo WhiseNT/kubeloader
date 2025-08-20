@@ -1,7 +1,5 @@
 package com.whisent.kubeloader.utils.mod_gen;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 import com.mojang.serialization.JsonOps;
 import com.whisent.kubeloader.Kubeloader;
@@ -19,10 +17,8 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.List;
-import java.util.Optional;
 
 public class ContentPackGenerator {
     public static PackMetaDataBuilder createMetaData(String packId) {

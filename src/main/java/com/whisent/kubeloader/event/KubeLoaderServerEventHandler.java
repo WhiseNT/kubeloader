@@ -17,7 +17,6 @@ import net.minecraft.network.chat.Component;
 import net.minecraftforge.event.RegisterCommandsEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
-import org.openjdk.nashorn.internal.runtime.regexp.joni.constants.Arguments;
 
 import java.io.IOException;
 import java.util.Map;

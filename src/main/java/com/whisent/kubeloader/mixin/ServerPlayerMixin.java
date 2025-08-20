@@ -2,7 +2,6 @@ package com.whisent.kubeloader.mixin;
 
 import dev.latvian.mods.rhino.util.HideFromJS;
 import dev.latvian.mods.rhino.util.RemapForJS;
-import dev.latvian.mods.rhino.util.RemapPrefixForJS;
 import net.minecraft.core.Holder;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.*;

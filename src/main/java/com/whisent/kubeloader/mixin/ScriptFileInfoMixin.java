@@ -33,6 +33,7 @@ public abstract class ScriptFileInfoMixin implements ScriptFileInfoInterface {
             Pattern.compile("^//mixin\\s*\\(\\s*value\\s*=\\s*\"([^\"]+)\"\\s*\\)");
     @Inject(method = "preload", at = @At("HEAD"))
     public void kubeLoader$preload(ScriptSource source, CallbackInfo ci) throws IOException {
+        /*
         lines = source.readSource((ScriptFileInfo) ((Object)this)).toArray(UtilsJS.EMPTY_STRING_ARRAY);
 
         for (int i = 0; i < this.lines.length; i++) {
@@ -53,6 +54,8 @@ public abstract class ScriptFileInfoMixin implements ScriptFileInfoInterface {
             }
             this.mixin = ((ScriptFileInfo) ((Object)this)).getProperty("mixin", "");
         }
+
+         */
     }
 
     public String getMixinProperty() {
