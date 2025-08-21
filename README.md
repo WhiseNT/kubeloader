@@ -1,3 +1,6 @@
+# Wiki
+English version: https://github.com/WhiseNT/kubeloader_wiki-en
+
 # KubeLoader 概述
 
 **KubeLoader** 不只是一个 KubeJS 附属模组，它更是一个面向未来的**KubeJS模块化开发平台**。
