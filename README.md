@@ -1,5 +1,7 @@
-# Wiki
+# Important Info
 English version: https://github.com/WhiseNT/kubeloader_wiki-en
+
+If you have any questions with this mod,please send an issue.
 
 # KubeLoader 概述
 
