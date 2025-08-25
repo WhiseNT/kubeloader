@@ -30,6 +30,7 @@ public class KubeLoaderPlugin extends KubeJSPlugin {
         //RegistryInfo.ITEM.addType("dynamic_pickaxe", DynamicPickAxeBuilder.class, DynamicPickAxeBuilder::new);
         //RegistryInfo.ITEM.addType("dynamic_main", DynamicTieredItemBuilder.class, DynamicTieredItemBuilder::new);
         RegistryInfo.ITEM.addType("bow", BowItemBuilder.class, BowItemBuilder::new);
+        KubeLoaderEvents.GROUP.register();
     }
 
     @Override
@@ -47,7 +48,7 @@ public class KubeLoaderPlugin extends KubeJSPlugin {
 
         BlockEntityEvents.GROUP.register();
         ItemEntityEvents.GROUP.register();
-        KubeLoaderEvents.GROUP.register();
+
 
     }
 
