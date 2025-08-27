@@ -1,13 +1,10 @@
 package com.whisent.kubeloader.mixin;
 
-import com.whisent.kubeloader.ast.AstToSourceConverter;
-import com.whisent.kubeloader.impl.mixin_interface.ScriptFileInfoInterface;
 import dev.latvian.mods.kubejs.script.ScriptFile;
 import dev.latvian.mods.kubejs.script.ScriptFileInfo;
 import dev.latvian.mods.kubejs.script.ScriptPack;
 import dev.latvian.mods.kubejs.script.ScriptSource;
 import dev.latvian.mods.rhino.Node;
-import dev.latvian.mods.rhino.Parser;
 import dev.latvian.mods.rhino.ast.*;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
@@ -17,7 +14,6 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.util.HashSet;
-import java.util.Objects;
 import java.util.Set;
 
 @Mixin(value = ScriptFile.class, remap = false)
@@ -31,6 +27,10 @@ public class ScriptFileMixin {
 
     @Inject(method = "load", at = @At("HEAD"))
     public void kubeLoader$load(CallbackInfo ci) {
+        // 脚本加载检查已移至ScriptManagerMixin的loadFile方法中处理
+
+
+        
         /*
         System.out.println("正在加载文件：");
         String mixinPath = ((ScriptFileInfoInterface) this.info).getMixinProperty();
@@ -58,7 +58,6 @@ public class ScriptFileMixin {
 
         }
         */
-
     }
 
     private void printAstTree(AstNode node, int indentLevel) {

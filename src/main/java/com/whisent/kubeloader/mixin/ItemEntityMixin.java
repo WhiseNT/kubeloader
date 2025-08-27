@@ -3,13 +3,10 @@ package com.whisent.kubeloader.mixin;
 import com.whisent.kubeloader.event.kjs.ItemEntityEventJS;
 import com.whisent.kubeloader.event.kjs.ItemEntityEvents;
 import com.whisent.kubeloader.event.kjs.ItemEntityHurtEventJS;
-
 import dev.latvian.mods.kubejs.event.EventResult;
-
 import dev.latvian.mods.kubejs.script.ScriptType;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.item.ItemEntity;
-
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.gameevent.GameEvent;
 import net.minecraft.world.phys.Vec3;
@@ -17,7 +14,6 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
-
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 

@@ -2,14 +2,12 @@ package com.whisent.kubeloader.item.dynamic;
 
 import com.whisent.kubeloader.item.dynamic.definition.DynamicBuilder;
 import dev.latvian.mods.kubejs.item.ItemBuilder;
-import dev.latvian.mods.kubejs.item.custom.SwordItemBuilder;
 import dev.latvian.mods.kubejs.typings.Info;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Tier;
 
 import java.util.HashMap;
-import java.util.Map;
 
 public class DynamicTieredItemBuilder extends ItemBuilder implements DynamicBuilder {
     public HashMap<String, Tier> enableTierMap = new HashMap<String, Tier>();

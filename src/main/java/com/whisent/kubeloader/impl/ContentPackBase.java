@@ -37,4 +37,5 @@ public abstract class ContentPackBase implements ContentPack {
     public PackMetaData getMetaData() {
         return metaData;
     }
+
 }

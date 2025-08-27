@@ -11,7 +11,10 @@ import net.minecraft.world.item.UseAnim;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.function.*;
+import java.util.function.Consumer;
+import java.util.function.Function;
+import java.util.function.Predicate;
+import java.util.function.Supplier;
 @Deprecated
 public class BowItemBuilder extends ItemBuilder {
     private int useDuration = 72000;

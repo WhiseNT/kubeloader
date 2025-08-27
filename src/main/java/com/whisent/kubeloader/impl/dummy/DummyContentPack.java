@@ -26,7 +26,10 @@ public class DummyContentPack implements ContentPack {
 
     @Override
     public @Nullable ScriptPack getPack(PackLoadingContext context) {
-        return toPack.apply(context);
+        if (toPack != null) {
+            return toPack.apply(context);
+        }
+        return null;
     }
 
     @Override

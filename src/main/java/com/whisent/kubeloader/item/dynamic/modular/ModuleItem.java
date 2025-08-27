@@ -1,7 +1,5 @@
 package com.whisent.kubeloader.item.dynamic.modular;
 
-import com.google.common.collect.Multimap;
-import it.unimi.dsi.fastutil.Hash;
 import net.minecraft.world.entity.ai.attributes.Attribute;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.item.Item;

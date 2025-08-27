@@ -2,9 +2,7 @@ package com.whisent.kubeloader.utils;
 
 import dev.latvian.mods.kubejs.script.ScriptType;
 import dev.latvian.mods.kubejs.util.ConsoleJS;
-import net.minecraftforge.event.level.ChunkEvent;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 

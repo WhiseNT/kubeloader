@@ -32,4 +32,8 @@ public interface ContentPack {
         pack.scripts.sort(null);
         return pack;
     }
+
+    default void loadCommonScripts(ScriptPack pack, PackLoadingContext context) {
+
+    }
 }

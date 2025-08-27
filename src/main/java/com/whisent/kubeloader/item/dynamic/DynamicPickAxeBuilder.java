@@ -3,7 +3,6 @@ package com.whisent.kubeloader.item.dynamic;
 import com.whisent.kubeloader.item.dynamic.definition.DynamicBuilder;
 import dev.latvian.mods.kubejs.item.ItemBuilder;
 import dev.latvian.mods.kubejs.item.custom.PickaxeItemBuilder;
-import dev.latvian.mods.kubejs.item.custom.SwordItemBuilder;
 import dev.latvian.mods.kubejs.typings.Info;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;

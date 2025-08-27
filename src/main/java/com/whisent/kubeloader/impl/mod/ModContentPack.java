@@ -5,7 +5,9 @@ import com.whisent.kubeloader.definition.ContentPackUtils;
 import com.whisent.kubeloader.definition.PackLoadingContext;
 import com.whisent.kubeloader.definition.meta.PackMetaData;
 import com.whisent.kubeloader.impl.ContentPackBase;
-import dev.latvian.mods.kubejs.script.*;
+import dev.latvian.mods.kubejs.script.ScriptFileInfo;
+import dev.latvian.mods.kubejs.script.ScriptPack;
+import dev.latvian.mods.kubejs.script.ScriptSource;
 import net.minecraftforge.forgespi.language.IModInfo;
 import org.jetbrains.annotations.Nullable;
 
@@ -48,9 +50,33 @@ public class ModContentPack extends ContentPackBase {
                     };
                     context.loadFile(pack, fileInfo, scriptSource);
                 });
+            loadCommonScripts(pack, context);
             return pack;
         } catch (IOException e) {
             return null;
+        }
+    }
+
+    @Override
+    public void loadCommonScripts(ScriptPack pack, PackLoadingContext context) {
+        var commonPack = ContentPackUtils.createEmptyPack(context, id());
+        var prefix = Kubeloader.FOLDER_NAME + "/common_scripts/";
+        try (var file = new JarFile(mod.getOwningFile().getFile().getFilePath().toFile())) {
+            file.stream()
+                .filter(e -> !e.isDirectory())
+                .filter(e -> e.getName().endsWith(".js"))
+                .filter(e -> e.getName().startsWith(prefix))
+                .forEach(jarEntry -> {
+                    var fileInfo = new ScriptFileInfo(commonPack.info, jarEntry.getName());
+                    var scriptSource = (ScriptSource) info -> {
+                        var reader = new BufferedReader(new InputStreamReader(file.getInputStream(jarEntry)));
+                        return reader.lines().toList();
+                    };
+                    context.loadFile(pack, fileInfo, scriptSource);
+                });
+            pack.info.scripts.addAll(commonPack.info.scripts);
+        } catch (IOException e) {
+            // TODO: log
         }
     }
 

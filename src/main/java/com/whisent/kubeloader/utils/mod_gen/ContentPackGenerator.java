@@ -33,7 +33,7 @@ public class ContentPackGenerator {
         String packId = metaData.id();
         Path packDir = Kubeloader.PackPath.resolve(packId);
         Files.createDirectories(packDir);
-        List<String> dirs =List.of("server_scripts", "client_scripts", "startup_scripts", "assets", "data");
+        List<String> dirs =List.of("server_scripts", "client_scripts", "startup_scripts","common_scripts", "assets", "data");
         dirs.forEach(dir -> {
             try {
                 Files.createDirectories(packDir.resolve(dir));

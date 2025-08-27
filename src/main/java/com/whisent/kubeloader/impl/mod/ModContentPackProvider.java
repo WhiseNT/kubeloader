@@ -4,11 +4,15 @@ import com.whisent.kubeloader.Kubeloader;
 import com.whisent.kubeloader.definition.ContentPack;
 import com.whisent.kubeloader.definition.ContentPackProvider;
 import com.whisent.kubeloader.definition.ContentPackUtils;
+import net.minecraftforge.fml.loading.FMLLoader;
 import net.minecraftforge.forgespi.language.IModInfo;
 import org.jetbrains.annotations.NotNull;
 
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.*;
+import java.util.Collection;
+import java.util.List;
 import java.util.jar.JarFile;
 
 /**
@@ -43,8 +47,8 @@ public class ModContentPackProvider implements ContentPackProvider {
                 return null;
             } else if (entry.isDirectory()) {
                 throw new RuntimeException(String.format(
-                    "%s should be a file, but got a directory",
-                    Kubeloader.META_DATA_FILE_NAME
+                        "%s should be a file, but got a directory",
+                        Kubeloader.META_DATA_FILE_NAME
                 ));
             }
             return new ModContentPack(mod, ContentPackUtils.loadMetaDataOrThrow(file.getInputStream(entry)));

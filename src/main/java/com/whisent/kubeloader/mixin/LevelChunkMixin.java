@@ -1,9 +1,9 @@
 package com.whisent.kubeloader.mixin;
 
 import com.whisent.kubeloader.event.forgeevent.BlockEntityAddedEvent;
-import com.whisent.kubeloader.event.kjs.BlockEntityEvents;
 import com.whisent.kubeloader.event.forgeevent.BlockEntityRemovedEvent;
 import com.whisent.kubeloader.event.kjs.BlockEntityEventJS;
+import com.whisent.kubeloader.event.kjs.BlockEntityEvents;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;

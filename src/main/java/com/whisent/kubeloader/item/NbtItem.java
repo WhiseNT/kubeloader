@@ -1,6 +1,5 @@
 package com.whisent.kubeloader.item;
 
-import dev.latvian.mods.kubejs.core.ItemKJS;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;

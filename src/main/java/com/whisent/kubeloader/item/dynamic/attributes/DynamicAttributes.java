@@ -1,7 +1,5 @@
 package com.whisent.kubeloader.item.dynamic.attributes;
 
-import net.minecraft.client.OptionInstance;
-
 public interface DynamicAttributes {
     public static final String TIER_TAG = "tool_tier";
     public static final String ATTACK_BONUS_TAG = "attack_bonus";

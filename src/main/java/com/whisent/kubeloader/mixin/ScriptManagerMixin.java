@@ -2,6 +2,7 @@ package com.whisent.kubeloader.mixin;
 
 import com.whisent.kubeloader.Kubeloader;
 import com.whisent.kubeloader.definition.ContentPack;
+import com.whisent.kubeloader.definition.ContentPackUtils;
 import com.whisent.kubeloader.definition.PackLoadingContext;
 import com.whisent.kubeloader.definition.inject.SortablePacksHolder;
 import com.whisent.kubeloader.impl.ContentPackProviders;
@@ -9,18 +10,30 @@ import com.whisent.kubeloader.impl.depends.DependencyReport;
 import com.whisent.kubeloader.impl.depends.PackDependencyBuilder;
 import com.whisent.kubeloader.impl.depends.PackDependencyValidator;
 import com.whisent.kubeloader.impl.depends.SortableContentPack;
+import com.whisent.kubeloader.impl.mixin_interface.ScriptFileInfoInterface;
 import com.whisent.kubeloader.utils.topo.TopoNotSolved;
 import com.whisent.kubeloader.utils.topo.TopoPreconditionFailed;
 import com.whisent.kubeloader.utils.topo.TopoSort;
 import dev.latvian.mods.kubejs.KubeJS;
-import dev.latvian.mods.kubejs.script.*;
+import dev.latvian.mods.kubejs.KubeJSPaths;
+import dev.latvian.mods.kubejs.script.ScriptFileInfo;
+import dev.latvian.mods.kubejs.script.ScriptManager;
+import dev.latvian.mods.kubejs.script.ScriptPack;
+import dev.latvian.mods.kubejs.script.ScriptSource;
 import net.minecraft.network.chat.Component;
 import org.jetbrains.annotations.NotNull;
-import org.spongepowered.asm.mixin.*;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-import java.util.*;
+import java.io.IOException;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -56,11 +69,35 @@ public abstract class ScriptManagerMixin implements SortablePacksHolder {
 
             List<ScriptPack> scriptPacks;
             if (KubeJS.MOD_ID.equals(namespace)) {
+                var scriptPath =  KubeJSPaths.DIRECTORY.resolve("common_scripts");
+
                 scriptPacks = original
                     .values()
                     .stream()
                     .filter(p -> !indexed.containsKey(p.info.namespace))
                     .toList();
+                scriptPacks.forEach(p -> {
+                    var virtualPack = ContentPackUtils.createEmptyPack(context, contentPack.id());
+                    KubeJS.loadScripts(virtualPack,scriptPath, "");
+                    for (var fileInfo : virtualPack.info.scripts) {
+                        var scriptSource = (ScriptSource.FromPath) (info) -> scriptPath.resolve(info.file);
+                        if (fileInfo instanceof ScriptFileInfoInterface info) {
+                            try {
+                                if (info.shouldLoad((ScriptManager)(Object)this,scriptSource)) {
+                                    System.out.println("是否加载"+info.shouldLoad((ScriptManager)(Object)this,scriptSource));
+                                    context.loadFile(p, fileInfo, scriptSource);
+                                }
+                            } catch (IOException e) {
+                                throw new RuntimeException(e);
+                            }
+                        }
+
+                    }
+                    if (p != null) {
+                        p.info.scripts.addAll(virtualPack.info.scripts);
+                    }
+                });
+
             } else if (scriptPack != null) {
                 scriptPacks = List.of(contentPack.postProcessPack(context, scriptPack));
             } else {
@@ -92,6 +129,17 @@ public abstract class ScriptManagerMixin implements SortablePacksHolder {
             // TODO: 决定是否要在有错误发生的时候 不 加载 ContentPack
             return original.values();
         }
+    }
+
+    @Inject(method = "loadFile", at = @At(value = "TAIL", target = "Ldev/latvian/mods/kubejs/script/ScriptFileInfo;preload(Ldev/latvian/mods/kubejs/script/ScriptSource;)V", shift = At.Shift.AFTER),cancellable = true)
+    private void kubeLoader$loadFile(ScriptPack pack, ScriptFileInfo fileInfo, ScriptSource source, CallbackInfo ci) {
+
+    }
+
+    @Inject(method = "loadFromDirectory", at = @At("RETURN"))
+    private void injectContentPacks(CallbackInfo ci) {
+        var context = new PackLoadingContext((ScriptManager) (Object) this);
+
     }
 
     @Override

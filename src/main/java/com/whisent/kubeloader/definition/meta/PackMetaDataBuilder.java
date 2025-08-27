@@ -1,20 +1,14 @@
 package com.whisent.kubeloader.definition.meta;
 
-import com.whisent.kubeloader.definition.meta.dependency.DependencySource;
-import com.whisent.kubeloader.definition.meta.dependency.DependencyType;
-import com.whisent.kubeloader.definition.meta.dependency.LoadOrdering;
 import com.whisent.kubeloader.definition.meta.dependency.PackDependency;
 import com.whisent.kubeloader.event.KubeLoaderServerEventHandler;
 import com.whisent.kubeloader.impl.depends.ImmutableMetaData;
 import org.apache.maven.artifact.versioning.ArtifactVersion;
 import org.apache.maven.artifact.versioning.DefaultArtifactVersion;
-import org.apache.maven.artifact.versioning.VersionRange;
-
-import java.util.Objects;
-import java.util.Optional;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 public class PackMetaDataBuilder {
