@@ -15,4 +15,5 @@ public interface AccessScriptManager {
 
     @Invoker("loadFile")
     void kubeLoader$loadFile(ScriptPack pack, ScriptFileInfo fileInfo, ScriptSource source);
+
 }

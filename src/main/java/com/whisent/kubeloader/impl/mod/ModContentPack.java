@@ -38,6 +38,7 @@ public class ModContentPack extends ContentPackBase {
             if (parent == null || !parent.isDirectory()) {
                 return null;
             }
+
             file.stream()
                 .filter(e -> !e.isDirectory())
                 .filter(e -> e.getName().endsWith(".js"))
@@ -50,7 +51,7 @@ public class ModContentPack extends ContentPackBase {
                     };
                     context.loadFile(pack, fileInfo, scriptSource);
                 });
-            loadCommonScripts(pack, context);
+
             return pack;
         } catch (IOException e) {
             return null;

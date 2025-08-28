@@ -49,8 +49,8 @@ public class PathContentPack implements ContentPack {
     private PackMetaData loadMetaData(Path base) {
         try (var reader = Files.newBufferedReader(base.resolve(Kubeloader.META_DATA_FILE_NAME))) {
             var result = PackMetaData.CODEC.parse(
-                JsonOps.INSTANCE,
-                Kubeloader.GSON.fromJson(reader, JsonObject.class)
+                    JsonOps.INSTANCE,
+                    Kubeloader.GSON.fromJson(reader, JsonObject.class)
             );
             if (result.result().isPresent()) {
                 return result.result().get();
@@ -81,7 +81,7 @@ public class PathContentPack implements ContentPack {
             var scriptSource = (ScriptSource.FromPath) (info) -> scriptPath.resolve(info.file);
             context.loadFile(pack, fileInfo, scriptSource);
         }
-        loadCommonScripts(pack, context);
+        //loadCommonScripts(pack, context);
         return pack;
     }
 
@@ -104,8 +104,8 @@ public class PathContentPack implements ContentPack {
         if (Files.isDirectory(path)) {
             try (var paths = Files.list(path)) {
                 paths.filter(Files::isDirectory)
-                     .map(p -> p.getFileName().toString())
-                     .forEach(namespaces::add);
+                        .map(p -> p.getFileName().toString())
+                        .forEach(namespaces::add);
             } catch (IOException e) {
                 Kubeloader.LOGGER.error("Failed to list namespaces in path: {}", path, e);
             }
@@ -117,11 +117,11 @@ public class PathContentPack implements ContentPack {
     public IoSupplier<InputStream> getResource(PackType packType, ResourceLocation location) {
         Path path = getPathForType(packType);
         Path resourcePath = path.resolve(location.getNamespace()).resolve(location.getPath());
-        
+
         if (Files.exists(resourcePath)) {
             return IoSupplier.create(resourcePath);
         }
-        
+
         return null;
     }
 

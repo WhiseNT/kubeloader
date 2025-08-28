@@ -43,14 +43,14 @@ public class Kubeloader
     // Define mod id in a common place for everything to reference
     public static final String MODID = "kubeloader";
     public static final String FOLDER_NAME = "contentpacks";
-    public static final String COMMON_SCRIPTS = "common_scripts";
+    //public static final String COMMON_SCRIPTS = "common_scripts";
     public static final String CONFIG_FOLDER = "config";
     public static final Logger LOGGER = LogManager.getLogger(MODID);
     public static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     public static final String META_DATA_FILE_NAME = "contentpack.json";
 
     public static Path PackPath = KubeJSPaths.DIRECTORY.resolve(FOLDER_NAME);
-    public static Path CommonPath = KubeJSPaths.DIRECTORY.resolve(COMMON_SCRIPTS);
+    //public static Path CommonPath = KubeJSPaths.DIRECTORY.resolve(COMMON_SCRIPTS);
     public static Path ConfigPath = KubeJSPaths.DIRECTORY.resolve(CONFIG_FOLDER);
 
     public Kubeloader() throws IOException {
@@ -62,9 +62,6 @@ public class Kubeloader
         //将resource写入,先清理资源文件再进行写入
         if (Files.notExists(PackPath)){
             Files.createDirectories(PackPath);
-        }
-        if (Files.notExists(CommonPath)){
-            Files.createDirectories(CommonPath);
         }
         if (Files.notExists(ConfigPath)){
             Files.createDirectories(ConfigPath);

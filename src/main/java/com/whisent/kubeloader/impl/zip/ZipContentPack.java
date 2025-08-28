@@ -43,6 +43,7 @@ public class ZipContentPack extends ContentPackBase {
     @Nullable
     protected ScriptPack createPack(PackLoadingContext context) {
         var pack = ContentPackUtils.createEmptyPack(context, id());
+        //loadCommonScripts(pack, context);
         var prefix = context.folderName() + '/';
         try (var zipFile = new ZipFile(path.toFile())) {
             zipFile.stream()
@@ -58,7 +59,7 @@ public class ZipContentPack extends ContentPackBase {
                     };
                     context.loadFile(pack, zipFileInfo, scriptSource);
                 });
-            loadCommonScripts(pack, context);
+
             return pack;
         } catch (IOException e) {
             // TODO: log

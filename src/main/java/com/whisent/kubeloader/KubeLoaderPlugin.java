@@ -1,6 +1,7 @@
 package com.whisent.kubeloader;
 
 import com.whisent.kubeloader.definition.inject.SortablePacksHolder;
+import com.whisent.kubeloader.mixinjs.dsl.ShadowMixinObject;
 import com.whisent.kubeloader.event.KubeLoaderServerEventHandler;
 import com.whisent.kubeloader.event.kjs.BlockEntityEvents;
 import com.whisent.kubeloader.event.kjs.ItemEntityEvents;
@@ -40,6 +41,7 @@ public class KubeLoaderPlugin extends KubeJSPlugin {
         event.add("KLUtils", KLUtil.class);
         event.add("ModGen", PackModGenerator.class);
         event.add("PackGen", ContentPackGenerator.class);
+        event.add("Mixin", ShadowMixinObject.class);
         if (event.getType() == ScriptType.SERVER) {
             KubeLoaderServerEventHandler.init();
         }

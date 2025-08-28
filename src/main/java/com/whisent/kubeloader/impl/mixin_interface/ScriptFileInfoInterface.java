@@ -6,9 +6,10 @@ import dev.latvian.mods.kubejs.script.ScriptSource;
 import java.io.IOException;
 
 public interface ScriptFileInfoInterface {
-    String getMixinProperty();
 
-    boolean isNeedToLoad();
+    String getTargetPath();
+
+    void setTargetPath(String targetPath);
     
     /**
      * 检查脚本是否应该在当前环境加载

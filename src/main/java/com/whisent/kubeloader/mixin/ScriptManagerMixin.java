@@ -2,50 +2,50 @@ package com.whisent.kubeloader.mixin;
 
 import com.whisent.kubeloader.Kubeloader;
 import com.whisent.kubeloader.definition.ContentPack;
-import com.whisent.kubeloader.definition.ContentPackUtils;
 import com.whisent.kubeloader.definition.PackLoadingContext;
 import com.whisent.kubeloader.definition.inject.SortablePacksHolder;
+import com.whisent.kubeloader.mixinjs.dsl.MixinDSL;
 import com.whisent.kubeloader.impl.ContentPackProviders;
 import com.whisent.kubeloader.impl.depends.DependencyReport;
 import com.whisent.kubeloader.impl.depends.PackDependencyBuilder;
 import com.whisent.kubeloader.impl.depends.PackDependencyValidator;
 import com.whisent.kubeloader.impl.depends.SortableContentPack;
-import com.whisent.kubeloader.impl.mixin_interface.ScriptFileInfoInterface;
+import com.whisent.kubeloader.impl.mixin_interface.ScriptManagerInterface;
 import com.whisent.kubeloader.utils.topo.TopoNotSolved;
 import com.whisent.kubeloader.utils.topo.TopoPreconditionFailed;
 import com.whisent.kubeloader.utils.topo.TopoSort;
 import dev.latvian.mods.kubejs.KubeJS;
-import dev.latvian.mods.kubejs.KubeJSPaths;
-import dev.latvian.mods.kubejs.script.ScriptFileInfo;
-import dev.latvian.mods.kubejs.script.ScriptManager;
-import dev.latvian.mods.kubejs.script.ScriptPack;
-import dev.latvian.mods.kubejs.script.ScriptSource;
+import dev.latvian.mods.kubejs.script.*;
 import net.minecraft.network.chat.Component;
 import org.jetbrains.annotations.NotNull;
+import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-import java.io.IOException;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
 
 @Mixin(value = ScriptManager.class,remap = false)
-public abstract class ScriptManagerMixin implements SortablePacksHolder {
+public abstract class ScriptManagerMixin implements SortablePacksHolder, ScriptManagerInterface {
 
+    @Shadow @Final public Map<String, ScriptPack> packs;
     @Unique
     private Map<String, SortableContentPack> kubeLoader$sortablePacks;
 
+    @Unique
+    private Map<String, List<MixinDSL>> kubeLoader$mixinDSLs = new HashMap<>();
+
     @Redirect(method = "load", at = @At(value = "INVOKE", target = "Ljava/util/Map;values()Ljava/util/Collection;"))
     private Collection<ScriptPack> injectPacks(Map<String, ScriptPack> original) {
+        //清空mixin数据
+        getKubeLoader$mixinDSLs().clear();
         var context = new PackLoadingContext((ScriptManager) (Object) this);
         var packs = ContentPackProviders.getPacks();
 
@@ -69,35 +69,11 @@ public abstract class ScriptManagerMixin implements SortablePacksHolder {
 
             List<ScriptPack> scriptPacks;
             if (KubeJS.MOD_ID.equals(namespace)) {
-                var scriptPath =  KubeJSPaths.DIRECTORY.resolve("common_scripts");
-
                 scriptPacks = original
                     .values()
                     .stream()
                     .filter(p -> !indexed.containsKey(p.info.namespace))
                     .toList();
-                scriptPacks.forEach(p -> {
-                    var virtualPack = ContentPackUtils.createEmptyPack(context, contentPack.id());
-                    KubeJS.loadScripts(virtualPack,scriptPath, "");
-                    for (var fileInfo : virtualPack.info.scripts) {
-                        var scriptSource = (ScriptSource.FromPath) (info) -> scriptPath.resolve(info.file);
-                        if (fileInfo instanceof ScriptFileInfoInterface info) {
-                            try {
-                                if (info.shouldLoad((ScriptManager)(Object)this,scriptSource)) {
-                                    System.out.println("是否加载"+info.shouldLoad((ScriptManager)(Object)this,scriptSource));
-                                    context.loadFile(p, fileInfo, scriptSource);
-                                }
-                            } catch (IOException e) {
-                                throw new RuntimeException(e);
-                            }
-                        }
-
-                    }
-                    if (p != null) {
-                        p.info.scripts.addAll(virtualPack.info.scripts);
-                    }
-                });
-
             } else if (scriptPack != null) {
                 scriptPacks = List.of(contentPack.postProcessPack(context, scriptPack));
             } else {
@@ -136,10 +112,8 @@ public abstract class ScriptManagerMixin implements SortablePacksHolder {
 
     }
 
-    @Inject(method = "loadFromDirectory", at = @At("RETURN"))
+    @Inject(method = "loadFromDirectory", at = @At("HEAD"))
     private void injectContentPacks(CallbackInfo ci) {
-        var context = new PackLoadingContext((ScriptManager) (Object) this);
-
     }
 
     @Override
@@ -157,4 +131,10 @@ public abstract class ScriptManagerMixin implements SortablePacksHolder {
         return report;
     }
 
+    public Map<String, List<MixinDSL>> getKubeLoader$mixinDSLs() {
+        return kubeLoader$mixinDSLs;
+    }
+    public ScriptManager thiz() {
+        return (ScriptManager) (Object) this;
+    }
 }
