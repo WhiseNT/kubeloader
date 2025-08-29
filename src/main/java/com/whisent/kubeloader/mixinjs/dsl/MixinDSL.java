@@ -70,4 +70,17 @@ public class MixinDSL {
     public void setSourcePath(String sourcePath) {
         this.sourcePath = sourcePath;
     }
+
+    @Override
+    public String toString() {
+        return "MixinDSL{" +
+                "sourcePath='" + sourcePath + '\'' +
+                ", targetFile='" + targetFile + '\'' +
+                ", targetLocation='" + targetLocation + '\'' +
+                ", type='" + type + '\'' +
+                ", at='" + at + '\'' +
+                ", actionCode='" + actionCode + '\'' +
+                ", target='" + target + '\'' +
+                '}';
+    }
 }

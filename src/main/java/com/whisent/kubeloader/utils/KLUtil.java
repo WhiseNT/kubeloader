@@ -1,14 +1,10 @@
 package com.whisent.kubeloader.utils;
 
-import com.whisent.kubeloader.mixinjs.ast.AstToSourceConverter;
-import com.whisent.kubeloader.mixinjs.ast.JSInjector;
-import com.whisent.kubeloader.mixinjs.dsl.MixinDSL;
-import com.whisent.kubeloader.mixinjs.dsl.MixinDSLParser;
+import com.whisent.kubeloader.TestEventProbeFix;
+import com.whisent.kubeloader.mixinjs.dsl.*;
 import dev.latvian.mods.kubejs.util.UtilsJS;
 import dev.latvian.mods.rhino.Context;
 import dev.latvian.mods.rhino.Function;
-import dev.latvian.mods.rhino.Parser;
-import dev.latvian.mods.rhino.ast.AstRoot;
 import dev.latvian.mods.rhino.ast.FunctionNode;
 import dev.latvian.mods.rhino.util.HideFromJS;
 import net.minecraft.core.RegistryAccess;
@@ -23,59 +19,19 @@ import net.minecraft.world.phys.Vec3;
 
 import java.util.List;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class KLUtil {
     public static String test() {
-        String testCode = """
-                function test() {
-                    
-                    return "Hello, World!";
-                }
+        String testEvent = """
+                StartupEvents.init(event=>{
+                    console.log("test")
+                })
                 """;
-        String testMixinScript = """
-                Mixin.type('FunctionDeclaration')
-                    .at('head')
-                    .in('test')
-                    .inject(function() {
-                        console.log('123Inject')
-                    })
-                """;
+        TestEventProbeFix.main(null);
 
-        System.out.println("测试代码: " + testCode);
-        System.out.println("测试Mixin脚本: " + testMixinScript);
-
-        Parser parser = new Parser(Context.enter());
-        var converter = new AstToSourceConverter(testCode);
-        AstRoot root = parser.parse(testCode, "test.js", 0);
-
-        System.out.println("开始解析MixinDSL...");
-        List<MixinDSL> dsls = MixinDSLParser.parse(testMixinScript);
-        System.out.println("解析完成，DSL数量: " + dsls.size());
-
-        dsls.forEach(dsl -> {
-            System.out.println("DSL已解析: " + dsl.toString());
-            System.out.println("  targetFile: " + dsl.getTargetFile());
-            System.out.println("  targetLocation: " + dsl.getTargetLocation());
-            System.out.println("  type: " + dsl.getType());
-            System.out.println("  at: " + dsl.getAt());
-            System.out.println("  target: " + dsl.getTarget());
-            System.out.println("  action: " + dsl.getAction());
-        });
-
-        System.out.println("注入前的AST已解析");
-        String nextCode = """
-                let a = 0
-                function internalFunc(a) {
-                    a += 1
-                    return a
-                }
-                a = internalFunc(a)
-                """;
-        JSInjector.injectAtFunctionHead(root, "test","const InjectCode = KubeLoader");
-        String result = converter.convertAndFix(root,nextCode);
-        System.out.println("注入后的结果已生成: " + result);
-
-        return result;
+        return testEvent;
     }
 
     public static void test(String[] args) {

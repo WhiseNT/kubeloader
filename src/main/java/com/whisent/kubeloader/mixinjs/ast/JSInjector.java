@@ -1,6 +1,8 @@
 package com.whisent.kubeloader.mixinjs.ast;
 
+import com.whisent.kubeloader.mixinjs.dsl.EventProbe;
 import com.whisent.kubeloader.mixinjs.dsl.MixinDSL;
+import com.whisent.kubeloader.mixinjs.dsl.EventProbeTextProcessor;
 import dev.latvian.mods.rhino.Node;
 import dev.latvian.mods.rhino.Parser;
 import dev.latvian.mods.rhino.Context;
@@ -17,6 +19,20 @@ public class JSInjector {
      * @param dsl MixinDSL规则
      */
     public static void injectFromDSL(AstRoot root, MixinDSL dsl) {
+        // 根据DSL定义的类型进行注入
+        String type = dsl.getType();
+        if ("EventSubscription".equals(type)) {
+            // 处理EventSubscription类型的DSL
+            injectForEventSubscribe(root, dsl);
+            return;
+        }
+        
+        if ("EventProbe".equals(type)) {
+            // 处理EventProbe类型的DSL
+            injectForEventProbe(root, dsl);
+            return;
+        }
+        
         // 根据DSL定义的位置进行注入
         String position = dsl.getAt();
         if (position == null) {
@@ -26,14 +42,443 @@ public class JSInjector {
 
         switch (position) {
             case "head":
-                injectAtFunctionHead(root, dsl.getTarget(), "const InjectCode = KubeLoader");
+                injectAtFunctionHead(root, dsl.getTarget(), "const InjectCode = KubeLoader"); // 使用占位符代码而不是dsl.getAction()
                 break;
             case "tail":
-                injectAtFunctionTail(root, dsl.getTarget(), "const InjectCode = KubeLoader");
+                injectAtFunctionTail(root, dsl.getTarget(), "const InjectCode = KubeLoader"); // 使用占位符代码而不是dsl.getAction()
                 break;
             default:
                 System.out.println("未知的注入位置: " + position);
         }
+    }
+
+    /**
+     * 处理EventSubscription类型的DSL注入
+     * @param root AST根节点
+     * @param dsl EventSubscription类型的DSL规则
+     */
+    public static void injectForEventSubscribe(AstRoot root, MixinDSL dsl) {
+        System.out.println("处理EventSubscription类型的DSL注入");
+        
+        // 获取目标事件类型和注入代码
+        String targetEvent = dsl.getTarget();
+        String injectCode = dsl.getAction();
+        String position = dsl.getAt();
+        
+        // 查找对应的事件订阅代码位置并注入
+        injectAtEventSubscribe(root, targetEvent, injectCode, position);
+    }
+
+    /**
+     * 处理EventProbe类型的DSL注入
+     * @param root AST根节点
+     * @param dsl EventProbe类型的DSL规则
+     */
+    public static void injectForEventProbe(AstRoot root, MixinDSL dsl) {
+        System.out.println("处理EventProbe类型的DSL注入");
+        
+        // 获取目标事件类型和注入代码
+        String targetEvent = dsl.getTarget();
+        String injectCode = dsl.getAction(); // 使用EventProbe提取的函数体而不是占位符
+        String position = dsl.getAt();
+
+
+        // 查找对应的事件订阅代码位置并注入
+        injectAtEventSubscribe(root, targetEvent, injectCode, position);
+    }
+
+    /**
+     * 在指定事件订阅中注入代码
+     * @param root AST根节点
+     * @param eventName 事件名称
+     * @param injectCode 要注入的代码
+     * @param position 注入位置 (head/tail)
+     */
+    public static void injectAtEventSubscribe(AstRoot root, String eventName, String injectCode, String position) {
+        System.out.println("尝试在事件 " + eventName + " 订阅中注入代码: " + injectCode + " 位置: " + position);
+        
+        // 查找事件订阅调用
+        List<FunctionCall> targetCalls = findEventSubscribeCalls(root, eventName);
+        if (!targetCalls.isEmpty()) {
+            System.out.println("找到 " + targetCalls.size() + " 个事件订阅调用: " + eventName);
+            
+            // 创建要注入的语句
+            List<AstNode> injectNodes = parseCodeToNodes(injectCode);
+            System.out.println("解析出 " + injectNodes.size() + " 个节点");
+            
+            if (!injectNodes.isEmpty()) {
+                // 遍历所有匹配的事件订阅调用
+                for (FunctionCall targetCall : targetCalls) {
+                    // 获取函数体（事件回调函数）
+                    AstNode callbackFunction = getEventCallbackFunction(targetCall);
+                    if (callbackFunction != null) {
+                        System.out.println("回调函数类型: " + callbackFunction.getClass().getSimpleName());
+                        
+                        // 获取可插入代码的块
+                        Block targetBlock = getTargetBlock(callbackFunction);
+                        if (targetBlock != null) {
+                            if ("head".equals(position)) {
+                                // 在函数体开头插入注入的代码（逆序插入以保持语句顺序）
+                                for (int i = injectNodes.size() - 1; i >= 0; i--) {
+                                    System.out.println("添加节点到开头: " + injectNodes.get(i).getClass().getSimpleName());
+                                    // 创建节点副本并设置位置信息
+                                    AstNode nodeCopy = copyNode(injectNodes.get(i));
+                                    // 设置为新注入的节点（负位置）
+                                    nodeCopy.setPosition(-1);
+                                    nodeCopy.setLength(0);
+                                    targetBlock.addChildToFront(nodeCopy);
+                                }
+                                System.out.println("成功在事件 " + eventName + " 订阅开头注入代码");
+                            } else if ("tail".equals(position)) {
+                                // 在函数体末尾插入注入的代码
+                                for (AstNode node : injectNodes) {
+                                    System.out.println("添加节点到末尾: " + node.getClass().getSimpleName());
+                                    // 创建节点副本并设置位置信息
+                                    AstNode nodeCopy = copyNode(node);
+                                    // 设置为新注入的节点（负位置）
+                                    nodeCopy.setPosition(-1);
+                                    nodeCopy.setLength(0);
+                                    targetBlock.addChildToBack(nodeCopy);
+                                }
+                                System.out.println("成功在事件 " + eventName + " 订阅末尾注入代码");
+                            }
+                        } else {
+                            System.out.println("未找到可插入代码的目标块");
+                        }
+                    } else {
+                        System.out.println("未找到事件回调函数");
+                    }
+                }
+            } else {
+                System.out.println("没有解析出任何节点");
+            }
+        } else {
+            System.out.println("未找到事件订阅调用: " + eventName);
+            // 打印所有找到的事件调用，帮助调试
+            System.out.println("正在打印所有事件调用以帮助调试:");
+            printAllEventCalls(root);
+            
+            // 打印整个AST结构，帮助调试
+            System.out.println("正在打印整个AST结构以帮助调试:");
+            printASTStructure(root, 0);
+        }
+    }
+
+    /**
+     * 查找指定事件名称的所有订阅调用
+     * @param root AST根节点
+     * @param eventName 事件名称
+     * @return 找到的函数调用节点列表
+     */
+    private static List<FunctionCall> findEventSubscribeCalls(AstRoot root, String eventName) {
+        List<FunctionCall> calls = new ArrayList<>();
+        
+        // 遍历所有节点查找函数调用
+        for (Node child : root) {
+            if (child instanceof AstNode) {
+                findEventSubscribeCallsRecursive((AstNode) child, eventName, calls);
+            }
+        }
+        
+        return calls;
+    }
+    
+    /**
+     * 递归查找事件订阅调用
+     * @param node 当前节点
+     * @param eventName 事件名称
+     * @param calls 找到的调用列表
+     */
+    private static void findEventSubscribeCallsRecursive(AstNode node, String eventName, List<FunctionCall> calls) {
+        // 检查当前节点是否是函数调用
+        if (node instanceof FunctionCall) {
+            FunctionCall call = (FunctionCall) node;
+            AstNode target = call.getTarget();
+            
+            // 构建完整的事件表达式名称
+            String fullEventName = getFullEventName(target);
+            System.out.println("找到事件调用: " + fullEventName + " 类型: " + (target != null ? target.getClass().getSimpleName() : "null"));
+            
+            // 检查是否匹配目标事件名称
+            if (fullEventName != null && eventName.equals(fullEventName)) {
+                System.out.println("找到匹配的事件订阅调用: " + fullEventName);
+                calls.add(call);
+            }
+        }
+        
+        // 检查表达式语句中的函数调用
+        if (node instanceof ExpressionStatement) {
+            ExpressionStatement exprStmt = (ExpressionStatement) node;
+            AstNode expression = exprStmt.getExpression();
+            if (expression instanceof FunctionCall) {
+                FunctionCall call = (FunctionCall) expression;
+                AstNode target = call.getTarget();
+                
+                // 构建完整的事件表达式名称
+                String fullEventName = getFullEventName(target);
+                System.out.println("找到表达式中的事件调用: " + fullEventName + " 类型: " + (target != null ? target.getClass().getSimpleName() : "null"));
+                
+                // 检查是否匹配目标事件名称
+                if (fullEventName != null && eventName.equals(fullEventName)) {
+                    System.out.println("找到匹配的事件订阅调用: " + fullEventName);
+                    calls.add(call);
+                }
+            }
+        }
+
+        // 递归查找子节点
+        for (Node child : node) {
+            if (child instanceof AstNode) {
+                findEventSubscribeCallsRecursive((AstNode) child, eventName, calls);
+            }
+        }
+    }
+    
+    /**
+     * 获取完整的事件名称
+     * @param node 事件调用节点
+     * @return 完整的事件名称
+     */
+    private static String getFullEventName(AstNode node) {
+        if (node instanceof PropertyGet) {
+            PropertyGet propertyGet = (PropertyGet) node;
+            AstNode left = propertyGet.getLeft();
+            AstNode right = propertyGet.getRight();
+            
+            String leftName = getFullEventName(left);
+            String rightName = getFullEventName(right);
+            
+            if (leftName != null && rightName != null) {
+                return leftName + "." + rightName;
+            } else if (leftName != null) {
+                return leftName;
+            } else if (rightName != null) {
+                return rightName;
+            }
+        } else if (node instanceof Name) {
+            return ((Name) node).getIdentifier();
+        } else if (node instanceof FunctionCall) {
+            // 特殊处理函数调用
+            FunctionCall call = (FunctionCall) node;
+            return getFullEventName(call.getTarget());
+        }
+        
+        return null;
+    }
+    
+    /**
+     * 打印所有事件调用，帮助调试
+     * @param node AST节点
+     */
+    private static void printAllEventCalls(AstNode node) {
+        System.out.println("检查节点类型: " + node.getClass().getSimpleName());
+        
+        if (node instanceof FunctionCall) {
+            FunctionCall call = (FunctionCall) node;
+            AstNode target = call.getTarget();
+            String fullEventName = getFullEventName(target);
+            System.out.println("事件调用: " + fullEventName + 
+                " 目标类型: " + (target != null ? target.getClass().getSimpleName() : "null") +
+                " 参数数量: " + call.getArguments().size());
+                
+            // 打印参数类型信息
+            for (int i = 0; i < call.getArguments().size(); i++) {
+                AstNode arg = call.getArguments().get(i);
+                System.out.println("  参数 " + i + ": " + arg.getClass().getSimpleName());
+                
+                // 如果参数是函数，打印函数信息
+                if (arg instanceof FunctionNode) {
+                    FunctionNode func = (FunctionNode) arg;
+                    System.out.println("    函数名称: " + (func.getFunctionName() != null ? func.getFunctionName().getIdentifier() : "匿名函数"));
+                    System.out.println("    函数参数数量: " + func.getParamCount());
+                }
+            }
+        }
+        
+        // 递归查找子节点
+        for (Node child : node) {
+            if (child instanceof AstNode) {
+                printAllEventCalls((AstNode) child);
+            }
+        }
+    }
+    
+    /**
+     * 打印AST结构，帮助调试
+     * @param node AST节点
+     * @param depth 当前深度
+     */
+    private static void printASTStructure(AstNode node, int depth) {
+        if (node == null) return;
+        
+        // 打印当前节点信息
+        StringBuilder indent = new StringBuilder();
+        for (int i = 0; i < depth; i++) {
+            indent.append("  ");
+        }
+        
+        String nodeInfo = getNodeInfo(node);
+        
+        System.out.println(indent.toString() + node.getClass().getSimpleName() + 
+            " [" + node.getPosition() + ":" + (node.getPosition() + node.getLength()) + "]" +
+            " '" + nodeInfo + "'");
+        
+        // 特殊处理ExpressionStatement，查看其子表达式
+        if (node instanceof ExpressionStatement) {
+            ExpressionStatement exprStmt = (ExpressionStatement) node;
+            AstNode expr = exprStmt.getExpression();
+            if (expr != null) {
+                System.out.println(indent.toString() + "  Expression: " + expr.getClass().getSimpleName() + 
+                    " [" + expr.getPosition() + ":" + (expr.getPosition() + expr.getLength()) + "]" +
+                    " '" + getNodeInfo(expr) + "'");
+            }
+        }
+        
+        // 特殊处理FunctionCall，查看其目标和参数
+        if (node instanceof FunctionCall) {
+            FunctionCall funcCall = (FunctionCall) node;
+            AstNode target = funcCall.getTarget();
+            if (target != null) {
+                System.out.println(indent.toString() + "  Target: " + target.getClass().getSimpleName() + 
+                    " [" + target.getPosition() + ":" + (target.getPosition() + target.getLength()) + "]" +
+                    " '" + getNodeInfo(target) + "'");
+            }
+            
+            // 打印参数
+            List<AstNode> args = funcCall.getArguments();
+            for (int i = 0; i < args.size(); i++) {
+                AstNode arg = args.get(i);
+                System.out.println(indent.toString() + "  Arg " + i + ": " + arg.getClass().getSimpleName() + 
+                    " [" + arg.getPosition() + ":" + (arg.getPosition() + arg.getLength()) + "]" +
+                    " '" + getNodeInfo(arg) + "'");
+            }
+        }
+        
+        // 递归打印子节点
+        for (Node child : node) {
+            if (child instanceof AstNode) {
+                printASTStructure((AstNode) child, depth + 1);
+            }
+        }
+    }
+    
+    /**
+     * 获取节点信息
+     * @param node AST节点
+     * @return 节点信息字符串
+     */
+    private static String getNodeInfo(AstNode node) {
+        String nodeInfo = "<无法获取信息>";
+        
+        try {
+            // 尝试多种方法获取节点信息
+            if (node instanceof Name) {
+                nodeInfo = "Name: " + ((Name) node).getIdentifier();
+            } else if (node instanceof StringLiteral) {
+                nodeInfo = "String: '" + ((StringLiteral) node).getValue() + "'";
+            } else if (node instanceof NumberLiteral) {
+                nodeInfo = "Number: " + ((NumberLiteral) node).getNumber();
+            } else if (node instanceof FunctionNode) {
+                FunctionNode func = (FunctionNode) node;
+                nodeInfo = "Function: " + (func.getFunctionName() != null ? func.getFunctionName().getIdentifier() : "匿名函数");
+            } else if (node instanceof PropertyGet) {
+                PropertyGet prop = (PropertyGet) node;
+                String left = getNodeInfo(prop.getLeft());
+                String right = getNodeInfo(prop.getRight());
+                nodeInfo = "PropertyGet: " + left + "." + right;
+            } else {
+                // 尝试使用getString方法
+                nodeInfo = node.getString();
+            }
+        } catch (Exception e1) {
+            try {
+                // 尝试使用toString方法
+                nodeInfo = node.toString();
+            } catch (Exception e2) {
+                // 如果都失败了，使用类名和位置信息
+                nodeInfo = "<" + node.getClass().getSimpleName() + " @" + node.getPosition() + ">";
+            }
+        }
+        
+        return nodeInfo;
+    }
+
+    /**
+     * 获取事件订阅调用中的回调函数
+     * @param call 事件订阅调用
+     * @return 回调函数节点
+     */
+    private static AstNode getEventCallbackFunction(FunctionCall call) {
+        // 获取调用参数
+        List<AstNode> arguments = call.getArguments();
+        System.out.println("事件调用参数数量: " + arguments.size());
+        if (!arguments.isEmpty()) {
+            // 通常回调函数是最后一个参数
+            AstNode callback = arguments.get(arguments.size() - 1);
+            System.out.println("回调函数类型: " + callback.getClass().getSimpleName());
+            
+            // 如果参数是函数表达式或箭头函数，直接返回
+            if (callback instanceof FunctionNode) {
+                return callback;
+            }
+            
+            // 如果参数是标识符或其他类型，可能需要进一步处理
+            return callback;
+        }
+        
+        return null;
+    }
+
+    /**
+     * 获取可插入代码的目标块
+     * @param node 节点
+     * @return 可插入代码的块
+     */
+    private static Block getTargetBlock(AstNode node) {
+        if (node instanceof Block) {
+            return (Block) node;
+        } else if (node instanceof FunctionNode) {
+            AstNode body = ((FunctionNode) node).getBody();
+            if (body instanceof Block) {
+                return (Block) body;
+            }
+            // 处理箭头函数的情况
+            else if (body != null) {
+                System.out.println("函数体类型: " + body.getClass().getSimpleName());
+                // 对于箭头函数，可能需要特殊处理
+                Block block = new Block();
+                block.addChild(body);
+                return block;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 复制AST节点
+     * @param node 原始节点
+     * @return 节点副本
+     */
+    private static AstNode copyNode(AstNode node) {
+        // 创建一个新的节点副本，而不是直接返回原始节点
+        if (node instanceof ExpressionStatement) {
+            ExpressionStatement original = (ExpressionStatement) node;
+            ExpressionStatement copy = new ExpressionStatement();
+            copy.setExpression(original.getExpression());
+            copy.setLength(original.getLength());
+            copy.setPosition(original.getPosition());
+            return copy;
+        } else if (node instanceof VariableDeclaration) {
+            VariableDeclaration original = (VariableDeclaration) node;
+            VariableDeclaration copy = new VariableDeclaration();
+            copy.setVariables(original.getVariables());
+            copy.setLength(original.getLength());
+            copy.setPosition(original.getPosition());
+            return copy;
+        }
+        // 对于其他类型的节点，直接返回
+        // 在实际应用中，可能需要更复杂的复制逻辑
+        return node;
     }
 
     /**
@@ -62,13 +507,15 @@ public class JSInjector {
                 if (functionBody instanceof Block) {
                     Block block = (Block) functionBody;
 
-
                     // 在函数体开头插入注入的代码（逆序插入以保持语句顺序）
                     for (int i = injectNodes.size() - 1; i >= 0; i--) {
                         System.out.println("添加节点: " + injectNodes.get(i).getClass().getSimpleName());
-                        // 标记为新注入的节点（负位置）
-                        injectNodes.get(i).setBounds(-1, -1);
-                        block.addChildToFront(injectNodes.get(i));
+                        // 创建节点副本并设置位置信息
+                        AstNode nodeCopy = copyNode(injectNodes.get(i));
+                        // 设置为新注入的节点（负位置）
+                        nodeCopy.setPosition(-1);
+                        nodeCopy.setLength(0);
+                        block.addChildToFront(nodeCopy);
                     }
 
                     System.out.println("成功在函数 " + functionName + " 开头注入代码");
@@ -101,9 +548,12 @@ public class JSInjector {
                 if (functionBody instanceof Block) {
                     // 在函数体末尾插入注入的代码
                     for (AstNode node : injectNodes) {
-                        // 标记为新注入的节点（负位置）
-                        node.setBounds(-1, -1);
-                        ((Block) functionBody).addChildToBack(node);
+                        // 创建节点副本并设置位置信息
+                        AstNode nodeCopy = copyNode(node);
+                        // 设置为新注入的节点（负位置）
+                        nodeCopy.setPosition(-1);
+                        nodeCopy.setLength(0);
+                        ((Block) functionBody).addChildToBack(nodeCopy);
                     }
 
                     System.out.println("成功在函数 " + functionName + " 末尾注入代码: " + injectCode);
@@ -154,6 +604,55 @@ public class JSInjector {
         if (code == null || code.trim().isEmpty()) {
             System.out.println("注入代码为空");
             return nodes;
+        }
+        
+        // 如果是EventProbe提取的函数体（以{开头），特殊处理
+        if (code.trim().startsWith("{")) {
+            try {
+                Context context = Context.enter();
+                Parser parser = new Parser(context);
+                // 直接解析代码块
+                AstRoot root = parser.parse(code, "<inject>", 1);
+                
+                // 提取语句
+                for (Node node : root) {
+                    if (node instanceof AstNode) {
+                        nodes.add((AstNode) node);
+                    }
+                }
+                
+                System.out.println("成功解析函数体代码，提取出 " + nodes.size() + " 个节点");
+                return nodes;
+            } catch (Exception e) {
+                System.err.println("解析函数体代码失败: " + e.getMessage());
+                e.printStackTrace();
+            } finally {
+                // 不调用Context.exit()，因为在Rhino中可能不存在此方法
+            }
+        }
+        
+        // 处理占位符代码的特殊情况
+        if ("const InjectCode = KubeLoader".equals(code.trim())) {
+            try {
+                Context context = Context.enter();
+                Parser parser = new Parser(context);
+                AstRoot root = parser.parse("const InjectCode = KubeLoader;", "<inject>", 1);
+                
+                // 提取声明语句
+                for (Node node : root) {
+                    if (node instanceof AstNode) {
+                        nodes.add((AstNode) node);
+                    }
+                }
+                
+                System.out.println("成功解析占位符代码，提取出 " + nodes.size() + " 个节点");
+                return nodes;
+            } catch (Exception e) {
+                System.err.println("解析占位符代码失败: " + e.getMessage());
+                e.printStackTrace();
+            } finally {
+                // 不调用Context.exit()，因为在Rhino中可能不存在此方法
+            }
         }
         
         Context context = null;
@@ -251,27 +750,34 @@ public class JSInjector {
     public static String toSource(AstRoot root) {
         StringBuilder code = new StringBuilder();
         try {
-            // 进入Rhino上下文
-            Context cx = Context.enter();
-            try {
-                // 遍历所有节点生成源代码
-                for (Node node : root) {
-                    if (node instanceof AstNode) {
-                        String nodeSource = ((AstNode) node).getString();
+            // 遍历所有节点生成源代码
+            for (Node node : root) {
+                if (node instanceof AstNode) {
+                    AstNode astNode = (AstNode) node;
+                    // 使用Rhino的getString方法获取节点源代码
+                    try {
+                        String nodeSource = astNode.getString();
                         code.append(nodeSource);
-                        // 如果节点不是以分号结尾，添加分号
-                        if (!nodeSource.trim().endsWith(";")) {
+                        
+                        // 如果节点不是以分号或大括号结尾，且不是函数声明等特殊情况，添加分号
+                        if (!nodeSource.trim().endsWith(";") && 
+                            !nodeSource.trim().endsWith("}") && 
+                            !(astNode instanceof FunctionNode) &&
+                            !(astNode instanceof EmptyExpression)) {
                             code.append(";");
                         }
                         code.append("\n");
+                    } catch (Exception e) {
+                        // 如果getString方法失败，添加注释表示这里有节点
+                        code.append("/* 无法转换节点: ").append(astNode.getClass().getSimpleName()).append(" */\n");
                     }
                 }
-            } finally {
-                // 不调用Context.exit()，因为在Rhino中可能不存在此方法
             }
         } catch (Exception e) {
             System.err.println("转换源代码时出错: " + e.getMessage());
             e.printStackTrace();
+            // 返回原始源代码作为后备
+            return root.getString();
         }
         return code.toString();
     }
@@ -287,5 +793,23 @@ public class JSInjector {
         injectFromDSL(root, dsl);
         // 返回转换后的源代码
         return toSource(root);
+    }
+    
+    /**
+     * 使用EventProbeTextProcessor处理源代码中的事件订阅注入
+     * @param sourceCode 原始源代码
+     * @param eventName 事件名称
+     * @param position 注入位置 (head/tail)
+     * @param injectCode 要注入的代码
+     * @return 处理后的源代码
+     */
+    public static String injectUsingEventProbe(String sourceCode, String eventName, String position, String injectCode) {
+        System.out.println("使用EventProbe处理源代码注入");
+        System.out.println("事件名称: " + eventName);
+        System.out.println("注入位置: " + position);
+        System.out.println("注入代码: " + injectCode);
+        
+        // 使用EventProbeTextProcessor处理源代码
+        return EventProbeTextProcessor.injectEventProbe(sourceCode, eventName, position, injectCode);
     }
 }

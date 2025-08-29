@@ -17,7 +17,8 @@ public class MixinDSLLexer {
         RIGHT_BRACE,        // }
         FUNCTION_KEYWORD,   // function关键字
         COMMA,              // ,
-        WHITESPACE,         // 空格、换行等空白字符
+        WHITESPACE,         // 空格、制表符、回车等空白字符
+        NEWLINE,            // 换行符
         EOF,                // 文件结束符
         UNKNOWN             // 未知token
     }
@@ -25,11 +26,20 @@ public class MixinDSLLexer {
     public static class Token {
         public final TokenType type;
         public final String value;
+        public final String originalValue; // 保留原始值（包括引号）
         public final int position;
 
         public Token(TokenType type, String value, int position) {
             this.type = type;
             this.value = value;
+            this.originalValue = value;
+            this.position = position;
+        }
+
+        public Token(TokenType type, String value, String originalValue, int position) {
+            this.type = type;
+            this.value = value;
+            this.originalValue = originalValue;
             this.position = position;
         }
 
@@ -92,11 +102,15 @@ public class MixinDSLLexer {
                 position++;
                 return new Token(TokenType.COMMA, ",", startPos);
             case '\'':
-                return readStringLiteral(startPos);
+                return readStringLiteral('\'', startPos);
+            case '"':
+                return readStringLiteral('"', startPos);
+            case '\n':
+                position++;
+                return new Token(TokenType.NEWLINE, "\n", startPos);
             case ' ':
             case '\t':
             case '\r':
-            case '\n':
                 return readWhitespace(startPos);
         }
 
@@ -110,20 +124,26 @@ public class MixinDSLLexer {
         return new Token(TokenType.UNKNOWN, String.valueOf(ch), startPos);
     }
 
-    private Token readStringLiteral(int startPos) {
+    private Token readStringLiteral(char quoteChar, int startPos) {
         StringBuilder sb = new StringBuilder();
+        sb.append(quoteChar); // 添加开始引号到结果中
         position++; // 跳过开始的引号
 
-        while (position < input.length() && input.charAt(position) != '\'') {
+        while (position < input.length() && input.charAt(position) != quoteChar) {
             sb.append(input.charAt(position));
             position++;
         }
 
         if (position < input.length()) {
+            sb.append(quoteChar); // 添加结束引号到结果中
             position++; // 跳过结束的引号
         }
 
-        return new Token(TokenType.STRING_LITERAL, sb.toString(), startPos);
+        // 只返回引号内的内容，不包含引号本身（用于比较）
+        String value = sb.substring(1, sb.length() - 1);
+        // 保留完整的原始值（包括引号）用于代码重建
+        String originalValue = sb.toString();
+        return new Token(TokenType.STRING_LITERAL, value, originalValue, startPos);
     }
 
     private Token readWhitespace(int startPos) {
@@ -131,8 +151,7 @@ public class MixinDSLLexer {
         while (position < input.length() && 
                (input.charAt(position) == ' ' || 
                 input.charAt(position) == '\t' || 
-                input.charAt(position) == '\r' || 
-                input.charAt(position) == '\n')) {
+                input.charAt(position) == '\r')) {
             sb.append(input.charAt(position));
             position++;
         }

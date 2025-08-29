@@ -66,8 +66,9 @@ public class MixinDSLParserImpl {
         }
 
         String type = typeValueToken.value;
-        dsl.setType(type);
+
         System.out.println("解析到类型: " + type);
+        dsl.setType(type);
 
         if (!match(TokenType.RIGHT_PAREN)) {
             System.out.println("期望')'但未找到");
@@ -75,23 +76,31 @@ public class MixinDSLParserImpl {
         }
 
         // 解析.at('...')
+        // 跳过可能存在的换行符
+        skipWhitespaceAndNewlines();
         if (!match(TokenType.DOT)) {
             System.out.println("期望'.'但未找到");
             return dsl;
         }
 
         Token atToken = currentToken();
+        // 跳过可能存在的换行符
+        skipWhitespaceAndNewlines();
         if (!match(TokenType.IDENTIFIER) || !"at".equals(atToken.value)) {
             System.out.println("期望'at'标识符但未找到，实际为: " + (atToken != null ? atToken.value : "null"));
             return dsl;
         }
 
+        // 跳过可能存在的换行符
+        skipWhitespaceAndNewlines();
         if (!match(TokenType.LEFT_PAREN)) {
             System.out.println("期望'('但未找到");
             return dsl;
         }
 
         Token atValueToken = currentToken();
+        // 跳过可能存在的换行符
+        skipWhitespaceAndNewlines();
         if (!match(TokenType.STRING_LITERAL)) {
             System.out.println("期望字符串字面量但未找到");
             return dsl;
@@ -101,29 +110,39 @@ public class MixinDSLParserImpl {
         dsl.setAt(at);
         System.out.println("解析到位置: " + at);
 
+        // 跳过可能存在的换行符
+        skipWhitespaceAndNewlines();
         if (!match(TokenType.RIGHT_PAREN)) {
             System.out.println("期望')'但未找到");
             return dsl;
         }
 
         // 解析.in('...')
+        // 跳过可能存在的换行符
+        skipWhitespaceAndNewlines();
         if (!match(TokenType.DOT)) {
             System.out.println("期望'.'但未找到");
             return dsl;
         }
 
         Token inToken = currentToken();
+        // 跳过可能存在的换行符
+        skipWhitespaceAndNewlines();
         if (!match(TokenType.IDENTIFIER) || !"in".equals(inToken.value)) {
             System.out.println("期望'in'标识符但未找到，实际为: " + (inToken != null ? inToken.value : "null"));
             return dsl;
         }
 
+        // 跳过可能存在的换行符
+        skipWhitespaceAndNewlines();
         if (!match(TokenType.LEFT_PAREN)) {
             System.out.println("期望'('但未找到");
             return dsl;
         }
 
         Token inValueToken = currentToken();
+        // 跳过可能存在的换行符
+        skipWhitespaceAndNewlines();
         if (!match(TokenType.STRING_LITERAL)) {
             System.out.println("期望字符串字面量但未找到");
             return dsl;
@@ -133,23 +152,31 @@ public class MixinDSLParserImpl {
         dsl.setTarget(in);
         System.out.println("解析到目标: " + in);
 
+        // 跳过可能存在的换行符
+        skipWhitespaceAndNewlines();
         if (!match(TokenType.RIGHT_PAREN)) {
             System.out.println("期望')'但未找到");
             return dsl;
         }
 
         // 解析.inject(...)
+        // 跳过可能存在的换行符
+        skipWhitespaceAndNewlines();
         if (!match(TokenType.DOT)) {
             System.out.println("期望'.'但未找到");
             return dsl;
         }
 
         Token injectToken = currentToken();
+        // 跳过可能存在的换行符
+        skipWhitespaceAndNewlines();
         if (!match(TokenType.IDENTIFIER) || !"inject".equals(injectToken.value)) {
             System.out.println("期望'inject'标识符但未找到，实际为: " + (injectToken != null ? injectToken.value : "null"));
             return dsl;
         }
 
+        // 跳过可能存在的换行符
+        skipWhitespaceAndNewlines();
         if (!match(TokenType.LEFT_PAREN)) {
             System.out.println("期望'('但未找到");
             return dsl;
@@ -158,7 +185,7 @@ public class MixinDSLParserImpl {
         // 解析inject函数体
         String injectCode = parseInjectFunction();
         if (injectCode != null) {
-            dsl.setAction(injectCode);
+            dsl.setAction(EventProbeTextProcessor.extractFunctionBody(injectCode));
             System.out.println("解析到注入代码: " + injectCode);
         }
 
@@ -168,23 +195,59 @@ public class MixinDSLParserImpl {
         return dsl;
     }
 
+    private void skipWhitespaceAndNewlines() {
+        while (position < tokens.size() && 
+               (currentToken().type == TokenType.NEWLINE || 
+                currentToken().type == TokenType.WHITESPACE)) {
+            position++;
+        }
+    }
+
     private String parseInjectFunction() {
         System.out.println("开始解析inject函数体，当前位置: " + position);
 
-        // 跳过function关键字和参数列表，找到函数体开始的大括号
+        // 收集函数声明的原始代码，包括换行符
+        StringBuilder functionCodeBuilder = new StringBuilder();
+        
+        // 记录是否刚刚添加了function关键字
+        boolean afterFunctionKeyword = false;
+        
+        // 收集function关键字和参数列表，直到找到函数体开始的大括号
         while (position < tokens.size() && currentToken().type != TokenType.LEFT_BRACE) {
-            System.out.println("跳过函数声明部分: " + currentToken().value);
+            Token token = currentToken();
+            
+            // 如果前一个token是function关键字，而当前token是标识符，则添加空格
+            if (afterFunctionKeyword && token.type == TokenType.IDENTIFIER) {
+                functionCodeBuilder.append(" ");
+                afterFunctionKeyword = false;
+            }
+            
+            // 对于字符串字面量，使用原始值（包括引号）
+            if (token.type == TokenType.STRING_LITERAL) {
+                functionCodeBuilder.append(token.originalValue);
+            } else {
+                functionCodeBuilder.append(token.value);
+            }
+            
+            // 标记是否刚刚处理了function关键字
+            if (token.type == TokenType.FUNCTION_KEYWORD) {
+                afterFunctionKeyword = true;
+            }
+            
+            System.out.println("收集函数声明部分: " + token.value + " 类型: " + token.type);
             position++;
         }
 
-        // 如果没有找到左大括号，返回null
-        if (position >= tokens.size() || currentToken().type != TokenType.LEFT_BRACE) {
+        // 添加左大括号
+        if (position < tokens.size() && currentToken().type == TokenType.LEFT_BRACE) {
+            Token token = currentToken();
+            functionCodeBuilder.append(token.value);
+            System.out.println("添加左大括号: " + token.value);
+        } else {
             System.out.println("未找到函数体开始的大括号");
             return null;
         }
 
-        // 记录函数体开始位置（不包括左大括号）
-        int startTokenPos = position + 1;
         position++; // 跳过左大括号
 
         // 查找匹配的右大括号，考虑嵌套情况
@@ -193,7 +256,15 @@ public class MixinDSLParserImpl {
         // 继续解析直到找到匹配的右大括号
         while (position < tokens.size() && braceCount > 0) {
             Token token = currentToken();
-            System.out.println("解析函数体中的token: " + token);
+            
+            // 添加所有token的值，包括换行符
+            // 对于字符串字面量，使用原始值（包括引号）
+            if (token.type == TokenType.STRING_LITERAL) {
+                functionCodeBuilder.append(token.originalValue);
+            } else {
+                functionCodeBuilder.append(token.value);
+            }
+            System.out.println("解析函数体中的token: " + token + " braceCount: " + braceCount);
 
             switch (token.type) {
                 case LEFT_BRACE:
@@ -219,53 +290,23 @@ public class MixinDSLParserImpl {
             return null;
         }
 
-        // position现在指向右大括号，不包括它
-        int endTokenPos = position - 1;
-        position++; // 移动到右大括号之后
-
-        // 如果没有内容（空函数体），返回空字符串
-        if (startTokenPos > endTokenPos) {
-            return "";
+        // position现在指向右大括号，我们需要添加它到函数代码中
+        if (position < tokens.size() && currentToken().type == TokenType.RIGHT_BRACE) {
+            Token token = currentToken();
+            functionCodeBuilder.append(token.value);
+            System.out.println("添加右大括号: " + token.value);
+            position++; // 跳过右大括号
         }
 
-        // 构造函数体代码 - 从原始tokens中提取（不包括大括号）
-        StringBuilder functionCode = new StringBuilder();
-        for (int i = startTokenPos; i <= endTokenPos; i++) { // 不包括大括号
-            Token token = tokens.get(i);
+        // 获取完整的函数声明代码
+        String functionCode = functionCodeBuilder.toString();
+        System.out.println("完整函数代码: " + functionCode);
 
-            // 对于字符串字面量，需要添加引号
-            if (token.type == TokenType.STRING_LITERAL) {
-                functionCode.append("'").append(token.value).append("'");
-            } else {
-                functionCode.append(token.value);
-            }
+        // 使用EventProbeTextProcessor提取函数体
+        String functionBody = EventProbeTextProcessor.extractFunctionBody(functionCode);
+        System.out.println("提取的函数体: " + functionBody);
 
-            // 添加适当的空格（简化处理）
-            if (i < endTokenPos) { // 不是最后一个token
-                TokenType currentType = token.type;
-                TokenType nextType = tokens.get(i + 1).type;
-
-                // 在某些token之间添加空格
-                if (currentType == TokenType.FUNCTION_KEYWORD ||
-                        currentType == TokenType.IDENTIFIER ||
-                        currentType == TokenType.STRING_LITERAL ||
-                        currentType == TokenType.RIGHT_PAREN ||
-                        currentType == TokenType.RIGHT_BRACE ||
-                        currentType == TokenType.LEFT_BRACE) {
-
-                    if (nextType == TokenType.IDENTIFIER ||
-                            nextType == TokenType.FUNCTION_KEYWORD ||
-                            nextType == TokenType.STRING_LITERAL ||
-                            nextType == TokenType.LEFT_BRACE ||
-                            nextType == TokenType.LEFT_PAREN ||
-                            nextType == TokenType.RIGHT_BRACE) {
-                        functionCode.append(" ");
-                    }
-                }
-            }
-        }
-
-        return functionCode.toString();
+        return functionBody;
     }
 
     private boolean match(TokenType expectedType) {
