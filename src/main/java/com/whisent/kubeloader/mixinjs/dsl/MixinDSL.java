@@ -4,16 +4,18 @@ public class MixinDSL {
     private String sourcePath;
     //目标的文件
     private String targetFile;
-    //
-    private String targetLocation;
-    //注入的类型
+    //具体的位置（如多个事件订阅,用数字来定位第几个事件)
+    private int targetLocation = 0;
+    //注入的类型（函数声明、事件订阅）
     private String type;
-    //注入位置
+    //注入位置(头、尾)
     private String at;
     //注入的代码
     private String actionCode;
     //注入对象的名称,如函数名
     private String target;
+    //优先级，优先级越高的MixinDSL越先应用
+    private int priority = 0;
 
     public String getSourcePath() {
         return sourcePath;
@@ -27,11 +29,11 @@ public class MixinDSL {
         this.targetFile = targetFile;
     }
 
-    public String getTargetLocation() {
+    public int getTargetLocation() {
         return targetLocation;
     }
 
-    public void setTargetLocation(String targetLocation) {
+    public void setTargetLocation(int targetLocation) {
         this.targetLocation = targetLocation;
     }
 
@@ -54,6 +56,9 @@ public class MixinDSL {
     public String getAction() {
         return actionCode;
     }
+    public int getPriority() {
+        return priority;
+    }
 
     public void setAction(String action) {
         this.actionCode = action;
@@ -70,6 +75,9 @@ public class MixinDSL {
     public void setSourcePath(String sourcePath) {
         this.sourcePath = sourcePath;
     }
+    public void setPriority(int priority) {
+        this.priority = priority;
+    }
 
     @Override
     public String toString() {
@@ -81,6 +89,7 @@ public class MixinDSL {
                 ", at='" + at + '\'' +
                 ", actionCode='" + actionCode + '\'' +
                 ", target='" + target + '\'' +
+                ", priority='" + priority + '\'' +
                 '}';
     }
 }

@@ -159,6 +159,49 @@ public class MixinDSLParserImpl {
             return dsl;
         }
 
+        // 解析.targetLocation(...) - 可选
+        // 跳过可能存在的换行符
+        skipWhitespaceAndNewlines();
+        if (position < tokens.size() && currentToken().type == TokenType.DOT) {
+            match(TokenType.DOT); // 跳过点号
+            skipWhitespaceAndNewlines();
+            
+            Token targetLocationToken = currentToken();
+            if (targetLocationToken.type == TokenType.IDENTIFIER && "targetLocation".equals(targetLocationToken.value)) {
+                skipWhitespaceAndNewlines();
+                if (!match(TokenType.LEFT_PAREN)) {
+                    System.out.println("期望'('但未找到");
+                    return dsl;
+                }
+                
+                skipWhitespaceAndNewlines();
+                Token locationValueToken = currentToken();
+                if (locationValueToken.type != TokenType.STRING_LITERAL && locationValueToken.type != TokenType.IDENTIFIER) {
+                    System.out.println("期望数字或字符串字面量但未找到");
+                    return dsl;
+                }
+                
+                try {
+                    // 尝试解析为整数
+                    int location = Integer.parseInt(locationValueToken.value);
+                    dsl.setTargetLocation(location);
+                    System.out.println("解析到目标位置: " + location);
+                } catch (NumberFormatException e) {
+                    System.out.println("无法解析目标位置为数字: " + locationValueToken.value);
+                    return dsl;
+                }
+                
+                skipWhitespaceAndNewlines();
+                if (!match(TokenType.RIGHT_PAREN)) {
+                    System.out.println("期望')'但未找到");
+                    return dsl;
+                }
+            } else {
+                // 不是targetLocation方法，回退位置
+                position--;
+            }
+        }
+
         // 解析.inject(...)
         // 跳过可能存在的换行符
         skipWhitespaceAndNewlines();
