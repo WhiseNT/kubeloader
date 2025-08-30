@@ -22,9 +22,9 @@ public abstract class ItemMixin implements ItemKJS {
 
     @Inject(method = "getDefaultInstance", at = @At("RETURN"), cancellable = true)
     private void getDefaultInstanceMixin(CallbackInfoReturnable<ItemStack> cir) {
-        if (kjs$itemBuilder != null && ((NbtBuilder)kjs$itemBuilder).getDefaultNbt() != null) {
+        if (kjs$itemBuilder != null && ((NbtBuilder)kjs$itemBuilder).kubeLoader$getDefaultNbt() != null) {
             ItemStack itemStack = cir.getReturnValue();
-            itemStack.setTag(((NbtBuilder)kjs$itemBuilder).getDefaultNbt());
+            itemStack.setTag(((NbtBuilder)kjs$itemBuilder).kubeLoader$getDefaultNbt());
             cir.setReturnValue(itemStack);
         } else if (defaultNbt != null) {
             ItemStack itemStack = cir.getReturnValue();
@@ -59,7 +59,7 @@ public abstract class ItemMixin implements ItemKJS {
     @Unique
     private void setDefaultNbt(CompoundTag nbt) {
         if (kjs$itemBuilder != null) {
-            ((NbtBuilder)kjs$itemBuilder).setDefaultNbt(nbt);
+            ((NbtBuilder)kjs$itemBuilder).kubeLoader$setDefaultNbt(nbt);
         }
     }
     @Override

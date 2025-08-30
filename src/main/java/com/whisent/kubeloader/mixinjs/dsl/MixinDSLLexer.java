@@ -2,8 +2,6 @@ package com.whisent.kubeloader.mixinjs.dsl;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 public class MixinDSLLexer {
     public enum TokenType {
@@ -11,6 +9,7 @@ public class MixinDSLLexer {
         DOT,                // .
         IDENTIFIER,         // type, at, in, inject等标识符
         STRING_LITERAL,     // 'FunctionDeclaration' 等字符串字面量
+        NUMBER_LITERAL,     // 数字字面量
         LEFT_PAREN,         // (
         RIGHT_PAREN,        // )
         LEFT_BRACE,         // {
@@ -114,6 +113,11 @@ public class MixinDSLLexer {
                 return readWhitespace(startPos);
         }
 
+        // 处理数字
+        if (Character.isDigit(ch)) {
+            return readNumberLiteral(startPos);
+        }
+
         // 处理关键字和标识符
         if (Character.isLetter(ch) || ch == '_') {
             return readIdentifierOrKeyword(startPos);
@@ -156,6 +160,15 @@ public class MixinDSLLexer {
             position++;
         }
         return new Token(TokenType.WHITESPACE, sb.toString(), startPos);
+    }
+
+    private Token readNumberLiteral(int startPos) {
+        StringBuilder sb = new StringBuilder();
+        while (position < input.length() && Character.isDigit(input.charAt(position))) {
+            sb.append(input.charAt(position));
+            position++;
+        }
+        return new Token(TokenType.NUMBER_LITERAL, sb.toString(), startPos);
     }
 
     private Token readIdentifierOrKeyword(int startPos) {

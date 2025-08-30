@@ -4,18 +4,21 @@ import com.whisent.kubeloader.Kubeloader;
 import com.whisent.kubeloader.definition.ContentPack;
 import com.whisent.kubeloader.definition.PackLoadingContext;
 import com.whisent.kubeloader.definition.inject.SortablePacksHolder;
-import com.whisent.kubeloader.mixinjs.dsl.MixinDSL;
 import com.whisent.kubeloader.impl.ContentPackProviders;
 import com.whisent.kubeloader.impl.depends.DependencyReport;
 import com.whisent.kubeloader.impl.depends.PackDependencyBuilder;
 import com.whisent.kubeloader.impl.depends.PackDependencyValidator;
 import com.whisent.kubeloader.impl.depends.SortableContentPack;
 import com.whisent.kubeloader.impl.mixin_interface.ScriptManagerInterface;
+import com.whisent.kubeloader.mixinjs.dsl.MixinDSL;
 import com.whisent.kubeloader.utils.topo.TopoNotSolved;
 import com.whisent.kubeloader.utils.topo.TopoPreconditionFailed;
 import com.whisent.kubeloader.utils.topo.TopoSort;
 import dev.latvian.mods.kubejs.KubeJS;
-import dev.latvian.mods.kubejs.script.*;
+import dev.latvian.mods.kubejs.script.ScriptFileInfo;
+import dev.latvian.mods.kubejs.script.ScriptManager;
+import dev.latvian.mods.kubejs.script.ScriptPack;
+import dev.latvian.mods.kubejs.script.ScriptSource;
 import net.minecraft.network.chat.Component;
 import org.jetbrains.annotations.NotNull;
 import org.spongepowered.asm.mixin.Final;
@@ -27,7 +30,10 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-import java.util.*;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -49,7 +55,7 @@ public abstract class ScriptManagerMixin implements SortablePacksHolder, ScriptM
         var context = new PackLoadingContext((ScriptManager) (Object) this);
         var packs = ContentPackProviders.getPacks();
 
-        var report = kubeloader$validateContentPacks(packs, context);
+        var report = kubeLoader$validateContentPacks(packs, context);
         if (!report.errors().isEmpty()) {
             // 在有错误发生的时候不加载任何 ContentPack
             return original.values();
@@ -122,7 +128,7 @@ public abstract class ScriptManagerMixin implements SortablePacksHolder, ScriptM
     }
 
     @Unique
-    private static @NotNull DependencyReport kubeloader$validateContentPacks(List<ContentPack> packs, PackLoadingContext context) {
+    private static @NotNull DependencyReport kubeLoader$validateContentPacks(List<ContentPack> packs, PackLoadingContext context) {
         var validator = new PackDependencyValidator(PackDependencyValidator.DupeHandling.ERROR);
         var report = validator.validate(packs);
         report.infos().stream().map(Component::getString).forEach(context.console()::info);

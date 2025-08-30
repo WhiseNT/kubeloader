@@ -3,8 +3,6 @@ package com.whisent.kubeloader;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.whisent.kubeloader.event.KubeLoaderClientEventHandler;
-import com.whisent.kubeloader.files.FileIO;
-import com.whisent.kubeloader.files.ResourcePackProvider;
 import com.whisent.kubeloader.impl.ContentPackProviders;
 import com.whisent.kubeloader.impl.dummy.DummyContentPack;
 import com.whisent.kubeloader.impl.dummy.DummyContentPackProvider;
@@ -22,18 +20,17 @@ import net.minecraftforge.event.server.ServerStartingEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.ModList;
+import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.config.ModConfig;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
-import net.minecraftforge.fml.loading.FMLLoader;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
-import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.List;
 
 // The value here should match an entry in the META-INF/mods.toml file
@@ -66,6 +63,10 @@ public class Kubeloader
         if (Files.notExists(ConfigPath)){
             Files.createDirectories(ConfigPath);
         }
+        
+        // Register config
+        ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, Config.SPEC);
+        
         modEventBus.addListener(this::ModLoding);
         FMLJavaModLoadingContext.get().getModEventBus().addListener(this::injectPacks);
         KubeLoaderClientEventHandler.init();

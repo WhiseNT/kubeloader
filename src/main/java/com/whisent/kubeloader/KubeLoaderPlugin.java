@@ -1,12 +1,12 @@
 package com.whisent.kubeloader;
 
 import com.whisent.kubeloader.definition.inject.SortablePacksHolder;
-import com.whisent.kubeloader.mixinjs.dsl.ShadowMixinObject;
 import com.whisent.kubeloader.event.KubeLoaderServerEventHandler;
 import com.whisent.kubeloader.event.kjs.BlockEntityEvents;
 import com.whisent.kubeloader.event.kjs.ItemEntityEvents;
 import com.whisent.kubeloader.event.kjs.KubeLoaderEvents;
 import com.whisent.kubeloader.item.vanilla.bow.BowItemBuilder;
+import com.whisent.kubeloader.mixinjs.dsl.ShadowMixinObject;
 import com.whisent.kubeloader.plugin.ContentPacksBinding;
 import com.whisent.kubeloader.utils.KLUtil;
 import com.whisent.kubeloader.utils.PerformanceUtil;

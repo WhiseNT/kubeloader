@@ -1,6 +1,10 @@
 package com.whisent.kubeloader.mixinjs.dsl;
 
+import dev.latvian.mods.kubejs.script.ScriptFile;
+
 public class MixinDSL {
+    private ScriptFile file;
+
     private String sourcePath;
     //目标的文件
     private String targetFile;
@@ -77,6 +81,12 @@ public class MixinDSL {
     }
     public void setPriority(int priority) {
         this.priority = priority;
+    }
+    public ScriptFile getFile() {
+        return file;
+    }
+    public void setFile(ScriptFile file) {
+        this.file = file;
     }
 
     @Override

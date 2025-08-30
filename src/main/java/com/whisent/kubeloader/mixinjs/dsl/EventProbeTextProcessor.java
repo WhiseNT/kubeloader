@@ -241,20 +241,30 @@ public class EventProbeTextProcessor {
      * @return 函数体内容，例如 "console.log('test');"
      */
     public static String extractFunctionBody(String functionCode) {
+        //System.out.println("提取函数体，输入代码: " + functionCode);
         // 使用Lexer解析函数代码
         EventProbeLexer lexer = new EventProbeLexer(functionCode);
         List<EventProbeLexer.Token> tokens = lexer.tokenize();
+        
+        //System.out.println("词法分析完成，token数量: " + tokens.size());
+        for (EventProbeLexer.Token token : tokens) {
+            if (token.type != EventProbeLexer.TokenType.EOF) {
+                System.out.println("Token: " + token);
+            }
+        }
         
         // 查找function关键字
         int functionIndex = -1;
         for (int i = 0; i < tokens.size(); i++) {
             if (tokens.get(i).type == EventProbeLexer.TokenType.FUNCTION_KEYWORD) {
                 functionIndex = i;
+                //System.out.println("找到function关键字，位置: " + functionIndex);
                 break;
             }
         }
         
         if (functionIndex == -1) {
+            //System.out.println("未找到function关键字，返回原始代码");
             return functionCode;
         }
         
@@ -263,19 +273,24 @@ public class EventProbeTextProcessor {
         for (int i = functionIndex; i < tokens.size(); i++) {
             if (tokens.get(i).type == EventProbeLexer.TokenType.LEFT_BRACE) {
                 openBraceIndex = i;
+                //System.out.println("找到开大括号，位置: " + openBraceIndex);
                 break;
             }
         }
         
         if (openBraceIndex == -1) {
+            //System.out.println("未找到开大括号，返回原始代码");
             return functionCode;
         }
         
         // 查找匹配的闭大括号
         int closeBraceIndex = findMatchingCloseBrace(tokens, openBraceIndex);
         if (closeBraceIndex == -1) {
+            //System.out.println("未找到匹配的闭大括号，返回原始代码");
             return functionCode;
         }
+        
+        //System.out.println("找到匹配的闭大括号，位置: " + closeBraceIndex);
         
         EventProbeLexer.Token openBraceToken = tokens.get(openBraceIndex);
         EventProbeLexer.Token closeBraceToken = tokens.get(closeBraceIndex);
@@ -284,7 +299,11 @@ public class EventProbeTextProcessor {
         int openBraceEnd = openBraceToken.position + 1;
         int closeBraceStart = closeBraceToken.position;
         
+        //System.out.println("提取范围: " + openBraceEnd + " 到 " + closeBraceStart);
+        
         // 保留原始格式，包括引号和其他字符
-        return functionCode.substring(openBraceEnd, closeBraceStart);
+        String result = functionCode.substring(openBraceEnd, closeBraceStart);
+        //System.out.println("提取结果: " + result);
+        return result;
     }
 }

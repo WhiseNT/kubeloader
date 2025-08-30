@@ -7,9 +7,9 @@ import java.io.IOException;
 
 public interface ScriptFileInfoInterface {
 
-    String getTargetPath();
+    String kubeLoader$getTargetPath();
 
-    void setTargetPath(String targetPath);
+    void kubeLoader$setTargetPath(String targetPath);
     
     /**
      * 检查脚本是否应该在当前环境加载

@@ -12,4 +12,5 @@ public interface AccessScriptFileInfo {
     @Accessor("properties")
     Map<String, List<String>> getProperties();
 
+
 }

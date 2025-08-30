@@ -44,9 +44,9 @@ public class PackModGenerator {
         Path jarFile = KubeJSPaths.EXPORT.resolve(modId+"-" + packInfo.version + ".jar");
         createJar(outputDir, jarFile);
         cleanCache(outputDir);
-        System.out.println("✅ Mod 生成完成！");
-        System.out.println("📁 项目目录: " + outputDir.toAbsolutePath());
-        System.out.println("📦 JAR 文件: " + jarFile.toAbsolutePath());
+        //System.out.println("✅ Mod 生成完成！");
+        //System.out.println("📁 项目目录: " + outputDir.toAbsolutePath());
+        //System.out.println("📦 JAR 文件: " + jarFile.toAbsolutePath());
     }
     @Info("You should use /kl mod <modid> command to generate it, rather than calling this method directly.")
     public static void generateMod(ContentPackModInfo packInfo, ServerPlayer player) throws IOException {
@@ -91,10 +91,10 @@ public class PackModGenerator {
             sendPlayerMessage(player, successMsg);
 
             // ✅ 服务端日志
-            Kubeloader.LOGGER.info("Mod 生成完成: {} -> {}", modId, jarFile.getFileName());
-            System.out.println("Mod 生成完成！");
-            System.out.println("项目目录: " + outputDir.toAbsolutePath());
-            System.out.println("JAR 文件: " + jarFile.toAbsolutePath());
+            Kubeloader.LOGGER.info("Mod generated: {} -> {}", modId, jarFile.getFileName());
+            //System.out.println("Mod 生成完成！");
+            //System.out.println("项目目录: " + outputDir.toAbsolutePath());
+            //System.out.println("JAR 文件: " + jarFile.toAbsolutePath());
 
         } catch (IOException e) {
             // ❌ 失败消息也国际化
@@ -224,7 +224,7 @@ public class PackModGenerator {
                 StandardOpenOption.TRUNCATE_EXISTING // 如果已存在则覆盖
         );
 
-        System.out.println("✅ pack.mcmeta 生成成功: " + mcmetaPath.toAbsolutePath());
+        //System.out.println("✅ pack.mcmeta 生成成功: " + mcmetaPath.toAbsolutePath());
     }
 
 

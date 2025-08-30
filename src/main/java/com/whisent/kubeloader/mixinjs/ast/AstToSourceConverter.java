@@ -432,20 +432,6 @@ public class AstToSourceConverter {
         return (pos < source.length()) ? pos : func.getAbsolutePosition();
     }
 
-    /**
-     * 查找函数体节点
-     */
-    private AstNode findFunctionBodyNode(FunctionNode func) {
-        // 遍历子节点查找函数体
-        AstNode child = (AstNode) func.getBody();
-        while (child != null) {
-            if (child instanceof Block) {
-                return child;
-            }
-            child = (AstNode) child.getNext();
-        }
-        return null;
-    }
     // 处理变量声明
     private void handleVariableDeclaration(VariableDeclaration decl) {
         int declStart = decl.getAbsolutePosition();
@@ -626,7 +612,7 @@ public class AstToSourceConverter {
 
     public String convertAndFix(AstRoot root,String injectCode) {
         String result = convert(root);
-        result = result.replace("const InjectCode = KubeLoader", injectCode);
+        result = result.replace("var InjectCode = KubeLoader", injectCode);
         return result;
     }
 }

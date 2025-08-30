@@ -29,7 +29,7 @@ public class ContentPackGenerator {
     }
     @Info("You should use /kl pack <packid> command to generate it, rather than calling this method directly.")
     public static void generateContentPack(PackMetaData metaData) throws IOException {
-        System.out.print("尝试生成ContentPack");
+        //System.out.print("尝试生成ContentPack");
         String packId = metaData.id();
         Path packDir = Kubeloader.PackPath.resolve(packId);
         Files.createDirectories(packDir);
@@ -37,7 +37,7 @@ public class ContentPackGenerator {
         dirs.forEach(dir -> {
             try {
                 Files.createDirectories(packDir.resolve(dir));
-                System.out.print("已生成目录：" + dir);
+                //System.out.print("已生成目录：" + dir);
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
