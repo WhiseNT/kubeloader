@@ -13,15 +13,26 @@ public class MixinDSLParserImpl {
     public MixinDSLParserImpl(List<Token> tokens) {
         this.tokens = tokens;
         this.position = 0;
+        System.out.println("创建MixinDSLParserImpl实例，token数量: " + tokens.size());
     }
 
     public List<MixinDSL> parse() {
+        System.out.println("开始解析DSL，token列表:");
+        for (int i = 0; i < tokens.size(); i++) {
+            Token token = tokens.get(i);
+            System.out.println("  [" + i + "] " + token);
+        }
+        
         List<MixinDSL> result = new ArrayList<>();
 
         while (position < tokens.size() && currentToken().type != TokenType.EOF) {
+            System.out.println("循环解析，当前位置: " + position);
             MixinDSL dsl = parseMixinDSL();
             if (dsl != null) {
+                System.out.println("成功解析一个DSL对象: " + dsl);
                 result.add(dsl);
+            } else {
+                System.out.println("DSL解析返回null");
             }
         }
 
@@ -43,23 +54,30 @@ public class MixinDSLParserImpl {
         MixinDSL dsl = new MixinDSL();
 
         // 解析.type('...')
+        skipWhitespaceAndNewlines();
+        System.out.println("解析.type()，当前位置: " + position);
         if (!match(TokenType.DOT)) {
             System.out.println("期望'.'但未找到");
             return dsl;
         }
 
+        skipWhitespaceAndNewlines();
         Token typeToken = currentToken();
+        System.out.println("typeToken: " + typeToken);
         if (!match(TokenType.IDENTIFIER) || !"type".equals(typeToken.value)) {
             System.out.println("期望'type'标识符但未找到，实际为: " + (typeToken != null ? typeToken.value : "null"));
             return dsl;
         }
 
+        skipWhitespaceAndNewlines();
         if (!match(TokenType.LEFT_PAREN)) {
             System.out.println("期望'('但未找到");
             return dsl;
         }
 
+        skipWhitespaceAndNewlines();
         Token typeValueToken = currentToken();
+        System.out.println("typeValueToken: " + typeValueToken);
         if (!match(TokenType.STRING_LITERAL)) {
             System.out.println("期望字符串字面量但未找到");
             return dsl;
@@ -70,6 +88,7 @@ public class MixinDSLParserImpl {
         System.out.println("解析到类型: " + type);
         dsl.setType(type);
 
+        skipWhitespaceAndNewlines();
         if (!match(TokenType.RIGHT_PAREN)) {
             System.out.println("期望')'但未找到");
             return dsl;
@@ -78,12 +97,15 @@ public class MixinDSLParserImpl {
         // 解析.at('...')
         // 跳过可能存在的换行符
         skipWhitespaceAndNewlines();
+        System.out.println("解析.at()，当前位置: " + position);
         if (!match(TokenType.DOT)) {
             System.out.println("期望'.'但未找到");
             return dsl;
         }
 
+        skipWhitespaceAndNewlines();
         Token atToken = currentToken();
+        System.out.println("atToken: " + atToken);
         // 跳过可能存在的换行符
         skipWhitespaceAndNewlines();
         if (!match(TokenType.IDENTIFIER) || !"at".equals(atToken.value)) {
@@ -98,7 +120,9 @@ public class MixinDSLParserImpl {
             return dsl;
         }
 
+        skipWhitespaceAndNewlines();
         Token atValueToken = currentToken();
+        System.out.println("atValueToken: " + atValueToken);
         // 跳过可能存在的换行符
         skipWhitespaceAndNewlines();
         if (!match(TokenType.STRING_LITERAL)) {
@@ -120,12 +144,15 @@ public class MixinDSLParserImpl {
         // 解析.in('...')
         // 跳过可能存在的换行符
         skipWhitespaceAndNewlines();
+        System.out.println("解析.in()，当前位置: " + position);
         if (!match(TokenType.DOT)) {
             System.out.println("期望'.'但未找到");
             return dsl;
         }
 
+        skipWhitespaceAndNewlines();
         Token inToken = currentToken();
+        System.out.println("inToken: " + inToken);
         // 跳过可能存在的换行符
         skipWhitespaceAndNewlines();
         if (!match(TokenType.IDENTIFIER) || !"in".equals(inToken.value)) {
@@ -140,7 +167,9 @@ public class MixinDSLParserImpl {
             return dsl;
         }
 
+        skipWhitespaceAndNewlines();
         Token inValueToken = currentToken();
+        System.out.println("inValueToken: " + inValueToken);
         // 跳过可能存在的换行符
         skipWhitespaceAndNewlines();
         if (!match(TokenType.STRING_LITERAL)) {
@@ -162,14 +191,14 @@ public class MixinDSLParserImpl {
         // 解析.locate(...) - 可选
         // 跳过可能存在的换行符
         skipWhitespaceAndNewlines();
-       // System.out.println("检查locate方法，当前位置: " + position + "，当前token类型: " + (position < tokens.size() ? currentToken().type : "EOF"));
+        System.out.println("检查locate方法，当前位置: " + position + "，当前token类型: " + (position < tokens.size() ? currentToken().type : "EOF"));
         if (position < tokens.size() && currentToken().type == TokenType.DOT) {
-            //System.out.println("找到点号，跳过点号");
+            System.out.println("找到点号，跳过点号");
             match(TokenType.DOT); // 跳过点号
             skipWhitespaceAndNewlines();
             
             Token locateToken = currentToken();
-            //System.out.println("locateToken类型: " + locateToken.type + "，值: " + locateToken.value);
+            System.out.println("locateToken类型: " + locateToken.type + "，值: " + locateToken.value);
             if (locateToken.type == TokenType.IDENTIFIER && "locate".equals(locateToken.value)) {
                 System.out.println("找到locate方法");
                 position++; // 手动增加位置，跳过locate标识符
@@ -186,16 +215,16 @@ public class MixinDSLParserImpl {
                 
                 skipWhitespaceAndNewlines();
                 if (position >= tokens.size()) {
-                   // System.out.println("意外到达文件末尾");
+                    System.out.println("意外到达文件末尾");
                     return dsl;
                 }
                 
                 Token locationValueToken = currentToken();
-                //System.out.println("locationValueToken类型: " + locationValueToken.type + "，值: " + locationValueToken.value);
+                System.out.println("locationValueToken类型: " + locationValueToken.type + "，值: " + locationValueToken.value);
                 if (locationValueToken.type != TokenType.STRING_LITERAL && 
                     locationValueToken.type != TokenType.IDENTIFIER && 
                     locationValueToken.type != TokenType.NUMBER_LITERAL) {
-                    //System.out.println("期望数字或字符串字面量但未找到，实际类型: " + locationValueToken.type);
+                    System.out.println("期望数字或字符串字面量但未找到，实际类型: " + locationValueToken.type);
                     return dsl;
                 }
                 
@@ -203,9 +232,9 @@ public class MixinDSLParserImpl {
                     // 尝试解析为整数
                     int location = Integer.parseInt(locationValueToken.value);
                     dsl.setTargetLocation(location);
-                    //System.out.println("解析到目标位置: " + location);
+                    System.out.println("解析到目标位置: " + location);
                 } catch (NumberFormatException e) {
-                    //System.out.println("无法解析目标位置为数字: " + locationValueToken.value);
+                    System.out.println("无法解析目标位置为数字: " + locationValueToken.value);
                     return dsl;
                 }
                 
@@ -213,40 +242,40 @@ public class MixinDSLParserImpl {
                 skipWhitespaceAndNewlines();
                 
                 if (position >= tokens.size() || currentToken().type != TokenType.RIGHT_PAREN) {
-                    //System.out.println("期望')'但未找到，当前位置: " + position + "，当前token类型: " + (position < tokens.size() ? currentToken().type : "EOF"));
+                    System.out.println("期望')'但未找到，当前位置: " + position + "，当前token类型: " + (position < tokens.size() ? currentToken().type : "EOF"));
                     return dsl;
                 }
                 position++; // 跳过右括号
-                //System.out.println("locate方法解析完成");
+                System.out.println("locate方法解析完成");
             } else {
                 // 不是locate方法，回退位置
-                //System.out.println("不是locate方法，回退位置");
+                System.out.println("不是locate方法，回退位置");
                 position--;
             }
         } else {
-           // System.out.println("未找到DOT或已到达文件末尾");
+            System.out.println("未找到DOT或已到达文件末尾");
         }
         
         // 解析.priority(...) - 可选
         // 跳过可能存在的换行符
         skipWhitespaceAndNewlines();
-        ///System.out.println("检查priority方法，当前位置: " + position + "，当前token类型: " + (position < tokens.size() ? currentToken().type : "EOF"));
+        System.out.println("检查priority方法，当前位置: " + position + "，当前token类型: " + (position < tokens.size() ? currentToken().type : "EOF"));
         if (position < tokens.size() && currentToken().type == TokenType.DOT) {
-            //System.out.println("找到点号，跳过点号");
+            System.out.println("找到点号，跳过点号");
             match(TokenType.DOT); // 跳过点号
             skipWhitespaceAndNewlines();
             
             Token priorityToken = currentToken();
-            //System.out.println("priorityToken类型: " + priorityToken.type + "，值: " + priorityToken.value);
+            System.out.println("priorityToken类型: " + priorityToken.type + "，值: " + priorityToken.value);
             if (priorityToken.type == TokenType.IDENTIFIER && "priority".equals(priorityToken.value)) {
-                //System.out.println("找到priority方法");
+                System.out.println("找到priority方法");
                 position++; // 手动增加位置，跳过priority标识符
                 skipWhitespaceAndNewlines();
                 
                 if (position >= tokens.size() || currentToken().type != TokenType.LEFT_PAREN) {
-                    //System.out.println("期望'('但未找到，当前位置: " + position + "，当前token类型: " + (position < tokens.size() ? currentToken().type : "EOF"));
+                    System.out.println("期望'('但未找到，当前位置: " + position + "，当前token类型: " + (position < tokens.size() ? currentToken().type : "EOF"));
                     if (position < tokens.size()) {
-                        //System.out.println("当前token值: " + currentToken().value);
+                        System.out.println("当前token值: " + currentToken().value);
                     }
                     return dsl;
                 }
@@ -259,11 +288,11 @@ public class MixinDSLParserImpl {
                 }
                 
                 Token priorityValueToken = currentToken();
-                //System.out.println("priorityValueToken类型: " + priorityValueToken.type + "，值: " + priorityValueToken.value);
+                System.out.println("priorityValueToken类型: " + priorityValueToken.type + "，值: " + priorityValueToken.value);
                 if (priorityValueToken.type != TokenType.STRING_LITERAL && 
                     priorityValueToken.type != TokenType.IDENTIFIER && 
                     priorityValueToken.type != TokenType.NUMBER_LITERAL) {
-                    //System.out.println("期望数字或字符串字面量但未找到，实际类型: " + priorityValueToken.type);
+                    System.out.println("期望数字或字符串字面量但未找到，实际类型: " + priorityValueToken.type);
                     return dsl;
                 }
                 
@@ -271,9 +300,9 @@ public class MixinDSLParserImpl {
                     // 尝试解析为整数
                     int priority = Integer.parseInt(priorityValueToken.value);
                     dsl.setPriority(priority);
-                    //System.out.println("解析到优先级: " + priority);
+                    System.out.println("解析到优先级: " + priority);
                 } catch (NumberFormatException e) {
-                    //System.out.println("无法解析优先级为数字: " + priorityValueToken.value);
+                    System.out.println("无法解析优先级为数字: " + priorityValueToken.value);
                     return dsl;
                 }
                 
@@ -281,80 +310,84 @@ public class MixinDSLParserImpl {
                 skipWhitespaceAndNewlines();
                 
                 if (position >= tokens.size() || currentToken().type != TokenType.RIGHT_PAREN) {
-                    //System.out.println("期望')'但未找到，当前位置: " + position + "，当前token类型: " + (position < tokens.size() ? currentToken().type : "EOF"));
+                    System.out.println("期望')'但未找到，当前位置: " + position + "，当前token类型: " + (position < tokens.size() ? currentToken().type : "EOF"));
                     return dsl;
                 }
                 position++; // 跳过右括号
-                //System.out.println("priority方法解析完成");
+                System.out.println("priority方法解析完成");
             } else {
                 // 不是priority方法，回退位置
-                //System.out.println("不是priority方法，回退位置");
+                System.out.println("不是priority方法，回退位置");
                 position--;
             }
         } else {
-            //System.out.println("未找到DOT或已到达文件末尾");
+            System.out.println("未找到DOT或已到达文件末尾");
         }
 
         // 解析.inject(...)
-        //System.out.println("开始解析.inject方法，当前位置: " + position);
+        System.out.println("开始解析.inject方法，当前位置: " + position);
         // 跳过可能存在的换行符
         skipWhitespaceAndNewlines();
-        //System.out.println("跳过换行符后，当前位置: " + position + "，token数量: " + tokens.size());
+        System.out.println("跳过换行符后，当前位置: " + position + "，token数量: " + tokens.size());
         if (position >= tokens.size()) {
-            //System.out.println("已到达文件末尾，无法继续解析");
+            System.out.println("已到达文件末尾，无法继续解析");
             return dsl;
         }
         
-        //System.out.println("当前位置token类型: " + currentToken().type + "，值: " + currentToken().value);
+        System.out.println("当前位置token类型: " + currentToken().type + "，值: " + currentToken().value);
         if (!match(TokenType.DOT)) {
-            //System.out.println("期望'.'但未找到");
+            System.out.println("期望'.'但未找到");
             return dsl;
         }
 
+        skipWhitespaceAndNewlines();
         Token injectToken = currentToken();
-        //System.out.println("injectToken: " + injectToken);
+        System.out.println("injectToken: " + injectToken);
         // 跳过可能存在的换行符
         skipWhitespaceAndNewlines();
         if (!match(TokenType.IDENTIFIER) || !"inject".equals(injectToken.value)) {
-            //System.out.println("期望'inject'标识符但未找到，实际为: " + (injectToken != null ? injectToken.value : "null"));
+            System.out.println("期望'inject'标识符但未找到，实际为: " + (injectToken != null ? injectToken.value : "null"));
             return dsl;
         }
 
         // 跳过可能存在的换行符
         skipWhitespaceAndNewlines();
         if (!match(TokenType.LEFT_PAREN)) {
-            //System.out.println("期望'('但未找到");
+            System.out.println("期望'('但未找到");
             return dsl;
         }
 
         // 解析inject函数体
         String injectCode = parseInjectFunction();
-        //System.out.println("解析inject函数体结果: " + injectCode);
+        System.out.println("解析inject函数体结果: " + injectCode);
         if (injectCode != null) {
             String extractedBody = EventProbeTextProcessor.extractFunctionBody(injectCode);
-            //System.out.println("提取函数体结果: " + extractedBody);
+            System.out.println("提取函数体结果: " + extractedBody);
             dsl.setAction(extractedBody);
-            //System.out.println("设置actionCode: " + extractedBody);
+            System.out.println("设置actionCode: " + extractedBody);
         } else {
-           // System.out.println("injectCode为null，无法设置actionCode");
+            System.out.println("injectCode为null，无法设置actionCode");
         }
 
         // 不再尝试匹配RIGHT_PAREN，因为parseInjectFunction已经处理了
 
-        //System.out.println("MixinDSL解析完成");
+        System.out.println("MixinDSL解析完成: " + dsl);
         return dsl;
     }
 
     private void skipWhitespaceAndNewlines() {
+        System.out.println("开始跳过空白字符和换行符，当前位置: " + position);
         while (position < tokens.size() && 
                (currentToken().type == TokenType.NEWLINE || 
                 currentToken().type == TokenType.WHITESPACE)) {
+            System.out.println("跳过token: " + currentToken().type + " 值: '" + currentToken().value + "'");
             position++;
         }
+        System.out.println("跳过完成，新位置: " + position);
     }
 
     private String parseInjectFunction() {
-        //System.out.println("开始解析inject函数体，当前位置: " + position);
+        System.out.println("开始解析inject函数体，当前位置: " + position);
 
         // 收集函数声明的原始代码，包括换行符
         StringBuilder functionCodeBuilder = new StringBuilder();
@@ -365,6 +398,7 @@ public class MixinDSLParserImpl {
         // 收集function关键字和参数列表，直到找到函数体开始的大括号
         while (position < tokens.size() && currentToken().type != TokenType.LEFT_BRACE) {
             Token token = currentToken();
+            System.out.println("收集函数声明部分，token类型: " + token.type + " 值: '" + token.value + "'");
             
             // 如果前一个token是function关键字，而当前token是标识符，则添加空格
             if (afterFunctionKeyword && token.type == TokenType.IDENTIFIER) {
@@ -372,8 +406,12 @@ public class MixinDSLParserImpl {
                 afterFunctionKeyword = false;
             }
             
+            // 处理注释
+            if (token.type == TokenType.COMMENT) {
+                functionCodeBuilder.append(token.value);
+            }
             // 对于字符串字面量，使用原始值（包括引号）
-            if (token.type == TokenType.STRING_LITERAL) {
+            else if (token.type == TokenType.STRING_LITERAL) {
                 functionCodeBuilder.append(token.originalValue);
             } else {
                 functionCodeBuilder.append(token.value);
@@ -384,7 +422,7 @@ public class MixinDSLParserImpl {
                 afterFunctionKeyword = true;
             }
             
-            //System.out.println("收集函数声明部分: " + token.value + " 类型: " + token.type);
+            System.out.println("收集函数声明部分: " + token.value + " 类型: " + token.type);
             position++;
         }
 
@@ -392,9 +430,9 @@ public class MixinDSLParserImpl {
         if (position < tokens.size() && currentToken().type == TokenType.LEFT_BRACE) {
             Token token = currentToken();
             functionCodeBuilder.append(token.value);
-            //System.out.println("添加左大括号: " + token.value);
+            System.out.println("添加左大括号: " + token.value);
         } else {
-            //System.out.println("未找到函数体开始的大括号");
+            System.out.println("未找到函数体开始的大括号");
             return null;
         }
 
@@ -406,27 +444,32 @@ public class MixinDSLParserImpl {
         // 继续解析直到找到匹配的右大括号
         while (position < tokens.size() && braceCount > 0) {
             Token token = currentToken();
+            System.out.println("解析函数体中的token，类型: " + token.type + " 值: '" + token.value + "' braceCount: " + braceCount);
             
             // 添加所有token的值，包括换行符
+            // 处理注释
+            if (token.type == TokenType.COMMENT) {
+                functionCodeBuilder.append(token.value);
+            }
             // 对于字符串字面量，使用原始值（包括引号）
-            if (token.type == TokenType.STRING_LITERAL) {
+            else if (token.type == TokenType.STRING_LITERAL) {
                 functionCodeBuilder.append(token.originalValue);
             } else {
                 functionCodeBuilder.append(token.value);
             }
-            //System.out.println("解析函数体中的token: " + token + " braceCount: " + braceCount);
+            System.out.println("解析函数体中的token: " + token + " braceCount: " + braceCount);
 
             switch (token.type) {
                 case LEFT_BRACE:
                     braceCount++;
-                    //System.out.println("左大括号，计数: " + braceCount);
+                    System.out.println("左大括号，计数: " + braceCount);
                     break;
                 case RIGHT_BRACE:
                     braceCount--;
-                    //System.out.println("右大括号，计数: " + braceCount);
+                    System.out.println("右大括号，计数: " + braceCount);
                     break;
                 case EOF:
-                    //System.out.println("意外的文件结束");
+                    System.out.println("意外的文件结束");
                     return null;
             }
 
@@ -436,7 +479,7 @@ public class MixinDSLParserImpl {
         }
 
         if (braceCount != 0) {
-            //System.out.println("大括号不匹配");
+            System.out.println("大括号不匹配");
             return null;
         }
 
@@ -444,29 +487,29 @@ public class MixinDSLParserImpl {
         if (position < tokens.size() && currentToken().type == TokenType.RIGHT_BRACE) {
             Token token = currentToken();
             functionCodeBuilder.append(token.value);
-            //System.out.println("添加右大括号: " + token.value);
+            System.out.println("添加右大括号: " + token.value);
             position++; // 跳过右大括号
         }
 
         // 获取完整的函数声明代码
         String functionCode = functionCodeBuilder.toString();
-        //System.out.println("完整函数代码: " + functionCode);
+        System.out.println("完整函数代码: " + functionCode);
 
         // 使用EventProbeTextProcessor提取函数体
         String functionBody = EventProbeTextProcessor.extractFunctionBody(functionCode);
-        //System.out.println("提取的函数体: " + functionBody);
+        System.out.println("提取的函数体: " + functionBody);
 
-        return functionBody;
+        return functionCode; // 返回完整的函数代码而不是函数体
     }
 
     private boolean match(TokenType expectedType) {
-        //System.out.println("尝试匹配类型: " + expectedType + "，当前位置: " + position + "，当前token: " + (currentToken() != null ? currentToken().type : "null") + "，值: " + (currentToken() != null ? currentToken().value : "null"));
+        System.out.println("尝试匹配类型: " + expectedType + "，当前位置: " + position + "，当前token: " + (currentToken() != null ? currentToken().type : "null") + "，值: " + (currentToken() != null ? currentToken().value : "null"));
         if (position < tokens.size() && tokens.get(position).type == expectedType) {
-            //System.out.println("匹配成功");
+            System.out.println("匹配成功");
             position++;
             return true;
         }
-        //System.out.println("匹配失败");
+        System.out.println("匹配失败");
         return false;
     }
 
@@ -478,10 +521,12 @@ public class MixinDSLParserImpl {
     }
 
     private void skipToNextStatement() {
+        System.out.println("跳到下一个语句，当前位置: " + position);
         while (position < tokens.size() &&
                 currentToken().type != TokenType.MIXIN_KEYWORD &&
                 currentToken().type != TokenType.EOF) {
             position++;
         }
+        System.out.println("跳转后位置: " + position);
     }
 }

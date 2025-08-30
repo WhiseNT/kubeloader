@@ -16,6 +16,7 @@ import dev.latvian.mods.kubejs.util.ConsoleJS;
 import dev.latvian.mods.kubejs.util.UtilsJS;
 import dev.latvian.mods.rhino.Parser;
 import dev.latvian.mods.rhino.ast.AstRoot;
+import org.slf4j.Logger;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -58,9 +59,9 @@ public class ScriptFileMixin {
                     JSInjector.injectFromDSL(root,dsl);
                     modifiedSourceCode.set(converter.convertAndFix(root, dsl.getAction()));
                 }
-                kubeLoader$debugLog("Modified source code for "+ this.info.location + ":\n" + modifiedSourceCode.get());
-                this.pack.manager.scriptType
-                        .console.info("Apply mixin for "+ this.info.location);
+                System.out.println("修改后的源代码 "+ this.info.location + ":\n" + modifiedSourceCode.get());
+                this.pack.manager.scriptType.console.info("Apply mixin for "+ this.info.location + " from "+dsl.getSourcePath());
+
 
             });
 
@@ -86,7 +87,7 @@ public class ScriptFileMixin {
     private void kubeLoader$applyMixin() {
         String mixinPath = ((ScriptFileInfoInterface) this.info).kubeLoader$getTargetPath();
         if (!mixinPath.isEmpty()) {
-            kubeLoader$debugLog("Detected mixin DSL target: " + mixinPath);
+            //kubeLoader$debugLog("Detected mixin DSL target: " + mixinPath);
             // 读取源代码
             String sourceCode = String.join("\n", this.info.lines);
             List<MixinDSL> dsls = MixinDSLParser.parse(sourceCode);
@@ -97,8 +98,9 @@ public class ScriptFileMixin {
                 dsl.setTargetFile(mixinPath);
                 dsl.setSourcePath(this.info.location);
                 kubeLoader$addMixinDSL(mixinPath,dsl);
-                getConsole().log("Adding new mixin target "+ mixinPath);
-                kubeLoader$debugLog("Mixin DSL: " + dsl);
+                this.pack.manager.scriptType.console.info("Adding new mixin object for "+ mixinPath);
+                this.pack.manager.scriptType.console.info("  Type: "+ dsl.getType() + (dsl.getPriority() != 0 ? " Priority: "+dsl.getPriority() : ""));
+
 
             });
         }
@@ -115,14 +117,12 @@ public class ScriptFileMixin {
         }
     }
 
-    private ConsoleJS getConsole() {
-        return this.pack.manager.scriptType.console;
+    private Logger getConsole() {
+        return this.pack.manager.scriptType.console.logger;
     }
 
     private void kubeLoader$debugLog(String msg) {
-        if (Config.debug) {
-            getConsole().debug(msg);
-        }
+
     }
 
 }

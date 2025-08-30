@@ -18,6 +18,7 @@ public class MixinDSLLexer {
         COMMA,              // ,
         WHITESPACE,         // 空格、制表符、回车等空白字符
         NEWLINE,            // 换行符
+        COMMENT,            // 注释
         EOF,                // 文件结束符
         UNKNOWN             // 未知token
     }
@@ -111,6 +112,17 @@ public class MixinDSLLexer {
             case '\t':
             case '\r':
                 return readWhitespace(startPos);
+            case '/':
+                // 检查是否是注释
+                if (position + 1 < input.length()) {
+                    char nextCh = input.charAt(position + 1);
+                    if (nextCh == '/') {
+                        return readSingleLineComment(startPos);
+                    } else if (nextCh == '*') {
+                        return readMultiLineComment(startPos);
+                    }
+                }
+                break;
         }
 
         // 处理数字
@@ -148,6 +160,42 @@ public class MixinDSLLexer {
         // 保留完整的原始值（包括引号）用于代码重建
         String originalValue = sb.toString();
         return new Token(TokenType.STRING_LITERAL, value, originalValue, startPos);
+    }
+
+    private Token readSingleLineComment(int startPos) {
+        StringBuilder sb = new StringBuilder();
+        // 添加 "//" 到结果中
+        sb.append("//");
+        position += 2; // 跳过 "//"
+
+        // 读取直到行尾
+        while (position < input.length() && input.charAt(position) != '\n') {
+            sb.append(input.charAt(position));
+            position++;
+        }
+
+        return new Token(TokenType.COMMENT, sb.toString(), startPos);
+    }
+
+    private Token readMultiLineComment(int startPos) {
+        StringBuilder sb = new StringBuilder();
+        // 添加 "/*" 到结果中
+        sb.append("/*");
+        position += 2; // 跳过 "/*"
+
+        // 读取直到遇到 "*/"
+        while (position + 1 < input.length()) {
+            char ch = input.charAt(position);
+            sb.append(ch);
+            if (ch == '*' && input.charAt(position + 1) == '/') {
+                sb.append('/');
+                position += 2; // 跳过 "*/"
+                break;
+            }
+            position++;
+        }
+
+        return new Token(TokenType.COMMENT, sb.toString(), startPos);
     }
 
     private Token readWhitespace(int startPos) {

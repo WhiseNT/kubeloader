@@ -10,6 +10,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.LocalCapture;
 
+import java.util.Objects;
 import java.util.regex.Pattern;
 
 @Mixin(value = ScriptFileInfo.class, remap = false)
@@ -27,7 +28,9 @@ public abstract class ScriptFileInfoMixin implements ScriptFileInfoInterface {
 
     @Unique
     public void kubeLoader$setTargetPath(String targetPath) {
-        this.targetPath = targetPath;
+        if (Objects.equals(this.targetPath, "")) {
+            this.targetPath = targetPath;
+        }
     }
 
     // 在for循环内部注入代码，处理自定义注释
@@ -44,7 +47,7 @@ public abstract class ScriptFileInfoMixin implements ScriptFileInfoInterface {
                     var mixinMatcher = MIXIN_PATTERN.matcher(tline);
                     if (mixinMatcher.find()) {
                         String mixinValue = mixinMatcher.group(1);
-                        //System.out.println("找到mixin注释：" + mixinValue);
+                        System.out.println("找到mixin注释：" + mixinValue);
                         kubeLoader$setTargetPath(mixinValue);
                     }
                     //System.out.println("mixin注释：" + this.getTargetPath());
