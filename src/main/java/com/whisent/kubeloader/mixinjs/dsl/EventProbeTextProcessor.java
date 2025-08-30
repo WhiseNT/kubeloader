@@ -1,5 +1,7 @@
 package com.whisent.kubeloader.mixinjs.dsl;
 
+import com.whisent.kubeloader.utils.Debugger;
+
 import java.util.List;
 
 public class EventProbeTextProcessor {
@@ -15,62 +17,62 @@ public class EventProbeTextProcessor {
      * @return 注入后的源代码
      */
     public static String injectEventProbe(String sourceCode, String eventName, int targetLocation, String position, String functionBody) {
-        System.out.println("应用DSL: " + eventName + " 在位置 " + targetLocation + " " + position + " 注入 " + functionBody);
+        Debugger.out("应用DSL: " + eventName + " 在位置 " + targetLocation + " " + position + " 注入 " + functionBody);
         
         // 使用Lexer进行词法分析
         EventProbeLexer lexer = new EventProbeLexer(sourceCode);
         List<EventProbeLexer.Token> tokens = lexer.tokenize();
         
-        System.out.println("词法分析完成，生成的token数量: " + (tokens.size() - 1)); // 不包括EOF
+        Debugger.out("词法分析完成，生成的token数量: " + (tokens.size() - 1)); // 不包括EOF
         for (EventProbeLexer.Token token : tokens) {
             if (token.type != EventProbeLexer.TokenType.EOF) {
-                System.out.println("Token: " + token);
+                Debugger.out("Token: " + token);
             }
         }
         
         // 查找事件订阅
         int eventStartIndex = findEventSubscription(tokens, eventName, targetLocation);
         if (eventStartIndex == -1) {
-            System.out.println("未找到事件订阅: " + eventName + " 位置: " + targetLocation);
+            Debugger.out("未找到事件订阅: " + eventName + " 位置: " + targetLocation);
             return sourceCode;
         }
         
-        System.out.println("找到事件订阅，起始位置: " + eventStartIndex);
+        Debugger.out("找到事件订阅，起始位置: " + eventStartIndex);
         
         // 查找左括号
         int leftParenIndex = findLeftParen(tokens, eventStartIndex);
         if (leftParenIndex == -1) {
-            System.out.println("未找到左括号");
+            Debugger.out("未找到左括号");
             return sourceCode;
         }
         
-        System.out.println("找到左括号，位置: " + leftParenIndex);
+        Debugger.out("找到左括号，位置: " + leftParenIndex);
         
         // 查找箭头函数操作符（跳过参数）
         int arrowIndex = findArrowOperator(tokens, leftParenIndex);
         if (arrowIndex == -1) {
-            System.out.println("未找到箭头操作符");
+            Debugger.out("未找到箭头操作符");
             return sourceCode;
         }
         
-        System.out.println("找到箭头操作符，位置: " + arrowIndex);
+        Debugger.out("找到箭头操作符，位置: " + arrowIndex);
         
         int braceIndex = findOpenBrace(tokens, arrowIndex);
         if (braceIndex == -1) {
-            System.out.println("未找到开大括号");
+            Debugger.out("未找到开大括号");
             return sourceCode;
         }
         
-        System.out.println("找到开大括号，位置: " + braceIndex);
+        Debugger.out("找到开大括号，位置: " + braceIndex);
         
         // 查找匹配的闭大括号
         int closeBraceIndex = findMatchingCloseBrace(tokens, braceIndex);
         if (closeBraceIndex == -1) {
-            System.out.println("未找到匹配的闭大括号");
+            Debugger.out("未找到匹配的闭大括号");
             return sourceCode;
         }
         
-        System.out.println("找到匹配的闭大括号，位置: " + closeBraceIndex);
+        Debugger.out("找到匹配的闭大括号，位置: " + closeBraceIndex);
         
         // 重建代码并注入
         return rebuildCodeWithInjection(sourceCode, tokens, braceIndex, closeBraceIndex, position, functionBody);
@@ -241,15 +243,15 @@ public class EventProbeTextProcessor {
      * @return 函数体内容，例如 "console.log('test');"
      */
     public static String extractFunctionBody(String functionCode) {
-        //System.out.println("提取函数体，输入代码: " + functionCode);
+        //Debugger.out("提取函数体，输入代码: " + functionCode);
         // 使用Lexer解析函数代码
         EventProbeLexer lexer = new EventProbeLexer(functionCode);
         List<EventProbeLexer.Token> tokens = lexer.tokenize();
         
-        //System.out.println("词法分析完成，token数量: " + tokens.size());
+        //Debugger.out("词法分析完成，token数量: " + tokens.size());
         for (EventProbeLexer.Token token : tokens) {
             if (token.type != EventProbeLexer.TokenType.EOF) {
-                System.out.println("Token: " + token);
+                Debugger.out("Token: " + token);
             }
         }
         
@@ -258,13 +260,13 @@ public class EventProbeTextProcessor {
         for (int i = 0; i < tokens.size(); i++) {
             if (tokens.get(i).type == EventProbeLexer.TokenType.FUNCTION_KEYWORD) {
                 functionIndex = i;
-                //System.out.println("找到function关键字，位置: " + functionIndex);
+                //Debugger.out("找到function关键字，位置: " + functionIndex);
                 break;
             }
         }
         
         if (functionIndex == -1) {
-            //System.out.println("未找到function关键字，返回原始代码");
+            //Debugger.out("未找到function关键字，返回原始代码");
             return functionCode;
         }
         
@@ -273,24 +275,24 @@ public class EventProbeTextProcessor {
         for (int i = functionIndex; i < tokens.size(); i++) {
             if (tokens.get(i).type == EventProbeLexer.TokenType.LEFT_BRACE) {
                 openBraceIndex = i;
-                //System.out.println("找到开大括号，位置: " + openBraceIndex);
+                //Debugger.out("找到开大括号，位置: " + openBraceIndex);
                 break;
             }
         }
         
         if (openBraceIndex == -1) {
-            //System.out.println("未找到开大括号，返回原始代码");
+            //Debugger.out("未找到开大括号，返回原始代码");
             return functionCode;
         }
         
         // 查找匹配的闭大括号
         int closeBraceIndex = findMatchingCloseBrace(tokens, openBraceIndex);
         if (closeBraceIndex == -1) {
-            //System.out.println("未找到匹配的闭大括号，返回原始代码");
+            //Debugger.out("未找到匹配的闭大括号，返回原始代码");
             return functionCode;
         }
         
-        //System.out.println("找到匹配的闭大括号，位置: " + closeBraceIndex);
+        //Debugger.out("找到匹配的闭大括号，位置: " + closeBraceIndex);
         
         EventProbeLexer.Token openBraceToken = tokens.get(openBraceIndex);
         EventProbeLexer.Token closeBraceToken = tokens.get(closeBraceIndex);
@@ -299,11 +301,11 @@ public class EventProbeTextProcessor {
         int openBraceEnd = openBraceToken.position + 1;
         int closeBraceStart = closeBraceToken.position;
         
-        //System.out.println("提取范围: " + openBraceEnd + " 到 " + closeBraceStart);
+        //Debugger.out("提取范围: " + openBraceEnd + " 到 " + closeBraceStart);
         
         // 保留原始格式，包括引号和其他字符
         String result = functionCode.substring(openBraceEnd, closeBraceStart);
-        //System.out.println("提取结果: " + result);
+        //Debugger.out("提取结果: " + result);
         return result;
     }
 }

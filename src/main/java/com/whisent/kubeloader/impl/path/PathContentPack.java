@@ -7,6 +7,7 @@ import com.whisent.kubeloader.definition.ContentPack;
 import com.whisent.kubeloader.definition.ContentPackUtils;
 import com.whisent.kubeloader.definition.PackLoadingContext;
 import com.whisent.kubeloader.definition.meta.PackMetaData;
+import com.whisent.kubeloader.mixinjs.MixinManager;
 import dev.latvian.mods.kubejs.KubeJS;
 import dev.latvian.mods.kubejs.script.ScriptPack;
 import dev.latvian.mods.kubejs.script.ScriptSource;
@@ -36,6 +37,8 @@ public class PathContentPack implements ContentPack {
         this.metaData = loadMetaData(base);
         this.resourcePath = base.resolve("assets");
         this.dataPath = base.resolve("data");
+        // 加载mixin脚本
+
     }
 
     public Path getResourcePath() {
@@ -69,6 +72,9 @@ public class PathContentPack implements ContentPack {
 
     @Override
     public @Nullable ScriptPack getPack(PackLoadingContext context) {
+        if (context.manager().scriptType.isStartup()) {
+            MixinManager.loadMixins(base.resolve("mixins"), id() + ":");
+        }
         var scriptPath = base.resolve(context.folderName());
         if (!Files.isDirectory(scriptPath)) {
             return null;
@@ -85,17 +91,6 @@ public class PathContentPack implements ContentPack {
         return pack;
     }
 
-    @Override
-    public void loadCommonScripts(ScriptPack pack, PackLoadingContext context) {
-        var commonPack = ContentPackUtils.createEmptyPack(context, id());
-        var sciptPath = base.resolve("common_scripts");
-        KubeJS.loadScripts(commonPack, sciptPath, "");
-        for (var fileInfo : commonPack.info.scripts) {
-            var scriptSource = (ScriptSource.FromPath) (info) -> sciptPath.resolve(info.file);
-            context.loadFile(pack, fileInfo, scriptSource);
-        }
-        pack.info.scripts.addAll(commonPack.info.scripts);
-    }
 
     public Set<String> getNamespaces(PackType packType) {
         Path path = getPathForType(packType);
@@ -124,11 +119,9 @@ public class PathContentPack implements ContentPack {
 
         return null;
     }
-
     private Path getPathForType(PackType packType) {
         return packType == PackType.CLIENT_RESOURCES ? resourcePath : dataPath;
     }
-
     @Override
     public String toString() {
         return "PathContentPack[namespace='%s']".formatted(id());

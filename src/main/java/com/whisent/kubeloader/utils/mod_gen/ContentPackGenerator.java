@@ -8,6 +8,7 @@ import com.whisent.kubeloader.definition.meta.PackMetaDataBuilder;
 import com.whisent.kubeloader.definition.meta.dependency.DependencyType;
 import com.whisent.kubeloader.definition.meta.dependency.PackDependency;
 import com.whisent.kubeloader.definition.meta.dependency.PackDependencyBuilder;
+import com.whisent.kubeloader.utils.Debugger;
 import dev.latvian.mods.kubejs.typings.Info;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
@@ -76,7 +77,7 @@ public class ContentPackGenerator {
                     .withStyle(ChatFormatting.GREEN));
 
             // 要创建的子目录
-            List<String> dirs = List.of("server_scripts", "client_scripts", "startup_scripts", "assets", "data");
+            List<String> dirs = List.of("server_scripts", "client_scripts", "startup_scripts","mixins", "assets", "data");
 
             for (String dir : dirs) {
                 try {
@@ -127,8 +128,8 @@ public class ContentPackGenerator {
 
             // ✅ 服务端日志
             Kubeloader.LOGGER.info("内容包生成成功: {}", packId);
-            System.out.println("内容包生成完成！ID: " + packId);
-            System.out.println("目录位置: " + packDir.toAbsolutePath());
+            Debugger.out("内容包生成完成！ID: " + packId);
+            Debugger.out("目录位置: " + packDir.toAbsolutePath());
 
         } catch (Exception e) {
             // ❌ 出错时通知玩家（国际化）

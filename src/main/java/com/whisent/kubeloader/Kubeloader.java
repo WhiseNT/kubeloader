@@ -11,6 +11,7 @@ import com.whisent.kubeloader.impl.path.PathContentPackProvider;
 import com.whisent.kubeloader.impl.path.PathContentPackRepositorySource;
 import com.whisent.kubeloader.impl.zip.ZipContentPackProvider;
 import com.whisent.kubeloader.impl.zip.ZipContentPackRepositorySource;
+import com.whisent.kubeloader.mixinjs.MixinManager;
 import dev.latvian.mods.kubejs.KubeJS;
 import dev.latvian.mods.kubejs.KubeJSPaths;
 import net.minecraft.server.packs.PackType;
@@ -40,6 +41,7 @@ public class Kubeloader
     // Define mod id in a common place for everything to reference
     public static final String MODID = "kubeloader";
     public static final String FOLDER_NAME = "contentpacks";
+    public static final String MIXIN_FOLDER = "mixins";
     //public static final String COMMON_SCRIPTS = "common_scripts";
     public static final String CONFIG_FOLDER = "config";
     public static final Logger LOGGER = LogManager.getLogger(MODID);
@@ -49,6 +51,8 @@ public class Kubeloader
     public static Path PackPath = KubeJSPaths.DIRECTORY.resolve(FOLDER_NAME);
     //public static Path CommonPath = KubeJSPaths.DIRECTORY.resolve(COMMON_SCRIPTS);
     public static Path ConfigPath = KubeJSPaths.DIRECTORY.resolve(CONFIG_FOLDER);
+    public static Path MixinPath = KubeJSPaths.DIRECTORY.resolve(MIXIN_FOLDER);
+    public static Path MixinLogPath = KubeJSPaths.DIRECTORY.resolve("logs").resolve("kubejs");
 
     public Kubeloader() throws IOException {
         IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
@@ -63,6 +67,12 @@ public class Kubeloader
         if (Files.notExists(ConfigPath)){
             Files.createDirectories(ConfigPath);
         }
+        if (Files.notExists(MixinPath)) {
+            Files.createDirectories(MixinPath);
+        }
+        if (Files.notExists(MixinLogPath)) {
+            Files.createDirectories(MixinLogPath);
+        }
         
         // Register config
         ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, Config.SPEC);
@@ -70,6 +80,7 @@ public class Kubeloader
         modEventBus.addListener(this::ModLoding);
         FMLJavaModLoadingContext.get().getModEventBus().addListener(this::injectPacks);
         KubeLoaderClientEventHandler.init();
+
         //mod
         registerModContentPackProviders();
         ContentPackProviders.register(

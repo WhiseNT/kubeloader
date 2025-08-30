@@ -1,9 +1,11 @@
 package com.whisent.kubeloader.impl.zip;
 
+import com.whisent.kubeloader.Kubeloader;
 import com.whisent.kubeloader.definition.ContentPackUtils;
 import com.whisent.kubeloader.definition.PackLoadingContext;
 import com.whisent.kubeloader.definition.meta.PackMetaData;
 import com.whisent.kubeloader.impl.ContentPackBase;
+import com.whisent.kubeloader.mixinjs.MixinManager;
 import dev.latvian.mods.kubejs.script.ScriptFileInfo;
 import dev.latvian.mods.kubejs.script.ScriptPack;
 import dev.latvian.mods.kubejs.script.ScriptSource;
@@ -16,6 +18,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.HashSet;
@@ -42,6 +45,9 @@ public class ZipContentPack extends ContentPackBase {
     @Override
     @Nullable
     protected ScriptPack createPack(PackLoadingContext context) {
+        // 加载mixin脚本
+        loadMixins(context);
+        
         var pack = ContentPackUtils.createEmptyPack(context, id());
         //loadCommonScripts(pack, context);
         var prefix = context.folderName() + '/';
@@ -66,29 +72,83 @@ public class ZipContentPack extends ContentPackBase {
             return null;
         }
     }
-
-    @Override
-    public void loadCommonScripts(ScriptPack pack, PackLoadingContext context) {
-        var commonPack = ContentPackUtils.createEmptyPack(context, id());
-        var prefix = "common_scripts/";
+    
+    /**
+     * 从ZIP文件中加载mixin脚本
+     * @param context 加载上下文
+     */
+    public void loadMixins(PackLoadingContext context) {
+        if (!context.manager().scriptType.isStartup()) {
+            return;
+        }
+        String mixinFolder = "mixins/";
         try (var zipFile = new ZipFile(path.toFile())) {
             zipFile.stream()
                 .filter(e -> !e.isDirectory())
                 .filter(e -> e.getName().endsWith(".js"))
-                .filter(e -> e.getName().startsWith(prefix))
+                .filter(e -> e.getName().startsWith(mixinFolder))
                 .forEach(zipEntry -> {
-                    var zipFileInfo = new ScriptFileInfo(commonPack.info, zipEntry.getName());
-                    var scriptSource = (ScriptSource) info -> {
-                        var reader = new BufferedReader(new InputStreamReader(
-                                zipFile.getInputStream(zipEntry), StandardCharsets.UTF_8));
-                        return reader.lines().toList();
-                    };
-                    context.loadFile(pack, zipFileInfo, scriptSource);
+                    try {
+                        // 读取mixin脚本内容
+                        String sourceCode = new BufferedReader(new InputStreamReader(
+                                zipFile.getInputStream(zipEntry), StandardCharsets.UTF_8))
+                                .lines()
+                                .reduce("", (a, b) -> a + "\n" + b);
+                        
+                        // 从注释中提取目标文件路径
+                        String targetFile = extractTargetFileFromComments(sourceCode);
+                        
+                        // 解析mixin DSL
+                        var dsls = com.whisent.kubeloader.mixinjs.dsl.MixinDSLParser.parse(sourceCode);
+                        
+                        // 注册解析到的MixinDSL对象
+                        String fullPath = "zip:" + path.toString() + "!/" + zipEntry.getName();
+                        for (var dsl : dsls) {
+                            // 如果从注释中找到了目标文件，则使用注释中的目标文件
+                            // 否则使用默认的完整路径
+                            if (targetFile != null && !targetFile.isEmpty()) {
+                                dsl.setTargetFile(targetFile);
+                            } else {
+                                dsl.setTargetFile(fullPath);
+                            }
+                            MixinManager.addMixinDSL(targetFile, dsl);
+                        }
+                        
+                        // 记录日志
+                        if (!dsls.isEmpty()) {
+                            Kubeloader.LOGGER.info("Loaded {} mixin DSLs from ZIP entry: {}", dsls.size(), fullPath);
+                        }
+                    } catch (IOException e) {
+                        Kubeloader.LOGGER.error("加载mixin脚本时出错: {}", zipEntry.getName(), e);
+                    }
                 });
-            pack.info.scripts.addAll(commonPack.info.scripts);
         } catch (IOException e) {
-            // TODO: log
+            Kubeloader.LOGGER.error("加载zip中的mixin脚本时出错: {}", path, e);
         }
+    }
+    
+    /**
+     * 从源代码注释中提取目标文件路径
+     * 
+     * @param sourceCode 源代码
+     * @return 目标文件路径，如果未找到则返回null
+     */
+    private static String extractTargetFileFromComments(String sourceCode) {
+        try (BufferedReader reader = new BufferedReader(new StringReader(sourceCode))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                String trimmedLine = line.trim();
+                if (trimmedLine.startsWith("//")) {
+                    java.util.regex.Matcher matcher = MixinManager.MIXIN_COMMENT_PATTERN.matcher(trimmedLine);
+                    if (matcher.find()) {
+                        return matcher.group(1);
+                    }
+                }
+            }
+        } catch (IOException e) {
+            Kubeloader.LOGGER.error("Error extracting target file from comments", e);
+        }
+        return null;
     }
     
     public Set<String> getNamespaces(PackType packType) {

@@ -1,9 +1,13 @@
 package com.whisent.kubeloader.mixin;
 
 import com.whisent.kubeloader.impl.mixin_interface.ScriptFileInfoInterface;
+import com.whisent.kubeloader.utils.Debugger;
 import dev.latvian.mods.kubejs.script.ScriptFileInfo;
+import dev.latvian.mods.kubejs.script.ScriptPackInfo;
 import dev.latvian.mods.kubejs.script.ScriptSource;
+import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -15,6 +19,7 @@ import java.util.regex.Pattern;
 
 @Mixin(value = ScriptFileInfo.class, remap = false)
 public abstract class ScriptFileInfoMixin implements ScriptFileInfoInterface {
+    @Shadow @Final public ScriptPackInfo pack;
     @Unique
     private String targetPath = "";
     @Unique
@@ -47,10 +52,11 @@ public abstract class ScriptFileInfoMixin implements ScriptFileInfoInterface {
                     var mixinMatcher = MIXIN_PATTERN.matcher(tline);
                     if (mixinMatcher.find()) {
                         String mixinValue = mixinMatcher.group(1);
-                        System.out.println("找到mixin注释：" + mixinValue);
+                        Debugger.out("找到mixin注释：" + mixinValue);
                         kubeLoader$setTargetPath(mixinValue);
+
                     }
-                    //System.out.println("mixin注释：" + this.getTargetPath());
+                    //Debugger.out("mixin注释：" + this.getTargetPath());
                 }
 
             }

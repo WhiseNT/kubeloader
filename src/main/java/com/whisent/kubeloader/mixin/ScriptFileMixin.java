@@ -3,11 +3,13 @@ package com.whisent.kubeloader.mixin;
 import com.whisent.kubeloader.Config;
 import com.whisent.kubeloader.impl.mixin_interface.ScriptFileInfoInterface;
 import com.whisent.kubeloader.impl.mixin_interface.ScriptManagerInterface;
+import com.whisent.kubeloader.mixinjs.MixinManager;
 import com.whisent.kubeloader.mixinjs.ast.AstToSourceConverter;
 import com.whisent.kubeloader.mixinjs.ast.JSInjector;
 import com.whisent.kubeloader.mixinjs.dsl.EventProbe;
 import com.whisent.kubeloader.mixinjs.dsl.MixinDSL;
 import com.whisent.kubeloader.mixinjs.dsl.MixinDSLParser;
+import com.whisent.kubeloader.utils.Debugger;
 import dev.latvian.mods.kubejs.script.ScriptFile;
 import dev.latvian.mods.kubejs.script.ScriptFileInfo;
 import dev.latvian.mods.kubejs.script.ScriptPack;
@@ -42,7 +44,8 @@ public class ScriptFileMixin {
     @Inject(method = "load", at = @At("HEAD"), cancellable = true)
     public void kubeLoader$load(CallbackInfo ci) throws Throwable {
         // 检查脚本是否包含mixin属性
-
+        Debugger.out("加载脚本 " + this.info.location);
+        Debugger.out("mixin DSL Map: " + kubeLoader$getMixinDSL().keySet());
         if (kubeLoader$getMixinDSL().getOrDefault(this.info.location,null) != null) {
 
             // 读取源代码
@@ -59,7 +62,7 @@ public class ScriptFileMixin {
                     JSInjector.injectFromDSL(root,dsl);
                     modifiedSourceCode.set(converter.convertAndFix(root, dsl.getAction()));
                 }
-                System.out.println("修改后的源代码 "+ this.info.location + ":\n" + modifiedSourceCode.get());
+                Debugger.out("修改后的源代码 "+ this.info.location + ":\n" + modifiedSourceCode.get());
                 this.pack.manager.scriptType.console.info("Apply mixin for "+ this.info.location + " from "+dsl.getSourcePath());
 
 
@@ -87,27 +90,31 @@ public class ScriptFileMixin {
     private void kubeLoader$applyMixin() {
         String mixinPath = ((ScriptFileInfoInterface) this.info).kubeLoader$getTargetPath();
         if (!mixinPath.isEmpty()) {
-            //kubeLoader$debugLog("Detected mixin DSL target: " + mixinPath);
-            // 读取源代码
-            String sourceCode = String.join("\n", this.info.lines);
-            List<MixinDSL> dsls = MixinDSLParser.parse(sourceCode);
-            getConsole().debug("Founded " + dsls.size() + " mixin DSL Object in " + this.info.location);
-            dsls.sort((a, b) -> Integer.compare(b.getPriority(), a.getPriority()));
-            dsls.forEach(dsl -> {
-                dsl.setFile((ScriptFile)(Object)this);
-                dsl.setTargetFile(mixinPath);
-                dsl.setSourcePath(this.info.location);
-                kubeLoader$addMixinDSL(mixinPath,dsl);
-                this.pack.manager.scriptType.console.info("Adding new mixin object for "+ mixinPath);
-                this.pack.manager.scriptType.console.info("  Type: "+ dsl.getType() + (dsl.getPriority() != 0 ? " Priority: "+dsl.getPriority() : ""));
+            this.pack.manager.scriptType.console.warn("You should put mixin scripts in mixins folder!");
+            if (false) {
+                //kubeLoader$debugLog("Detected mixin DSL target: " + mixinPath);
+                // 读取源代码
+                String sourceCode = String.join("\n", this.info.lines);
+                List<MixinDSL> dsls = MixinDSLParser.parse(sourceCode);
+                getConsole().debug("Founded " + dsls.size() + " mixin DSL Object in " + this.info.location);
+                dsls.sort((a, b) -> Integer.compare(b.getPriority(), a.getPriority()));
+                dsls.forEach(dsl -> {
+                    dsl.setFile((ScriptFile)(Object)this);
+                    dsl.setTargetFile(mixinPath);
+                    dsl.setSourcePath(this.info.location);
+                    kubeLoader$addMixinDSL(mixinPath,dsl);
+                    this.pack.manager.scriptType.console.info("Adding new mixin object for "+ mixinPath);
+                    this.pack.manager.scriptType.console.info("  Type: "+ dsl.getType() + (dsl.getPriority() != 0 ? " Priority: "+dsl.getPriority() : ""));
 
 
-            });
+                });
+            }
+
         }
     }
 
     private Map<String,List<MixinDSL>> kubeLoader$getMixinDSL() {
-        return ((ScriptManagerInterface)this.pack.manager).getKubeLoader$mixinDSLs();
+        return MixinManager.getMixinMap();
     }
 
     private void kubeLoader$addMixinDSL(String path, MixinDSL dsl) {

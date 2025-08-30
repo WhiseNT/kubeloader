@@ -10,6 +10,7 @@ import com.whisent.kubeloader.impl.depends.PackDependencyBuilder;
 import com.whisent.kubeloader.impl.depends.PackDependencyValidator;
 import com.whisent.kubeloader.impl.depends.SortableContentPack;
 import com.whisent.kubeloader.impl.mixin_interface.ScriptManagerInterface;
+import com.whisent.kubeloader.mixinjs.MixinManager;
 import com.whisent.kubeloader.mixinjs.dsl.MixinDSL;
 import com.whisent.kubeloader.utils.topo.TopoNotSolved;
 import com.whisent.kubeloader.utils.topo.TopoPreconditionFailed;
@@ -50,8 +51,12 @@ public abstract class ScriptManagerMixin implements SortablePacksHolder, ScriptM
 
     @Redirect(method = "load", at = @At(value = "INVOKE", target = "Ljava/util/Map;values()Ljava/util/Collection;"))
     private Collection<ScriptPack> injectPacks(Map<String, ScriptPack> original) {
+
         //清空mixin数据
         getKubeLoader$mixinDSLs().clear();
+        if (thiz().scriptType.isStartup()) {
+            MixinManager.loadMixins(Kubeloader.MixinPath,"");
+        }
         var context = new PackLoadingContext((ScriptManager) (Object) this);
         var packs = ContentPackProviders.getPacks();
 
