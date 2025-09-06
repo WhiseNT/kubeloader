@@ -41,7 +41,7 @@ public class KubeLoaderPlugin extends KubeJSPlugin {
         event.add("KLUtils", KLUtil.class);
         event.add("ModGen", PackModGenerator.class);
         event.add("PackGen", ContentPackGenerator.class);
-        event.add("Mixin", ShadowMixinObject.class);
+        event.add("KLM", ShadowMixinObject.class);
         if (event.getType() == ScriptType.SERVER) {
             KubeLoaderServerEventHandler.init();
         }

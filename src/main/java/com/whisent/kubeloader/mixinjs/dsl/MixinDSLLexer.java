@@ -1,5 +1,7 @@
 package com.whisent.kubeloader.mixinjs.dsl;
 
+import com.whisent.kubeloader.Kubeloader;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -231,7 +233,7 @@ public class MixinDSLLexer {
         String identifier = sb.toString();
         
         // 检查是否为关键字
-        if ("Mixin".equals(identifier)) {
+        if (Kubeloader.MIXIN_IDENTIFIER.equals(identifier)) {
             return new Token(TokenType.MIXIN_KEYWORD, identifier, startPos);
         } else if ("function".equals(identifier)) {
             return new Token(TokenType.FUNCTION_KEYWORD, identifier, startPos);

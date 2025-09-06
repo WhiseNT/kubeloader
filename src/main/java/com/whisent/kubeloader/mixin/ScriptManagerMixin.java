@@ -20,6 +20,7 @@ import dev.latvian.mods.kubejs.script.ScriptFileInfo;
 import dev.latvian.mods.kubejs.script.ScriptManager;
 import dev.latvian.mods.kubejs.script.ScriptPack;
 import dev.latvian.mods.kubejs.script.ScriptSource;
+import dev.latvian.mods.kubejs.util.UtilsJS;
 import net.minecraft.network.chat.Component;
 import org.jetbrains.annotations.NotNull;
 import org.spongepowered.asm.mixin.Final;
@@ -54,9 +55,7 @@ public abstract class ScriptManagerMixin implements SortablePacksHolder, ScriptM
 
         //清空mixin数据
         getKubeLoader$mixinDSLs().clear();
-        if (thiz().scriptType.isStartup()) {
-            MixinManager.loadMixins(Kubeloader.MixinPath,"");
-        }
+
         var context = new PackLoadingContext((ScriptManager) (Object) this);
         var packs = ContentPackProviders.getPacks();
 
@@ -125,6 +124,10 @@ public abstract class ScriptManagerMixin implements SortablePacksHolder, ScriptM
 
     @Inject(method = "loadFromDirectory", at = @At("HEAD"))
     private void injectContentPacks(CallbackInfo ci) {
+        if (thiz().scriptType.isStartup() || UtilsJS.staticServer != null) {
+            MixinManager.getMixinMap().clear();
+            MixinManager.loadMixins(Kubeloader.MixinPath,"");
+        }
     }
 
     @Override

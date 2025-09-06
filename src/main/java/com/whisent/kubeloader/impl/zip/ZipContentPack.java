@@ -9,6 +9,7 @@ import com.whisent.kubeloader.mixinjs.MixinManager;
 import dev.latvian.mods.kubejs.script.ScriptFileInfo;
 import dev.latvian.mods.kubejs.script.ScriptPack;
 import dev.latvian.mods.kubejs.script.ScriptSource;
+import dev.latvian.mods.kubejs.util.UtilsJS;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.PackType;
 import net.minecraft.server.packs.resources.IoSupplier;
@@ -78,10 +79,10 @@ public class ZipContentPack extends ContentPackBase {
      * @param context 加载上下文
      */
     public void loadMixins(PackLoadingContext context) {
-        if (!context.manager().scriptType.isStartup()) {
+        if (!context.manager().scriptType.isStartup() || UtilsJS.staticServer != null) {
             return;
         }
-        String mixinFolder = "mixins/";
+        String mixinFolder = Kubeloader.MIXIN_FOLDER + "/";
         try (var zipFile = new ZipFile(path.toFile())) {
             zipFile.stream()
                 .filter(e -> !e.isDirectory())

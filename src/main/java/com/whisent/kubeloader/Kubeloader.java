@@ -12,6 +12,8 @@ import com.whisent.kubeloader.impl.path.PathContentPackRepositorySource;
 import com.whisent.kubeloader.impl.zip.ZipContentPackProvider;
 import com.whisent.kubeloader.impl.zip.ZipContentPackRepositorySource;
 import com.whisent.kubeloader.mixinjs.MixinManager;
+import com.whisent.kubeloader.network.NetworkHandler;
+import dev.architectury.platform.Platform;
 import dev.latvian.mods.kubejs.KubeJS;
 import dev.latvian.mods.kubejs.KubeJSPaths;
 import net.minecraft.server.packs.PackType;
@@ -25,6 +27,7 @@ import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.config.ModConfig;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
+import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -41,7 +44,8 @@ public class Kubeloader
     // Define mod id in a common place for everything to reference
     public static final String MODID = "kubeloader";
     public static final String FOLDER_NAME = "contentpacks";
-    public static final String MIXIN_FOLDER = "mixins";
+    public static final String MIXIN_FOLDER = "mixin_scripts";
+    public static final String MIXIN_IDENTIFIER = "KLM";
     //public static final String COMMON_SCRIPTS = "common_scripts";
     public static final String CONFIG_FOLDER = "config";
     public static final Logger LOGGER = LogManager.getLogger(MODID);
@@ -52,14 +56,15 @@ public class Kubeloader
     //public static Path CommonPath = KubeJSPaths.DIRECTORY.resolve(COMMON_SCRIPTS);
     public static Path ConfigPath = KubeJSPaths.DIRECTORY.resolve(CONFIG_FOLDER);
     public static Path MixinPath = KubeJSPaths.DIRECTORY.resolve(MIXIN_FOLDER);
-    public static Path MixinLogPath = KubeJSPaths.DIRECTORY.resolve("logs").resolve("kubejs");
+    public static Path MixinLogPath = Platform.getGameFolder().resolve("logs")
+            .resolve("kubejs");
 
     public Kubeloader() throws IOException {
         IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
 
 
         //LOGGER.info(ResourcePath.toString());
-        LOGGER.info(PackPath.toString());
+        //LOGGER.info(PackPath.toString());
         //将resource写入,先清理资源文件再进行写入
         if (Files.notExists(PackPath)){
             Files.createDirectories(PackPath);
@@ -70,14 +75,12 @@ public class Kubeloader
         if (Files.notExists(MixinPath)) {
             Files.createDirectories(MixinPath);
         }
-        if (Files.notExists(MixinLogPath)) {
-            Files.createDirectories(MixinLogPath);
-        }
+
         
         // Register config
         ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, Config.SPEC);
         
-        modEventBus.addListener(this::ModLoding);
+        modEventBus.addListener(this::ModLoading);
         FMLJavaModLoadingContext.get().getModEventBus().addListener(this::injectPacks);
         KubeLoaderClientEventHandler.init();
 
@@ -103,7 +106,8 @@ public class Kubeloader
         ContentPackProviders.register(providers);
     }
 
-    private void ModLoding(FMLClientSetupEvent event) {
+    private void ModLoading(FMLCommonSetupEvent event) {
+        event.enqueueWork(NetworkHandler::register);
         LOGGER.info("Setup启动事件");
     }
 

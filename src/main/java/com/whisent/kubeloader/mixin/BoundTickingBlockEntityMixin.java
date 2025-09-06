@@ -2,6 +2,7 @@ package com.whisent.kubeloader.mixin;
 
 import com.whisent.kubeloader.event.kjs.BlockEntityEventJS;
 import com.whisent.kubeloader.event.kjs.BlockEntityEvents;
+import dev.latvian.mods.kubejs.script.ScriptType;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -22,10 +23,19 @@ public class BoundTickingBlockEntityMixin {
     public void tick(CallbackInfo ci) {
         BlockEntity blockEntity = getAccess().getBlockEntity();
         Level level = blockEntity.getLevel();
-        if (level == null || level.isClientSide) return;
         Block block = blockEntity.getBlockState().getBlock();
-        BlockEntityEvents.BLOCK_ENTITY_TICK.post(
-                new BlockEntityEventJS(block, blockEntity, level, blockEntity.getBlockPos()));
+        if (level == null || level.isClientSide) {
+            BlockEntityEvents.BLOCK_ENTITY_TICK.post(ScriptType.CLIENT,
+                    block,
+                    new BlockEntityEventJS(block, blockEntity, level, blockEntity.getBlockPos()));
+        } else {
+            BlockEntityEvents.BLOCK_ENTITY_TICK.post(
+                    ScriptType.SERVER,
+                    block,
+                    new BlockEntityEventJS(block, blockEntity, level, blockEntity.getBlockPos()));
+        }
+
+
 
     }
 

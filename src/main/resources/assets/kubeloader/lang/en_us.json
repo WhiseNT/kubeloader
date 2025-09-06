@@ -8,7 +8,7 @@
   "chat.kubeloader.mod.jar_created": "✅ Jar packaged: %s",
   "chat.kubeloader.mod.cleanup_done": "🧹 Temporary files cleaned up",
   "chat.kubeloader.mod.success": "🎉 Mod generation completed! File exported.",
-  "chat.kubeloader.mod.failed": "❌ Generation failed: %s",
+  "chat.kubeloader.mod.failed": "❌ Generation failed: %s ",
 
   "chat.kubeloader.contentpack.start": "📦 Starting to generate content pack: %s",
   "chat.kubeloader.contentpack.root_created": "📁 Root directory created",

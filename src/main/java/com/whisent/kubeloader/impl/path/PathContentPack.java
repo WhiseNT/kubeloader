@@ -11,6 +11,7 @@ import com.whisent.kubeloader.mixinjs.MixinManager;
 import dev.latvian.mods.kubejs.KubeJS;
 import dev.latvian.mods.kubejs.script.ScriptPack;
 import dev.latvian.mods.kubejs.script.ScriptSource;
+import dev.latvian.mods.kubejs.util.UtilsJS;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.PackType;
 import net.minecraft.server.packs.resources.IoSupplier;
@@ -72,8 +73,8 @@ public class PathContentPack implements ContentPack {
 
     @Override
     public @Nullable ScriptPack getPack(PackLoadingContext context) {
-        if (context.manager().scriptType.isStartup()) {
-            MixinManager.loadMixins(base.resolve("mixins"), id() + ":");
+        if (context.manager().scriptType.isStartup() || UtilsJS.staticServer != null) {
+            MixinManager.loadMixins(base.resolve(Kubeloader.MIXIN_FOLDER), id() + ":");
         }
         var scriptPath = base.resolve(context.folderName());
         if (!Files.isDirectory(scriptPath)) {

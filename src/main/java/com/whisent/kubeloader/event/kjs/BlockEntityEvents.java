@@ -14,6 +14,6 @@ public interface BlockEntityEvents {
             () -> BlockEntityEventJS.class).extra(BlockEvents.SUPPORTS_BLOCK);
     EventHandler BLOCK_ENTITY_UNLOADED = GROUP.server("unloaded",
             () -> BlockEntityEventJS.class).extra(BlockEvents.SUPPORTS_BLOCK);
-    EventHandler BLOCK_ENTITY_TICK = GROUP.server("tick",
-            () -> BlockEntityEventJS.class);
+    EventHandler BLOCK_ENTITY_TICK = GROUP.common("tick",
+            () -> BlockEntityEventJS.class).extra(BlockEvents.SUPPORTS_BLOCK);
 }

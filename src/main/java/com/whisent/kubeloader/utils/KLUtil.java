@@ -1,5 +1,6 @@
 package com.whisent.kubeloader.utils;
 
+import dev.latvian.mods.kubejs.typings.Info;
 import dev.latvian.mods.kubejs.util.UtilsJS;
 import dev.latvian.mods.rhino.util.HideFromJS;
 import net.minecraft.core.RegistryAccess;
@@ -26,7 +27,7 @@ public class KLUtil {
 //        return testEvent;
 //    }
     private static RegistryAccess clientRegistryAccess = null;
-
+    @Info("to generate UUID by any string.")
     public static UUID genUUID(String string) {
         return UUID.nameUUIDFromBytes(string.getBytes());
     }

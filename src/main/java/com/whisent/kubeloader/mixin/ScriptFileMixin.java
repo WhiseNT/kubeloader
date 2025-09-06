@@ -76,14 +76,14 @@ public class ScriptFileMixin {
                     1,
                     (Object)null
             );
-            kubeLoader$applyMixin();
+            //kubeLoader$applyMixin();
             // 清空原始代码行以节省内存
             this.info.lines = UtilsJS.EMPTY_STRING_ARRAY;
 
             // 取消原始方法的执行
             ci.cancel();
         }
-        kubeLoader$applyMixin();
+        //kubeLoader$applyMixin();
 
     }
 
