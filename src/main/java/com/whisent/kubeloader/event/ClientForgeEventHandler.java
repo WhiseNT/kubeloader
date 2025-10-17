@@ -39,6 +39,12 @@ public class ClientForgeEventHandler {
                             result.pass();
                         }
                     }
+                    if (KubeLoaderEvents.RIGHT_CLICKED_2.hasListeners()) {
+                        EventResult result = KubeLoaderEvents.RIGHT_CLICKED_2.post(
+                                ScriptType.STARTUP,
+                                player.getOffhandItem().getItem().asItem(),
+                                new KLRightclickedEventJS(player, InteractionHand.MAIN_HAND, player.getOffhandItem()));
+                    }
                     NetworkHandler.sendToServer(new KLRightClickedEventPacket(0));
                 }
                 if (!player.getOffhandItem().isEmpty()) {
@@ -46,6 +52,12 @@ public class ClientForgeEventHandler {
                         EventResult result = KubeLoaderEvents.RIGHT_CLICKED.post(
                                 ScriptType.CLIENT,
                                 player.getMainHandItem().getItem().asItem(),
+                                new KLRightclickedEventJS(player, InteractionHand.OFF_HAND, player.getOffhandItem()));
+                    }
+                    if (KubeLoaderEvents.RIGHT_CLICKED_2.hasListeners()) {
+                        EventResult result = KubeLoaderEvents.RIGHT_CLICKED_2.post(
+                                ScriptType.STARTUP,
+                                player.getOffhandItem().getItem().asItem(),
                                 new KLRightclickedEventJS(player, InteractionHand.OFF_HAND, player.getOffhandItem()));
                     }
                     NetworkHandler.sendToServer(new KLRightClickedEventPacket(1));

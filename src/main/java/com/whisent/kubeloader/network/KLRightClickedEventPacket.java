@@ -1,5 +1,6 @@
 package com.whisent.kubeloader.network;
 
+import com.google.common.collect.HashMultimap;
 import com.whisent.kubeloader.event.kjs.ItemHurtEventJS;
 import com.whisent.kubeloader.event.kjs.KLRightclickedEventJS;
 import com.whisent.kubeloader.event.kjs.KubeLoaderEvents;
@@ -37,6 +38,7 @@ public class KLRightClickedEventPacket {
                     ItemStack item = null;
                     if (player != null) {
                         item = player.getItemInHand(interactionHand);
+
                     }
                     if (item != null) {
                         if (KubeLoaderEvents.RIGHT_CLICKED.hasListeners()) {
@@ -47,6 +49,12 @@ public class KLRightClickedEventPacket {
                             if (result.interruptFalse()) {
                                 result.pass();
                             }
+                        }
+                        if (KubeLoaderEvents.RIGHT_CLICKED_2.hasListeners()) {
+                            EventResult result = KubeLoaderEvents.RIGHT_CLICKED_2.post(
+                                    ScriptType.STARTUP,
+                                    item.getItem().asItem(),
+                                    new KLRightclickedEventJS(player, interactionHand, item));
                         }
                     }
 

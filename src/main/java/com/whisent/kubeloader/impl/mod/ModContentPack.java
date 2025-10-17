@@ -41,6 +41,7 @@ public class ModContentPack extends ContentPackBase {
         loadMixins(context);
         var pack = ContentPackUtils.createEmptyPack(context, id());
         var prefix = Kubeloader.FOLDER_NAME + '/' + context.folderName() + '/';
+        String commonPrefix = Kubeloader.FOLDER_NAME + "/common_scripts/";
         try (var file = new JarFile(mod.getOwningFile().getFile().getFilePath().toFile())) {
             var parent = file.getEntry(Kubeloader.FOLDER_NAME + '/' + context.folderName());
             if (parent == null || !parent.isDirectory()) {
@@ -50,7 +51,7 @@ public class ModContentPack extends ContentPackBase {
             file.stream()
                 .filter(e -> !e.isDirectory())
                 .filter(e -> e.getName().endsWith(".js"))
-                .filter(e -> e.getName().startsWith(prefix))
+                .filter(e -> e.getName().startsWith(prefix) || e.getName().startsWith(commonPrefix))
                 .forEach(jarEntry -> {
                     var fileInfo = new ScriptFileInfo(pack.info, jarEntry.getName());
                     var scriptSource = (ScriptSource) info -> {
@@ -93,6 +94,7 @@ public class ModContentPack extends ContentPackBase {
                                     // 如果从注释中找到了目标文件，则使用注释中的目标文件
                                     // 否则使用默认的完整路径
                                     if (targetFile != null && !targetFile.isEmpty()) {
+                                        dsl.setSourcePath(fullPath);
                                         dsl.setTargetFile(targetFile);
                                     } else {
                                         dsl.setTargetFile(fullPath);

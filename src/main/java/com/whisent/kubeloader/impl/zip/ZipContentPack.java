@@ -27,6 +27,9 @@ import java.util.Set;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
+/**
+ * 即将弃用,原因：应该使用ModGen生成Jar而非打包为Zip.
+ */
 public class ZipContentPack extends ContentPackBase {
     private final Path path;
     private final String resourcePrefix;

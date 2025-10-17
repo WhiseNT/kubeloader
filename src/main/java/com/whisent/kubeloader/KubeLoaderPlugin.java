@@ -16,6 +16,8 @@ import dev.latvian.mods.kubejs.KubeJSPlugin;
 import dev.latvian.mods.kubejs.registry.RegistryInfo;
 import dev.latvian.mods.kubejs.script.BindingsEvent;
 import dev.latvian.mods.kubejs.script.ScriptType;
+import dev.latvian.mods.kubejs.util.ScheduledEvents;
+import dev.latvian.mods.kubejs.util.UtilsJS;
 import dev.latvian.mods.rhino.util.wrap.TypeWrappers;
 import net.minecraft.core.registries.Registries;
 

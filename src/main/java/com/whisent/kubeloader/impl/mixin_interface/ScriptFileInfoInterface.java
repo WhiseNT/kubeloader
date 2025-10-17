@@ -4,6 +4,8 @@ import dev.latvian.mods.kubejs.script.ScriptManager;
 import dev.latvian.mods.kubejs.script.ScriptSource;
 
 import java.io.IOException;
+import java.util.List;
+import java.util.Set;
 
 public interface ScriptFileInfoInterface {
 
@@ -17,5 +19,6 @@ public interface ScriptFileInfoInterface {
      */
     boolean shouldLoad(ScriptManager scriptManager, ScriptSource source) throws IOException;
 
+    Set<String> kubeLoader$getSides();
     String mixin = "";
 }

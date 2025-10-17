@@ -26,7 +26,6 @@ public final class ContentPackProviders {
     }
 
     public static void register(ContentPackProvider... providers) {
-
         register(Arrays.asList(providers));
     }
 

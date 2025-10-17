@@ -83,6 +83,7 @@ public class ScriptFileMixin {
             // 取消原始方法的执行
             ci.cancel();
         }
+
         //kubeLoader$applyMixin();
 
     }

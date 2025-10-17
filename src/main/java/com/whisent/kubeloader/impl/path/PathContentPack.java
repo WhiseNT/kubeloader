@@ -7,6 +7,7 @@ import com.whisent.kubeloader.definition.ContentPack;
 import com.whisent.kubeloader.definition.ContentPackUtils;
 import com.whisent.kubeloader.definition.PackLoadingContext;
 import com.whisent.kubeloader.definition.meta.PackMetaData;
+import com.whisent.kubeloader.impl.CommonScriptsLoader;
 import com.whisent.kubeloader.mixinjs.MixinManager;
 import dev.latvian.mods.kubejs.KubeJS;
 import dev.latvian.mods.kubejs.script.ScriptPack;
@@ -88,7 +89,7 @@ public class PathContentPack implements ContentPack {
             var scriptSource = (ScriptSource.FromPath) (info) -> scriptPath.resolve(info.file);
             context.loadFile(pack, fileInfo, scriptSource);
         }
-        //loadCommonScripts(pack, context);
+        CommonScriptsLoader.loadCommonScripts(context.manager(),pack,scriptPath.getParent(),id()+"-common");
         return pack;
     }
 

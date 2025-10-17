@@ -84,6 +84,7 @@ public class MixinManager {
                     // 如果从注释中找到了目标文件，则使用注释中的目标文件
                     // 否则使用默认的完整路径
                     if (targetFile != null && !targetFile.isEmpty()) {
+                        dsl.setSourcePath(fullPath);
                         dsl.setTargetFile(targetFile);
                     } else {
                         dsl.setTargetFile(fullPath);

@@ -12,9 +12,10 @@ import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import org.spongepowered.asm.mixin.injection.callback.LocalCapture;
 
-import java.util.Objects;
+import java.util.*;
 import java.util.regex.Pattern;
 
 @Mixin(value = ScriptFileInfo.class, remap = false)
@@ -22,9 +23,16 @@ public abstract class ScriptFileInfoMixin implements ScriptFileInfoInterface {
     @Shadow @Final public ScriptPackInfo pack;
     @Unique
     private String targetPath = "";
+
+    @Unique
+    private Set<String> sides = new HashSet<>();
     @Unique
     private static final Pattern MIXIN_PATTERN =
             Pattern.compile("^//mixin\\s*\\(\\s*value\\s*=\\s*\"([^\"]+)\"\\s*\\)");
+    
+    @Unique
+    private static final Pattern SIDE_PATTERN =
+            Pattern.compile("^//side\\s*:\\s*([a-zA-Z\\-]+)");
 
     @Unique
     public String kubeLoader$getTargetPath() {
@@ -58,8 +66,30 @@ public abstract class ScriptFileInfoMixin implements ScriptFileInfoInterface {
                     }
                     //Debugger.out("mixin注释：" + this.getTargetPath());
                 }
+                if (tline.contains("side")) {
+                    var sideMatcher = SIDE_PATTERN.matcher(tline);
+                    if (sideMatcher.find()) {
+                        String sideValue = sideMatcher.group(1);
+                        sides.add(sideValue);
+                        Debugger.out("找到side注释：" + sideValue);
+                        // 这里可以添加处理side注释的逻辑
+                    }
+                }
 
             }
         }
+    }
+    @Unique
+    public Set<String> kubeLoader$getSides() {
+        return sides;
+    }
+
+    @Inject(method = "skipLoading",at = @At("HEAD"),cancellable = true)
+    private void kubeLoader$skipLoading(CallbackInfoReturnable<String> cir) {
+
+    }
+
+    private ScriptFileInfo thiz() {
+        return (ScriptFileInfo) (Object) this;
     }
 }

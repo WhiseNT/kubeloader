@@ -77,7 +77,9 @@ public class ContentPackGenerator {
                     .withStyle(ChatFormatting.GREEN));
 
             // 要创建的子目录
-            List<String> dirs = List.of("server_scripts", "client_scripts", "startup_scripts","mixins", "assets", "data");
+            List<String> dirs =
+                    List.of("server_scripts", "client_scripts", "startup_scripts",
+                            "mixin_scripts","common_scripts", "assets", "data");
 
             for (String dir : dirs) {
                 try {
