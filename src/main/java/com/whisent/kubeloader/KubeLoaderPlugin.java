@@ -5,7 +5,6 @@ import com.whisent.kubeloader.event.KubeLoaderServerEventHandler;
 import com.whisent.kubeloader.event.kjs.BlockEntityEvents;
 import com.whisent.kubeloader.event.kjs.ItemEntityEvents;
 import com.whisent.kubeloader.event.kjs.KubeLoaderEvents;
-import com.whisent.kubeloader.item.vanilla.bow.BowItemBuilder;
 import com.whisent.kubeloader.klm.dsl.ShadowMixinObject;
 import com.whisent.kubeloader.plugin.ContentPacksBinding;
 import com.whisent.kubeloader.utils.KLUtil;
@@ -28,7 +27,6 @@ public class KubeLoaderPlugin extends KubeJSPlugin {
         //RegistryInfo.ITEM.addType("dynamic_sword", DynamicSwordBuilder.class,DynamicSwordBuilder::new);
         //RegistryInfo.ITEM.addType("dynamic_pickaxe", DynamicPickAxeBuilder.class, DynamicPickAxeBuilder::new);
         //RegistryInfo.ITEM.addType("dynamic_main", DynamicTieredItemBuilder.class, DynamicTieredItemBuilder::new);
-        RegistryInfo.ITEM.addType("bow", BowItemBuilder.class, BowItemBuilder::new);
         KubeLoaderEvents.GROUP.register();
     }
 
