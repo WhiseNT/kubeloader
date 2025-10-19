@@ -9,9 +9,7 @@ import com.whisent.kubeloader.impl.dummy.DummyContentPackProvider;
 import com.whisent.kubeloader.impl.mod.ModContentPackProvider;
 import com.whisent.kubeloader.impl.path.PathContentPackProvider;
 import com.whisent.kubeloader.impl.path.PathContentPackRepositorySource;
-import com.whisent.kubeloader.impl.zip.ZipContentPackProvider;
 import com.whisent.kubeloader.impl.zip.ZipContentPackRepositorySource;
-import com.whisent.kubeloader.mixinjs.MixinManager;
 import com.whisent.kubeloader.network.NetworkHandler;
 import dev.architectury.platform.Platform;
 import dev.latvian.mods.kubejs.KubeJS;
@@ -90,7 +88,7 @@ public class Kubeloader
             //path
             new PathContentPackProvider(PackPath),
             // zip
-            new ZipContentPackProvider(PackPath),
+            //new ZipContentPackProvider(PackPath),
             //kubejs dummy, for sorting content packs
             new DummyContentPackProvider(List.of(new DummyContentPack(KubeJS.MOD_ID, null)))
         );

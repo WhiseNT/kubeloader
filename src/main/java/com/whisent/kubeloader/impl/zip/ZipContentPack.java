@@ -5,7 +5,7 @@ import com.whisent.kubeloader.definition.ContentPackUtils;
 import com.whisent.kubeloader.definition.PackLoadingContext;
 import com.whisent.kubeloader.definition.meta.PackMetaData;
 import com.whisent.kubeloader.impl.ContentPackBase;
-import com.whisent.kubeloader.mixinjs.MixinManager;
+import com.whisent.kubeloader.klm.MixinManager;
 import dev.latvian.mods.kubejs.script.ScriptFileInfo;
 import dev.latvian.mods.kubejs.script.ScriptPack;
 import dev.latvian.mods.kubejs.script.ScriptSource;
@@ -30,6 +30,7 @@ import java.util.zip.ZipFile;
 /**
  * 即将弃用,原因：应该使用ModGen生成Jar而非打包为Zip.
  */
+@Deprecated
 public class ZipContentPack extends ContentPackBase {
     private final Path path;
     private final String resourcePrefix;
@@ -103,7 +104,7 @@ public class ZipContentPack extends ContentPackBase {
                         String targetFile = extractTargetFileFromComments(sourceCode);
                         
                         // 解析mixin DSL
-                        var dsls = com.whisent.kubeloader.mixinjs.dsl.MixinDSLParser.parse(sourceCode);
+                        var dsls = com.whisent.kubeloader.klm.dsl.MixinDSLParser.parse(sourceCode);
                         
                         // 注册解析到的MixinDSL对象
                         String fullPath = "zip:" + path.toString() + "!/" + zipEntry.getName();

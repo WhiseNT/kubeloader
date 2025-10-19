@@ -1,6 +1,6 @@
 package com.whisent.kubeloader.mixin;
 
-import com.whisent.kubeloader.impl.mixin_interface.ScriptFileInfoInterface;
+import com.whisent.kubeloader.impl.mixin.ScriptFileInfoInterface;
 import com.whisent.kubeloader.utils.Debugger;
 import dev.latvian.mods.kubejs.script.ScriptFileInfo;
 import dev.latvian.mods.kubejs.script.ScriptPackInfo;

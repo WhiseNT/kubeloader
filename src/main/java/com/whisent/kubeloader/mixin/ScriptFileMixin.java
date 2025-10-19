@@ -1,20 +1,17 @@
 package com.whisent.kubeloader.mixin;
 
-import com.whisent.kubeloader.Config;
-import com.whisent.kubeloader.impl.mixin_interface.ScriptFileInfoInterface;
-import com.whisent.kubeloader.impl.mixin_interface.ScriptManagerInterface;
-import com.whisent.kubeloader.mixinjs.MixinManager;
-import com.whisent.kubeloader.mixinjs.ast.AstToSourceConverter;
-import com.whisent.kubeloader.mixinjs.ast.JSInjector;
-import com.whisent.kubeloader.mixinjs.dsl.EventProbe;
-import com.whisent.kubeloader.mixinjs.dsl.MixinDSL;
-import com.whisent.kubeloader.mixinjs.dsl.MixinDSLParser;
+import com.whisent.kubeloader.impl.mixin.ScriptFileInfoInterface;
+import com.whisent.kubeloader.klm.MixinManager;
+import com.whisent.kubeloader.klm.ast.AstToSourceConverter;
+import com.whisent.kubeloader.klm.ast.JSInjector;
+import com.whisent.kubeloader.klm.dsl.EventProbe;
+import com.whisent.kubeloader.klm.dsl.MixinDSL;
+import com.whisent.kubeloader.klm.dsl.MixinDSLParser;
 import com.whisent.kubeloader.utils.Debugger;
 import dev.latvian.mods.kubejs.script.ScriptFile;
 import dev.latvian.mods.kubejs.script.ScriptFileInfo;
 import dev.latvian.mods.kubejs.script.ScriptPack;
 import dev.latvian.mods.kubejs.script.ScriptSource;
-import dev.latvian.mods.kubejs.util.ConsoleJS;
 import dev.latvian.mods.kubejs.util.UtilsJS;
 import dev.latvian.mods.rhino.Parser;
 import dev.latvian.mods.rhino.ast.AstRoot;

@@ -8,7 +8,7 @@ import com.whisent.kubeloader.definition.ContentPackUtils;
 import com.whisent.kubeloader.definition.PackLoadingContext;
 import com.whisent.kubeloader.definition.meta.PackMetaData;
 import com.whisent.kubeloader.impl.CommonScriptsLoader;
-import com.whisent.kubeloader.mixinjs.MixinManager;
+import com.whisent.kubeloader.klm.MixinManager;
 import dev.latvian.mods.kubejs.KubeJS;
 import dev.latvian.mods.kubejs.script.ScriptPack;
 import dev.latvian.mods.kubejs.script.ScriptSource;

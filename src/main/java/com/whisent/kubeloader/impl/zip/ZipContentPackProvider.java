@@ -14,7 +14,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.zip.ZipFile;
-
+@Deprecated
 public class ZipContentPackProvider implements ContentPackProvider {
     private final Path basePath;
 

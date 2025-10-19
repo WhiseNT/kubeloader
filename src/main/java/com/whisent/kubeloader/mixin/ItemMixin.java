@@ -1,6 +1,6 @@
 package com.whisent.kubeloader.mixin;
 
-import com.whisent.kubeloader.impl.mixin_interface.NbtBuilder;
+import com.whisent.kubeloader.impl.mixin.NbtBuilder;
 import dev.latvian.mods.kubejs.core.ItemKJS;
 import dev.latvian.mods.kubejs.item.ItemBuilder;
 import dev.latvian.mods.rhino.util.RemapForJS;

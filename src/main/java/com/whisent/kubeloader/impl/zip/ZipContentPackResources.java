@@ -16,7 +16,7 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
-
+@Deprecated
 public class ZipContentPackResources implements PackResources {
     private final String name;
     private final ZipContentPack contentPack;
