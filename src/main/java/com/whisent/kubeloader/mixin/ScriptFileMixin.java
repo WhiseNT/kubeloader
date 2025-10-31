@@ -85,49 +85,9 @@ public class ScriptFileMixin {
 
     }
 
-    private void kubeLoader$applyMixin() {
-        String mixinPath = ((ScriptFileInfoInterface) this.info).kubeLoader$getTargetPath();
-        if (!mixinPath.isEmpty()) {
-            this.pack.manager.scriptType.console.warn("You should put mixin scripts in mixins folder!");
-            if (false) {
-                //kubeLoader$debugLog("Detected mixin DSL target: " + mixinPath);
-                // 读取源代码
-                String sourceCode = String.join("\n", this.info.lines);
-                List<MixinDSL> dsls = MixinDSLParser.parse(sourceCode);
-                getConsole().debug("Founded " + dsls.size() + " mixin DSL Object in " + this.info.location);
-                dsls.sort((a, b) -> Integer.compare(b.getPriority(), a.getPriority()));
-                dsls.forEach(dsl -> {
-                    dsl.setFile((ScriptFile)(Object)this);
-                    dsl.setTargetFile(mixinPath);
-                    dsl.setSourcePath(this.info.location);
-                    kubeLoader$addMixinDSL(mixinPath,dsl);
-                    this.pack.manager.scriptType.console.info("Adding new mixin object for "+ mixinPath);
-                    this.pack.manager.scriptType.console.info("  Type: "+ dsl.getType() + (dsl.getPriority() != 0 ? " Priority: "+dsl.getPriority() : ""));
-
-
-                });
-            }
-
-        }
-    }
-
     private Map<String,List<MixinDSL>> kubeLoader$getMixinDSL() {
         return MixinManager.getMixinMap();
     }
 
-    private void kubeLoader$addMixinDSL(String path, MixinDSL dsl) {
-        kubeLoader$getMixinDSL().putIfAbsent(path, new ArrayList<>());
-        if (kubeLoader$getMixinDSL().get(path) != null ) {
-            kubeLoader$getMixinDSL().get(path).add(dsl);
-        }
-    }
-
-    private Logger getConsole() {
-        return this.pack.manager.scriptType.console.logger;
-    }
-
-    private void kubeLoader$debugLog(String msg) {
-
-    }
 
 }

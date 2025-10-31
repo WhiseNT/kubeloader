@@ -6,7 +6,10 @@ import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.suggestion.Suggestions;
 import com.mojang.brigadier.suggestion.SuggestionsBuilder;
 import com.whisent.kubeloader.Kubeloader;
+import com.whisent.kubeloader.definition.ContentPackUtils;
 import com.whisent.kubeloader.definition.meta.PackMetaData;
+import com.whisent.kubeloader.impl.mod.ModContentPackProvider;
+import com.whisent.kubeloader.utils.Debugger;
 import com.whisent.kubeloader.utils.modgen.ContentPackGenerator;
 import com.whisent.kubeloader.utils.modgen.ContentPackModInfo;
 import com.whisent.kubeloader.utils.modgen.PackModGenerator;
@@ -14,12 +17,15 @@ import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.SharedSuggestionProvider;
 import net.minecraft.network.chat.Component;
+import net.minecraftforge.event.CommandEvent;
 import net.minecraftforge.event.RegisterCommandsEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.ModList;
 import net.minecraftforge.fml.common.Mod;
 
 import java.io.IOException;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -71,8 +77,27 @@ public class KubeLoaderServerEventHandler {
                         })
                 )
         );
+        klCmd.then(Commands.literal("probe")
+                .then(Commands.literal("dump")
+                .executes(ctx -> {
+                    try {
+                        ModList.get()
+                                .getMods()
+                                .forEach(ContentPackUtils::copyProbes);
+                        ctx.getSource().sendSuccess(() -> Component.literal("Successfully dumped probe files"), false);
+                    } catch (Exception e) {
+                        System.out.println("Error while dumping probe files"+ e);
+                        ctx.getSource().sendFailure(Component.literal("Error occurred while dumping probe files: " + e.getMessage()));
+                    }
+                    return 0;
+                })));
+
         dispatcher.register(klCmd);
 
+
+    }
+    @SubscribeEvent
+    public static void onProbeCommand(CommandEvent event) {
 
     }
     private static CompletableFuture<Suggestions> suggestMapKeys(java.util.Set<String> keys, SuggestionsBuilder builder) {

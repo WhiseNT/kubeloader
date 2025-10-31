@@ -50,12 +50,6 @@ public class KLRightClickedEventPacket {
                                 result.pass();
                             }
                         }
-                        if (KubeLoaderEvents.RIGHT_CLICKED_2.hasListeners()) {
-                            EventResult result = KubeLoaderEvents.RIGHT_CLICKED_2.post(
-                                    ScriptType.STARTUP,
-                                    item.getItem().asItem(),
-                                    new KLRightclickedEventJS(player, interactionHand, item));
-                        }
                     }
 
                 }

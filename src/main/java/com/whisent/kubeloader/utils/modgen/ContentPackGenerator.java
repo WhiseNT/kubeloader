@@ -13,6 +13,8 @@ import dev.latvian.mods.kubejs.typings.Info;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -34,7 +36,13 @@ public class ContentPackGenerator {
         String packId = metaData.id();
         Path packDir = Kubeloader.PackPath.resolve(packId);
         Files.createDirectories(packDir);
-        List<String> dirs =List.of("server_scripts", "client_scripts", "startup_scripts","common_scripts", "assets", "data");
+        List<String> dirs =List.of("server_scripts",
+                "client_scripts",
+                "startup_scripts",
+                "common_scripts",
+                "mixin_scripts",
+                "assets", "data",
+                "probe");
         dirs.forEach(dir -> {
             try {
                 Files.createDirectories(packDir.resolve(dir));
@@ -79,7 +87,7 @@ public class ContentPackGenerator {
             // 要创建的子目录
             List<String> dirs =
                     List.of("server_scripts", "client_scripts", "startup_scripts",
-                            "mixin_scripts","common_scripts", "assets", "data");
+                            "mixin_scripts","common_scripts","probe", "assets", "data");
 
             for (String dir : dirs) {
                 try {

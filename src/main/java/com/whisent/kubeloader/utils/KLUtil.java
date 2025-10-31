@@ -8,6 +8,8 @@ import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Mth;
+import net.minecraft.world.SimpleContainer;
+
 import net.minecraft.world.entity.MoverType;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
@@ -42,9 +44,9 @@ public class KLUtil {
     public static RegistryAccess getServerRegistryAccess() {
         return UtilsJS.staticRegistryAccess;
     }
-
-
-
+    public static SimpleContainer newSimpleContainer(int size) {
+        return new SimpleContainer(size);
+    }
     public static void tridentRiptide(Player player, int riptideLevel, Level level) {
         float f7 = player.getYRot();
         float f = player.getXRot();

@@ -4,10 +4,12 @@ import com.whisent.kubeloader.Kubeloader;
 import com.whisent.kubeloader.definition.ContentPackUtils;
 import com.whisent.kubeloader.definition.PackLoadingContext;
 import com.whisent.kubeloader.definition.meta.PackMetaData;
+import com.whisent.kubeloader.files.FileIO;
 import com.whisent.kubeloader.impl.ContentPackBase;
 import com.whisent.kubeloader.klm.MixinManager;
 import com.whisent.kubeloader.klm.dsl.MixinDSL;
 import com.whisent.kubeloader.klm.dsl.MixinDSLParser;
+import dev.latvian.mods.kubejs.KubeJSPaths;
 import dev.latvian.mods.kubejs.script.ScriptFileInfo;
 import dev.latvian.mods.kubejs.script.ScriptPack;
 import dev.latvian.mods.kubejs.script.ScriptSource;
@@ -15,10 +17,11 @@ import dev.latvian.mods.kubejs.util.UtilsJS;
 import net.minecraftforge.forgespi.language.IModInfo;
 import org.jetbrains.annotations.Nullable;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.StringReader;
+import java.io.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.List;
 import java.util.jar.JarFile;
 import java.util.regex.Matcher;
@@ -140,6 +143,8 @@ public class ModContentPack extends ContentPackBase {
         }
         return null;
     }
+
+
 
     @Override
     public String toString() {

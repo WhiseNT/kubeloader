@@ -3,6 +3,7 @@ package com.whisent.kubeloader.mixin;
 import com.whisent.kubeloader.event.kjs.KubeLoaderEvents;
 import com.whisent.kubeloader.event.kjs.TridentReleased;
 import dev.latvian.mods.kubejs.event.EventResult;
+import dev.latvian.mods.kubejs.script.ScriptType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
@@ -29,11 +30,18 @@ public class TridentItemMixin {
                              LivingEntity entity, int timeLeft,
                              CallbackInfo ci,Player player, int i,int j) {
         if (player == null) return;
-        EventResult result = KubeLoaderEvents.TRIDENT_RELEASE_USING.post(
-                new TridentReleased(stack,entity, level, timeLeft,j));
+        EventResult result;
+        if (!level.isClientSide) {
+            result = KubeLoaderEvents.TRIDENT_RELEASE_USING.post(ScriptType.SERVER,
+                    new TridentReleased(stack, entity, level, timeLeft, j));
+        } else {
+            result = KubeLoaderEvents.TRIDENT_RELEASE_USING.post(ScriptType.CLIENT,
+                    new TridentReleased(stack, entity, level, timeLeft, j));
+        }
         if (result.interruptFalse()) {
             ci.cancel();
         }
+
     }
 
 }

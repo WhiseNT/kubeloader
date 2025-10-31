@@ -15,6 +15,7 @@
     "ItemEntityMixin",
     "ItemMixin",
     "ItemStackMixin",
+    "JavaWrapperMixin",
     "LevelChunkMixin",
     "ScriptFileInfoMixin",
     "ScriptFileMixin",

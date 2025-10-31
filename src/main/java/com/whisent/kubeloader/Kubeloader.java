@@ -82,6 +82,7 @@ public class Kubeloader
         FMLJavaModLoadingContext.get().getModEventBus().addListener(this::injectPacks);
         KubeLoaderClientEventHandler.init();
 
+
         //mod
         registerModContentPackProviders();
         ContentPackProviders.register(

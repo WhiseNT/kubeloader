@@ -10,10 +10,8 @@ public interface KubeLoaderEvents {
             .extra(ItemEvents.SUPPORTS_ITEM).hasResult();
     EventHandler RIGHT_CLICKED = GROUP.common("rightClicked",() -> KLRightclickedEventJS.class)
             .extra(ItemEvents.SUPPORTS_ITEM).hasResult();
-    EventHandler RIGHT_CLICKED_2 = GROUP.startup("rightClickedStartup",() -> KLRightclickedEventJS.class)
-            .extra(ItemEvents.SUPPORTS_ITEM).hasResult();
 
-    EventHandler TRIDENT_RELEASE_USING = GROUP.startup("tridentReleased",() -> TridentReleased.class)
+    EventHandler TRIDENT_RELEASE_USING = GROUP.common("tridentReleased",() -> TridentReleased.class)
             .extra(ItemEvents.SUPPORTS_ITEM).hasResult();
 
 }
