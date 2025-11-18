@@ -5,6 +5,10 @@ English version: https://github.com/WhiseNT/kubeloader_wiki-en
 
 If you have any questions with this mod,please send an issue.
 
+If you want to know sth about ".ts" and ES6,please to:(both English and Chinese)
+
+https://github.com/WhiseNT/kubeloader/wiki/ModernJS
+
 # KubeLoader 概述
 
 **KubeLoader** 不只是一个 KubeJS 附属模组，它更是一个面向未来的**KubeJS模块化开发平台**。
