@@ -38,35 +38,19 @@ public class ItemEntityMixin {
     }
     @Inject(
             method = "hurt",
-            at = @At("HEAD"),
+            at = @At(
+                    value = "INVOKE",
+                    target = "Lnet/minecraft/world/entity/item/ItemEntity;markHurt()V"
+            ),
             cancellable = true
     )
     private void onHurt(DamageSource source, float amount, CallbackInfoReturnable<Boolean> cir) {
         ItemEntity itemEntity = (ItemEntity) (Object) this;
-        Level level = itemEntity.level();
-        Vec3 pos = itemEntity.position();
-        if (itemEntity.isRemoved() || itemEntity.isInvulnerableTo(source)) {
-            cir.setReturnValue(false);
-            return;
-        }
-        if (level.isClientSide) {
-            cir.setReturnValue(true);
-            return;
-        }
-        ItemEntityHurtEventJS event = new ItemEntityHurtEventJS(itemEntity, level, pos, source, amount);
+        ItemEntityHurtEventJS event = new ItemEntityHurtEventJS(itemEntity, itemEntity.level(), itemEntity.position(), source, amount);
         EventResult result = ItemEntityEvents.ITEM_ENTITY_HURT.post(event, itemEntity.getItem().getItem());
         if (result.interruptTrue()) {
             cir.setReturnValue(false);
             return;
         }
-        float finalAmount = event.amount;
-        itemEntity.hurtMarked = true;
-        this.health = (int)(this.health - finalAmount);
-        itemEntity.gameEvent(GameEvent.ENTITY_DAMAGE, source.getEntity());
-        if (this.health <= 0) {
-            itemEntity.getItem().onDestroyed(itemEntity, source);
-            itemEntity.discard();
-        }
-        cir.setReturnValue(true);
     }
 }

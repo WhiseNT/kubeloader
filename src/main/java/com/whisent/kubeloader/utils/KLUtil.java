@@ -1,5 +1,6 @@
 package com.whisent.kubeloader.utils;
 
+import com.whisent.kubeloader.scripts.TsEraser;
 import dev.latvian.mods.kubejs.typings.Info;
 import dev.latvian.mods.kubejs.util.UtilsJS;
 import dev.latvian.mods.rhino.util.HideFromJS;
@@ -18,16 +19,30 @@ import net.minecraft.world.phys.Vec3;
 import java.util.UUID;
 
 public class KLUtil {
-//    public static String test() {
-//        String testEvent = """
-//                StartupEvents.init(event=>{
-//                    console.log("test")
-//                })
-//                """;
-//        //TestEventProbeFix.main(null);
-//
-//        return testEvent;
-//    }
+    public static String test() {
+        String testTScode = """
+                // ===== 1. interface：应被完全移除 =====
+                 interface testInterface {
+                         a: string;
+                         b: number;
+                     }
+                
+                     const varMap: Map<string, string> = new Map();
+                     enum testEnum {
+                         a = 1,
+                         b = 2
+                     }
+                
+                     function testFunc(a:string,b:number):testInterface {
+                         return {a:a,b:b};
+                     }
+                
+                     console.log(testFunc("a",1))
+            """;
+
+
+        return TsEraser.eraseTypes(testTScode);
+    }
     private static RegistryAccess clientRegistryAccess = null;
     @Info("to generate UUID by any string.")
     public static UUID genUUID(String string) {

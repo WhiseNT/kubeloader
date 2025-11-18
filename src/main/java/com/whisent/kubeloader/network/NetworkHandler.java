@@ -22,6 +22,11 @@ public class NetworkHandler {
                 .decoder(KLRightClickedEventPacket::decode)
                 .consumerMainThread(KLRightClickedEventPacket::handle)
                 .add();
+        CHANNEL.messageBuilder(KLClientScriptsReloadPacket.class,id+1)
+                .encoder(KLClientScriptsReloadPacket::encode)
+                .decoder(KLClientScriptsReloadPacket::decode)
+                .consumerMainThread(KLClientScriptsReloadPacket::handle)
+                .add();
 
     }
     public static void sendToServer(Object msg) {

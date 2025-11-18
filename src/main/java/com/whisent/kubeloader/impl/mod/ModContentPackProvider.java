@@ -25,7 +25,7 @@ public class ModContentPackProvider implements ContentPackProvider {
 
     @Override
     public boolean isDynamic() {
-        return false;
+        return true;
     }
 
     @Override

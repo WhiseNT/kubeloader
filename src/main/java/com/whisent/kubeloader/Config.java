@@ -13,12 +13,21 @@ public class Config {
 
     private static final ForgeConfigSpec.BooleanValue DEBUG = BUILDER.comment("Enable debug mode").define("debug", false);
 
+    // ModernJSParser configuration options
+    private static final ForgeConfigSpec.BooleanValue SPREAD_OPERATOR = BUILDER
+            .comment("Enable spread operator (...) to ES5 transformation")
+            .define("spreadOperator", true);
+
     static final ForgeConfigSpec SPEC = BUILDER.build();
 
     public static boolean debug;
+    
+    // ModernJSParser configuration values
+    public static boolean spreadOperator;
 
     @SubscribeEvent
     static void onLoad(final ModConfigEvent event) {
         debug = DEBUG.get();
+        spreadOperator = SPREAD_OPERATOR.get();
     }
 }

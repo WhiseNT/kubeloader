@@ -43,6 +43,7 @@ public class Kubeloader
     public static final String MODID = "kubeloader";
     public static final String FOLDER_NAME = "contentpacks";
     public static final String MIXIN_FOLDER = "mixin_scripts";
+    public static final String COMMON_SCRIPTS = "common_scripts";
     public static final String MIXIN_IDENTIFIER = "KLM";
     //public static final String COMMON_SCRIPTS = "common_scripts";
     public static final String CONFIG_FOLDER = "config";
@@ -54,8 +55,7 @@ public class Kubeloader
     //public static Path CommonPath = KubeJSPaths.DIRECTORY.resolve(COMMON_SCRIPTS);
     public static Path ConfigPath = KubeJSPaths.DIRECTORY.resolve(CONFIG_FOLDER);
     public static Path MixinPath = KubeJSPaths.DIRECTORY.resolve(MIXIN_FOLDER);
-    public static Path MixinLogPath = Platform.getGameFolder().resolve("logs")
-            .resolve("kubejs");
+    public static Path CommonPath = KubeJSPaths.DIRECTORY.resolve(COMMON_SCRIPTS);
 
     public Kubeloader() throws IOException {
         IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
@@ -73,6 +73,9 @@ public class Kubeloader
         if (Files.notExists(MixinPath)) {
             Files.createDirectories(MixinPath);
         }
+        if (Files.notExists(CommonPath)) {
+            Files.createDirectories(CommonPath);
+        }
 
         
         // Register config
@@ -80,7 +83,7 @@ public class Kubeloader
         
         modEventBus.addListener(this::ModLoading);
         FMLJavaModLoadingContext.get().getModEventBus().addListener(this::injectPacks);
-        KubeLoaderClientEventHandler.init();
+
 
 
         //mod
@@ -193,7 +196,7 @@ public class Kubeloader
 
         @SubscribeEvent
         public static void onClientSetup(FMLClientSetupEvent event) {
-
+            KubeLoaderClientEventHandler.init();
         }
     }
 
