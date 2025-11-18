@@ -1,4 +1,5 @@
 # Latest Test Update - KubeLoader 0.0.8-es (ModernJS)
+current version:v0.0.8-es2
 ModernJS module uses source code conversion to let you write TypeScript and ES6+ syntax in KubeJS scripts — all running on original Rhino.
 
 现代吉斯模块使用“源代码转换”来让你能够在编写KubeJS脚本时使用TypeScript和ES6语法。————脚本仍然运行在原始的Rhino上。
@@ -6,6 +7,49 @@ ModernJS module uses source code conversion to let you write TypeScript and ES6+
 ## 语法支持：
 
 ### TypeScript:
+
+类型注解（参数、返回值、变量） / Type Annotations (Parameters, Return Types, Variables)  
+```typescript
+function greet(name: string): void {}
+const id: number = 123;
+```
+接口声明 / Interface Declaration  
+```typescript
+interface Player {
+  name: string;
+  health: number;
+}
+```
+类型别名 / Type Alias  
+```typescript
+type ID = string | number;
+type Callback<T> = (item: T) => void;
+```
+泛型函数与箭头函数 / Generic Functions and Arrow Functions  
+```typescript
+function identity<T>(arg: T): T { return arg; }
+const mapper = <T>(x: T): string => String(x);
+```
+类中的类型注解 / Type Annotations in Classes  
+```typescript
+class Service {
+  name: string = "default";
+  log(msg: string): void {}
+}
+```
+可选属性与可选参数 / Optional Properties and Parameters  
+```typescript
+interface Config { timeout?: number; }
+function init(options?: Config) {}
+```
+对象字面量中的字面值（自动保留） / Object Literal Values (Preserved Automatically)  
+```typescript
+const cfg = { port: 8080, ssl: true, tags: ["a", "b"] };
+```
+类实现子句（`implements`） / Class Implements Clause  
+```typescript
+class MyLogger implements Logger<Player> {}
+```
 
 
 ### JavaScript:
