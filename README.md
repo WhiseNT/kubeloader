@@ -1,3 +1,59 @@
+# Latest Test Update - KubeLoader 0.0.8-es (ModernJS)
+ModernJS module uses source code conversion to let you write TypeScript and ES6+ syntax in KubeJS scripts — all running on original Rhino.
+
+现代吉斯模块使用“源代码转换”来让你能够在编写KubeJS脚本时使用TypeScript和ES6语法。————脚本仍然运行在原始的Rhino上。
+
+## 语法支持：
+
+### TypeScript:
+
+
+### JavaScript:
+
+类声明 / Class Declaration
+```javascript
+class Util { constructor() {} }
+```
+
+类继承 / super
+```javascript
+class Logger extends Util {
+  constructor(id) {
+    super(id);
+  }
+}
+```
+
+实例字段 / (Class Property Initialization)
+```javascript
+class Dog {
+  name = "unknown";
+}
+```
+
+静态字段 / Static Fields
+```javascript
+class Util {
+  static version = "1.0";
+}
+```
+类中箭头函数 / Arrow Function Fields in Class
+```javascript
+class Logger {
+  cache = [];
+  push = (msg) => this.cache.push(msg);
+}
+```
+默认参数 / Default Parameters
+```javascript
+function createLogger(id = 0, level = "debug") { ... }
+```
+对象属性简写 / Object Property Shorthand
+```javascript
+const x = 1, y = 2;
+return { x, y };
+```
+
 # Important Info
 English version: https://github.com/WhiseNT/kubeloader_wiki-en
 
