@@ -1,7 +1,13 @@
+
+
 # Important Info
 English version: https://github.com/WhiseNT/kubeloader_wiki-en
 
 If you have any questions with this mod,please send an issue.
+
+If you want to know sth about ".ts" and ES6,please to:(both English and Chinese)
+
+https://github.com/WhiseNT/kubeloader/wiki/ModernJS
 
 # KubeLoader 概述
 
