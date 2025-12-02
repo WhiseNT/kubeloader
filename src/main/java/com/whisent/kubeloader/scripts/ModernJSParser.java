@@ -6,7 +6,25 @@ import java.util.stream.Collectors;
 
 public class ModernJSParser {
 
+    // ===================== 缓存常用正则 =====================
+    private static final Pattern CLASS_HEADER_PATTERN =
+            Pattern.compile("^\\s*class\\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\\s*(?:extends\\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\\s*)?\\{?\\s*$");
+
+    private static final Pattern SUPER_CALL_PATTERN =
+            Pattern.compile("\\bsuper\\s*\\(([^)]*)\\)");
+
+    private static final Pattern THIS_ASSIGN_PATTERN =
+            Pattern.compile("\\bthis\\.([a-zA-Z_$][a-zA-Z0-9_$]*)\\s*=");
+
+    private static final Pattern RETURN_SHORTHAND_PATTERN =
+            Pattern.compile("\\breturn\\s*\\{([^{}]*)\\}\\s*(?=;|\\n|\\r|$)");
+
+    private static final Pattern FUNCTION_WITH_DEFAULTS_PATTERN =
+            Pattern.compile("(\\bfunction\\s+\\w+\\s*\\([^)]*\\))(\\s*\\{)");
+
+    // ===================== 入口 =====================
     public static String parse(String input) {
+        if (input == null || input.isEmpty()) return input;
         StringBuilder result = new StringBuilder();
         String[] lines = input.split("\\r?\\n");
         int i = 0;
@@ -15,7 +33,6 @@ public class ModernJSParser {
             String line = lines[i].trim();
 
             if (line.startsWith("class ")) {
-
                 ClassDef def = parseClassFromLines(lines, i);
                 result.append(convertClass(def.className, def.parentClass, def.body));
                 i = def.endLineIndex + 1;
@@ -55,11 +72,10 @@ public class ModernJSParser {
         }
     }
 
-    /* ===================== 解析入口 ===================== */
+    /* ===================== 解析 class ===================== */
     private static ClassDef parseClassFromLines(String[] lines, int start) {
         String header = lines[start];
-        Pattern p = Pattern.compile("^\\s*class\\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\\s*(?:extends\\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\\s*)?\\{?\\s*$");
-        Matcher m = p.matcher(header);
+        Matcher m = CLASS_HEADER_PATTERN.matcher(header);
         if (!m.find()) {
             throw new RuntimeException("Invalid class declaration at line " + (start + 1) + ": " + header);
         }
@@ -75,7 +91,7 @@ public class ModernJSParser {
             String line = lines[i];
 
             if (i == start) {
-                braceCount = countChar(line, '{') - countChar(line, '}');
+                braceCount = updateBraceCount(line, 0);
                 int openBrace = line.indexOf('{');
                 if (openBrace != -1) {
                     String after = line.substring(openBrace + 1);
@@ -85,7 +101,7 @@ public class ModernJSParser {
                 }
             } else {
                 body.append(line).append("\n");
-                braceCount += countChar(line, '{') - countChar(line, '}');
+                braceCount = updateBraceCount(line, braceCount);
             }
 
             if (braceCount == 0) {
@@ -102,7 +118,7 @@ public class ModernJSParser {
         throw new RuntimeException("Unclosed class starting at line " + (start + 1));
     }
 
-    /* ===================== 转换主函数 ===================== */
+    /* ===================== 转换 class ===================== */
     private static String convertClass(String className, String parentClass, String classBody) {
         ConstructorInfo ctorInfo = extractConstructor(classBody);
         String bodyWithoutCtor = ctorInfo.bodyWithoutConstructor;
@@ -113,39 +129,35 @@ public class ModernJSParser {
 
         parseMembers(className, bodyWithoutCtor, instanceFields, methods, staticMembers);
 
-        /* --- 新增：找出构造函数里已经赋值过的字段 --- */
         Set<String> assignedInCtor = new HashSet<>();
         if (!ctorInfo.bodyContent.isEmpty()) {
-            Matcher m = Pattern.compile("\\bthis\\.([a-zA-Z_$][a-zA-Z0-9_$]*)\\s*=").matcher(ctorInfo.bodyContent);
+            Matcher m = THIS_ASSIGN_PATTERN.matcher(ctorInfo.bodyContent);
             while (m.find()) assignedInCtor.add(m.group(1));
         }
 
         StringBuilder output = new StringBuilder();
 
-        /* 构造函数 */
+        // 构造函数
         output.append("function ").append(className).append("(")
                 .append(ctorInfo.params).append(") {\n");
-        /* 用户构造逻辑（含 super → Parent.call） */
+
         String userCtorBody = ctorInfo.bodyContent;
 
-
-        /* 1. super() 必须绝对第一行（如果存在） */
+        // super()
         if (parentClass != null && !parentClass.trim().isEmpty()) {
-            Matcher superMatcher = Pattern
-                    .compile("\\bsuper\\s*\\(([^)]*)\\)")
-                    .matcher(userCtorBody);
+            Matcher superMatcher = SUPER_CALL_PATTERN.matcher(userCtorBody);
             if (superMatcher.find()) {
-                String args = superMatcher.group(1);          // ← 1. 改名
+                String args = superMatcher.group(1);
                 output.append("  ")
                         .append(parentClass)
                         .append(".call(this")
-                        .append(args.isEmpty() ? "" : ", " + args) // ← 2. 复用原始文本
+                        .append(args.isEmpty() ? "" : ", " + args)
                         .append(");\n");
-                userCtorBody = superMatcher.replaceFirst("").trim(); // 删掉原 super()
+                userCtorBody = superMatcher.replaceFirst("").trim();
             }
         }
 
-        /* 2. 实例字段初始化（在 super 之后、用户逻辑之前） */
+        // 实例字段初始化
         for (String field : instanceFields) {
             int eq = field.indexOf('=');
             if (eq == -1) continue;
@@ -155,14 +167,14 @@ public class ModernJSParser {
             output.append("  this.").append(field).append("\n");
         }
 
-        /* 3. 剩余用户构造逻辑 */
+        // 剩余构造逻辑
         if (!userCtorBody.isEmpty()) {
             output.append(userCtorBody.trim()).append('\n');
         }
 
         output.append("}\n\n");
 
-        /* 原型链 */
+        // 原型链
         if (parentClass != null && !parentClass.trim().isEmpty()) {
             output.append("Object.setPrototypeOf(").append(className).append(".prototype, ")
                     .append(parentClass).append(".prototype);\n");
@@ -170,11 +182,11 @@ public class ModernJSParser {
                     .append(parentClass).append(");\n\n");
         }
 
-        /* 静态成员 */
+        // 静态成员
         for (String stat : staticMembers) {
             stat = stat.trim();
             if (stat.startsWith("get ") || stat.startsWith("set ")) {
-                continue; // skip static getter/setter
+                continue;
             } else if (stat.contains("=")) {
                 output.append(className).append(".").append(stat).append("\n");
             } else if (stat.contains("(")) {
@@ -188,18 +200,17 @@ public class ModernJSParser {
             output.append("\n");
         }
 
-        /* 原型方法 & getter/setter */
+        // 原型方法 & getter/setter
         for (String method : methods) {
             output.append(method).append("\n");
         }
 
-        String raw = output.toString()
-                .replaceAll("\\n\\s*;\\s*\\n", "\n")   // 删掉孤零零的 ;
-                .replaceAll("\\n\\s*}\\s*$", "\n}");   // 让 } 单独一行
-        return raw;
+        return output.toString()
+                .replaceAll("\\n\\s*;\\s*\\n", "\n")
+                .replaceAll("\\n\\s*}\\s*$", "\n}");
     }
 
-    /* ===================== 安全提取 constructor ===================== */
+    /* ===================== 提取 constructor ===================== */
     private static ConstructorInfo extractConstructor(String body) {
         String originalBody = body;
         int ctorIndex = -1;
@@ -209,7 +220,6 @@ public class ModernJSParser {
             ctorIndex = body.indexOf("constructor", searchFrom);
             if (ctorIndex == -1) break;
 
-            /* 完整单词检查 */
             if (ctorIndex > 0 && Character.isJavaIdentifierPart(body.charAt(ctorIndex - 1))) {
                 searchFrom = ctorIndex + 1;
                 continue;
@@ -222,7 +232,6 @@ public class ModernJSParser {
                 continue;
             }
 
-            /* 匹配参数括号 */
             int parenDepth = 1;
             int paramStart = pos + 1;
             int i = paramStart;
@@ -238,7 +247,6 @@ public class ModernJSParser {
             }
             int paramEnd = i - 1;
 
-            /* 找构造函数体 {} */
             while (i < body.length() && Character.isWhitespace(body.charAt(i))) i++;
             if (i >= body.length() || body.charAt(i) != '{') {
                 searchFrom = ctorIndex + 1;
@@ -276,7 +284,6 @@ public class ModernJSParser {
                                      List<String> instanceFields,
                                      List<String> methods,
                                      List<String> staticMembers) {
-        /* 移除注释 */
         String clean = body.replaceAll("(?m)^\\s*//.*$", "")
                 .replaceAll("/\\*[^*]*\\*+(?:[^/*][^*]*\\*+)*/", "");
 
@@ -287,52 +294,67 @@ public class ModernJSParser {
             if (stmt.isEmpty()) continue;
 
             if (stmt.startsWith("static ")) {
-                System.err.println(">>> stmt: " + stmt + ", length: " + stmt.length());
                 staticMembers.add(stmt.substring(7).trim());
             } else if (stmt.startsWith("get ") || stmt.startsWith("set ")) {
                 methods.add(convertGetterSetter(className, stmt));
-            } else if (stmt.matches("^[a-zA-Z_$][a-zA-Z0-9_$]*\\s*\\([^)]*\\)\\s*\\{")) {
+            } else if (isValidMethodDecl(stmt)) {
                 methods.add(convertMethod(className, stmt));
             } else if (stmt.contains("=") && isValidFieldName(stmt)) {
                 instanceFields.add(stmt);
-            } else if (stmt.matches("^[a-zA-Z_$][a-zA-Z0-9_$]*\\s*;")) { // 匹配纯字段声明
+            } else if (isValidPlainField(stmt)) {
                 instanceFields.add(stmt);
-            } else if (stmt.matches("^\\s*[a-zA-Z_$][a-zA-Z0-9_$]*\\s*\\([^)]*\\)\\s*\\{[\\s\\S]*\\}$")) {
-                methods.add(convertMethod(className, stmt));
             } else {
-                System.err.println(">>> unmatched: " + stmt);
+                // unmatched, ignore
             }
-            /* 其余情况忽略（如纯表达式） */
         }
     }
 
-    /* ===================== 语句分割（核心修复） ===================== */
+    private static boolean isValidMethodDecl(String stmt) {
+        int paren = stmt.indexOf('(');
+        if (paren <= 0) return false;
+        String name = stmt.substring(0, paren).trim();
+        return isValidIdentifier(name) && stmt.endsWith("}");
+    }
+
+    private static boolean isValidPlainField(String stmt) {
+        if (!stmt.endsWith(";")) return false;
+        String name = stmt.substring(0, stmt.length() - 1).trim();
+        return isValidIdentifier(name);
+    }
+
+    private static boolean isValidFieldName(String stmt) {
+        int eq = stmt.indexOf('=');
+        if (eq <= 0) return false;
+        String name = stmt.substring(0, eq).trim();
+        return isValidIdentifier(name);
+    }
+
+    private static boolean isValidIdentifier(String s) {
+        if (s == null || s.isEmpty()) return false;
+        char first = s.charAt(0);
+        if (first != '_' && first != '$' && !Character.isLetter(first)) return false;
+        for (int i = 1; i < s.length(); i++) {
+            char c = s.charAt(i);
+            if (c != '_' && c != '$' && !Character.isLetterOrDigit(c)) return false;
+        }
+        return true;
+    }
+
+    /* ===================== 语句分割 ===================== */
     private static List<String> splitIntoStatements(String code) {
         List<String> result = new ArrayList<>();
         StringBuilder current = new StringBuilder();
-
-        int braceDepth = 0;          // 只统计 {}
-        boolean insideArrow = false; // 是否正位于 => 的函数体里
+        int braceDepth = 0;
 
         for (String line : code.split("\\r?\\n")) {
             current.append(line).append("\n");
 
-            /* 更新 {} 深度 */
             for (char c : line.toCharArray()) {
                 if (c == '{') braceDepth++;
                 else if (c == '}') braceDepth--;
             }
 
-            /* 进入箭头函数体的标记：=> 后面紧跟着 { */
-            if (!insideArrow && braceDepth == 0) {
-                String tmp = line.replaceAll("\\s+", "");
-                if (tmp.contains("=>{")) insideArrow = true;
-            } else if (insideArrow && braceDepth == 0) {
-                insideArrow = false;
-            }
-
-            /* 只有顶层才切分语句 */
-            if (braceDepth == 0 && !insideArrow) {
+            if (braceDepth == 0) {
                 String stmt = current.toString().trim();
                 if (!stmt.isEmpty()) {
                     result.add(stmt);
@@ -348,13 +370,7 @@ public class ModernJSParser {
         return result;
     }
 
-    private static boolean isValidFieldName(String stmt) {
-        int eq = stmt.indexOf('=');
-        if (eq <= 0) return false;
-        String name = stmt.substring(0, eq).trim();
-        return name.matches("[a-zA-Z_$][a-zA-Z0-9_$]*");
-    }
-
+    /* ===================== 辅助方法 ===================== */
     private static String convertMethod(String className, String methodDecl) {
         int paren = methodDecl.indexOf('(');
         if (paren == -1) return "// invalid method: " + methodDecl;
@@ -400,10 +416,12 @@ public class ModernJSParser {
                 .collect(Collectors.joining("\n"));
     }
 
-    private static int countChar(String s, char c) {
-        int count = 0;
-        for (char ch : s.toCharArray()) if (ch == c) count++;
-        return count;
+    private static int updateBraceCount(String s, int current) {
+        for (char c : s.toCharArray()) {
+            if (c == '{') current++;
+            else if (c == '}') current--;
+        }
+        return current;
     }
 
     private static int findMatchingBrace(String s, int start) {
@@ -418,108 +436,81 @@ public class ModernJSParser {
         }
         return -1;
     }
+
+    /* ===================== 后处理 ===================== */
     private static String postProcessing(String result) {
-        /* 1. 先展开 {a,b} → {a:a,b:b}  */
         result = expandShorthandReturnObjects(result);
 
-        /* 2. 再降级默认参数（继续用 result，链式替换） */
-        Pattern p2 = Pattern.compile("(\\bfunction\\s+\\w+\\s*\\([^)]*\\))(\\s*\\{)");
-        Matcher m2 = p2.matcher(result);
+        Matcher m2 = FUNCTION_WITH_DEFAULTS_PATTERN.matcher(result);
         StringBuffer sb2 = new StringBuffer();
         while (m2.find()) {
-            String head  = m2.group(1);
+            String head = m2.group(1);
             String brace = m2.group(2);
 
             int pStart = head.indexOf('(') + 1;
-            int pEnd   = head.lastIndexOf(')');
-            String[] params = head.substring(pStart, pEnd).split(",");
+            int pEnd = head.lastIndexOf(')');
+            String paramsPart = head.substring(pStart, pEnd);
+            String[] params = paramsPart.isEmpty() ? new String[0] : paramsPart.split(",");
 
             StringBuilder dftStmts = new StringBuilder();
-            for (String p : params) {
-                p = p.trim();
+            StringBuilder cleanParams = new StringBuilder();
+
+            for (int i = 0; i < params.length; i++) {
+                String p = params[i].trim();
+                if (i > 0) cleanParams.append(", ");
                 int eq = p.indexOf('=');
                 if (eq > 0) {
                     String name = p.substring(0, eq).trim();
-                    String val  = p.substring(eq + 1).trim();
+                    String val = p.substring(eq + 1).trim();
                     dftStmts.append("  ")
                             .append(name).append(" = ")
                             .append(name).append(" === undefined ? ")
                             .append(val).append(" : ").append(name).append(";\n");
+                    cleanParams.append(name);
+                } else {
+                    cleanParams.append(p);
                 }
             }
-            String cleanSig = head.replaceAll("\\s*=\\s*[^,)]+", "");
+
+            String cleanSig = head.substring(0, pStart) + cleanParams + ")";
             m2.appendReplacement(sb2,
                     Matcher.quoteReplacement(cleanSig + brace + "\n" + dftStmts.toString()));
         }
-        m2.appendTail(sb2);          // ← 这里已经把「全文」写进 sb2
+        m2.appendTail(sb2);
         return sb2.toString();
     }
-    // ========== 后处理：将 return {a, b} 转为 return {a: a, b: b} ==========
 
     private static String expandShorthandReturnObjects(String result) {
-        Pattern pattern = Pattern.compile(
-
-                "\\breturn\\s*\\{([^{}]*)\\}\\s*(?=;|\\n|\\r|$)"
-
-        );
-
-        Matcher matcher = pattern.matcher(result);
-
+        Matcher matcher = RETURN_SHORTHAND_PATTERN.matcher(result);
         StringBuffer sb = new StringBuffer();
 
-
         while (matcher.find()) {
-
             String inner = matcher.group(1).trim();
-
             if (inner.isEmpty()) {
-
                 matcher.appendReplacement(sb, "return {}");
-
                 continue;
-
             }
 
 
             String[] parts = inner.split(",");
-
-            StringBuilder expanded = new StringBuilder("return {");
-
-            boolean first = true;
-
             boolean shouldExpand = true;
-
-
             for (String part : parts) {
-
                 String id = part.trim();
-
-                if (id.isEmpty()) continue;
-
-
-                // 必须是纯标识符（不能有 ...、[、"、=、: 等）
-
-                if (!id.matches("[a-zA-Z_$][a-zA-Z0-9_$]*")) {
-
+                if (!id.isEmpty() && !isValidIdentifier(id)) {
                     shouldExpand = false;
-
                     break;
-
                 }
-
             }
 
-
             if (!shouldExpand) {
-                // 不转换，原样保留
                 matcher.appendReplacement(sb, matcher.group(0));
             } else {
+                StringBuilder expanded = new StringBuilder("return {");
+                boolean first = true;
                 for (String part : parts) {
                     String id = part.trim();
                     if (id.isEmpty()) continue;
-                    if (!first) {
-                        expanded.append(", ");
-                    }
+                    if (!first) expanded.append(", ");
                     expanded.append(id).append(": ").append(id);
                     first = false;
                 }
@@ -531,7 +522,7 @@ public class ModernJSParser {
         return sb.toString();
     }
 
-    /* ===================== 测试主方法 ===================== */
+    /* ===================== 测试 ===================== */
     public static void main(String[] args) {
         String input = """
                 ServerEvents.recipes((event) => {
@@ -548,7 +539,8 @@ public class ModernJSParser {
                    }
                    add("minecraft:arrow");
                 })
-""";    System.out.println("转换前：");
+                """;
+        System.out.println("转换前：");
         System.out.println(input);
         System.out.println("转换后：");
         System.out.println(parse(input));

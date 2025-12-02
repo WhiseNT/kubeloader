@@ -22,7 +22,6 @@ public class KLRightClickedEventPacket {
     }
 
     public void encode(FriendlyByteBuf buf) {
-
         buf.writeInt(hand);
     }
 
