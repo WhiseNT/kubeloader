@@ -35,3 +35,10 @@ mandatory = true
 versionRange = "${minecraft_version_range}"
 ordering = "NONE"
 side = "BOTH"
+
+[[dependencies."${mod_id}"]]
+modId = "javetjs"
+mandatory = false
+versionRange = "*"
+ordering = "BEFORE"
+side = "BOTH"

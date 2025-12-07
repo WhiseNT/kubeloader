@@ -20,6 +20,7 @@ public class ContentPackModInfo {
     public final String license;
     public final String issuePage;
     public final String homepage;
+    public final String logoFile;
     public final List<ModDependency> modDependencies;
 
     // 私有构造，强制使用 Builder
@@ -34,6 +35,7 @@ public class ContentPackModInfo {
         this.license = builder.license;
         this.issuePage = builder.issuePage;
         this.homepage = builder.homepage;
+        this.logoFile = builder.logoFile;
         this.modDependencies = new ArrayList<>(builder.modDependencies); // 不可变副本
     }
 
@@ -58,10 +60,12 @@ public class ContentPackModInfo {
         private String license = "MIT";
         private String issuePage;
         private String homepage;
+        private String logoFile;
         private List<ModDependency> modDependencies = new ArrayList<>();
 
         public Builder withId(String id) {
             this.id = id;
+            this.name = id;
             return this;
         }
 
@@ -112,6 +116,10 @@ public class ContentPackModInfo {
 
         public Builder withModDependencies(List<ModDependency> modDependencies) {
             this.modDependencies = new ArrayList<>(modDependencies);
+            return this;
+        }
+        public Builder withLogoFile(String logoFile) {
+            this.logoFile = logoFile;
             return this;
         }
 

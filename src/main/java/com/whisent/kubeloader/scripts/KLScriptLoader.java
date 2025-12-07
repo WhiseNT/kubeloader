@@ -1,5 +1,8 @@
 package com.whisent.kubeloader.scripts;
 
+import com.caoccao.javet.exceptions.JavetException;
+import com.whisent.javetjs.babel.BabelWrapper;
+import com.whisent.kubeloader.compat.JavetJSCompat;
 import com.whisent.kubeloader.klm.ast.AstToSourceConverter;
 import com.whisent.kubeloader.klm.ast.JSInjector;
 import com.whisent.kubeloader.klm.dsl.EventProbe;
@@ -19,25 +22,43 @@ import java.util.concurrent.atomic.AtomicReference;
 public class KLScriptLoader {
 
     public static void load(ScriptPack pack, ScriptFileInfo info,
-                            Map<String, List<MixinDSL>> mixinMap, CallbackInfo ci) {
+                            Map<String, List<MixinDSL>> mixinMap, CallbackInfo ci) throws JavetException {
         String sourceCode = String.join("\n", info.lines);
-        //先处理KLM
-        if (mixinMap.getOrDefault(info.location,null)  != null ) {
-            sourceCode = applyMixin(pack,info,mixinMap,sourceCode);
+
+        if (JavetJSCompat.isLoaded) {
+            if (BabelWrapper.runtime == null) {
+                BabelWrapper.init();
+            }
         }
         //根据文件后缀进行处理
         if (isTsFile(info.file)) {
             Debugger.out("正在处理 " + info.location + " 文件");
             //typescript擦除类型
 
-            sourceCode = TsEraser.eraseTypes(sourceCode);
-            Debugger.out("修改后的源代码(TS→ES6) " + info.location + ":\n" + sourceCode);
-            //转换es6语法
-            sourceCode = ModernJSParser.parse(sourceCode);
-            Debugger.out("修改后的源代码(ES6→ES5) " + info.location + ":\n" + sourceCode);
+
+            if (JavetJSCompat.isLoaded) {
+                sourceCode = BabelWrapper.getTransformScript(sourceCode,true);
+            } else {
+                sourceCode = TsEraser.eraseTypes(sourceCode);
+                Debugger.out("修改后的源代码(TS→ES6) " + info.location + ":\n" + sourceCode);
+                //转换es6语法
+                sourceCode = ModernJSParser.parse(sourceCode);
+                Debugger.out("修改后的源代码(ES6→ES5) " + info.location + ":\n" + sourceCode);
+            }
         } else if (isJsFile(info.file)) {
-            sourceCode = ModernJSParser.parse(sourceCode);
-            Debugger.out("修改后的源代码(ES5兼容运行) " + info.location + ":\n" + sourceCode);
+            if (JavetJSCompat.isLoaded) {
+                System.out.println("正在处理 " + info.location + " 文件");
+                System.out.println("源代码 " + info.location + ":\n" + sourceCode);
+                sourceCode = BabelWrapper.getTransformScript(sourceCode,false);
+                System.out.println("修改后的源代码(TS→ES5) " + info.location + ":\n" + sourceCode);
+            } else {
+                sourceCode = ModernJSParser.parse(sourceCode);
+                Debugger.out("修改后的源代码(ES5兼容运行) " + info.location + ":\n" + sourceCode);
+            }
+        }
+        //先处理KLM
+        if (mixinMap.getOrDefault(info.location,null)  != null ) {
+            sourceCode = applyMixin(pack,info,mixinMap,sourceCode);
         }
         evalString(pack,info,sourceCode);
         ci.cancel();

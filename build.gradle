@@ -113,6 +113,12 @@ dependencies {
     implementation fg.deobf("dev.latvian.mods:kubejs-forge:${kubejs_version}")
     implementation fg.deobf("dev.latvian.mods:rhino-forge:${rhino_version}")
     implementation fg.deobf("dev.architectury:architectury-forge:${architectury_version}")
+    //minecraftLibrary(compileOnly 'com.caoccao.javet:javet:[5.0.2,5.1)')
+    //minecraftLibrary(compileOnly 'com.caoccao.javet:javet-node-windows-x86_64:[5.0.2,5.1)')
+    compileOnly 'com.caoccao.javet:javet:[5.0.2,5.1)'
+    compileOnly 'com.caoccao.javet:javet-node-windows-x86_64:[5.0.2,5.1)'
+    runtimeOnly fg.deobf("blank:javetjs:0.0.1")
+    compileOnly fg.deobf("blank:javetjs:0.0.1")
     //implementation fg.deobf("curse.maven:probejs-585406:5227399")
     //implementation fg.deobf("blank:ziper:1.0.0")
     annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'

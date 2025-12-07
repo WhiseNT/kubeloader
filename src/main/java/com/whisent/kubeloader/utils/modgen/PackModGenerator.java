@@ -126,6 +126,7 @@ public class PackModGenerator {
             writer.println("license=\"" + info.license +"\"");
             if (info.issuePage!=null) writer.println("issueTrackerURL=\""+ info.issuePage +"\"");
             if (info.homepage!=null) writer.println("displayURL=\"" + info.homepage+ "\"");
+            if (info.logoFile!=null) writer.println("  logoFile=\"" + info.logoFile + "\"");
             writer.println();
 
             writer.println("[[mods]]");
@@ -134,6 +135,7 @@ public class PackModGenerator {
             writer.println("  displayName=\"" + info.name + "\"");
             writer.println("  authors=\"" + Arrays.toString(info.authors) + "\"");
             writer.println("  description='''" + info.description + "'''");
+
             writer.println();
             for (ModDependency dep : info.modDependencies) {
                 writer.println(dep.toTomlString(info.id));
