@@ -7,6 +7,8 @@ import com.google.gson.GsonBuilder;
 import com.whisent.javetjs.babel.BabelWrapper;
 import com.whisent.kubeloader.compat.JavetJSCompat;
 import com.whisent.kubeloader.event.KubeLoaderClientEventHandler;
+
+import com.whisent.kubeloader.graal.TestClass;
 import com.whisent.kubeloader.impl.ContentPackProviders;
 import com.whisent.kubeloader.impl.dummy.DummyContentPack;
 import com.whisent.kubeloader.impl.dummy.DummyContentPackProvider;
@@ -65,6 +67,8 @@ public class Kubeloader
         IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
 
         JavetJSCompat.init();
+        TestClass.main( null);
+        //GraalApi.createContext() ;
         //LOGGER.info(ResourcePath.toString());
         //LOGGER.info(PackPath.toString());
         //将resource写入,先清理资源文件再进行写入

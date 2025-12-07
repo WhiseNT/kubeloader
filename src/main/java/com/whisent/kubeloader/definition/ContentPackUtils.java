@@ -32,6 +32,7 @@ public class ContentPackUtils {
         return new ScriptPack(context.manager(), new ScriptPackInfo(id, ""));
     }
 
+
     public static DataResult<PackMetaData> loadMetaData(InputStream stream) {
         try (var reader = FileIO.stream2reader(stream)) {
             var json = Kubeloader.GSON.fromJson(reader, JsonObject.class);

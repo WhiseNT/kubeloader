@@ -4,6 +4,9 @@ import com.whisent.kubeloader.Kubeloader;
 import com.whisent.kubeloader.definition.ContentPack;
 import com.whisent.kubeloader.definition.PackLoadingContext;
 import com.whisent.kubeloader.definition.inject.SortablePacksHolder;
+
+import com.whisent.kubeloader.graal.context.ContextMap;
+import com.whisent.kubeloader.graal.context.IdentifiedContext;
 import com.whisent.kubeloader.impl.CommonScriptsLoader;
 import com.whisent.kubeloader.impl.ContentPackProviders;
 import com.whisent.kubeloader.impl.depends.DependencyReport;
@@ -47,6 +50,11 @@ public abstract class ScriptManagerMixin implements SortablePacksHolder, ScriptM
     @Unique
     private Map<String, List<MixinDSL>> kubeLoader$mixinDSLs = new HashMap<>();
 
+    @Unique
+    public Map<String, IdentifiedContext> kubeLoader$scriptContexts = new HashMap<>();
+    @Inject(method = "load", at = @At("HEAD"), cancellable = true)
+    private void kubeLoader$beforeLoad(CallbackInfo ci) {
+    }
     @Redirect(method = "load", at = @At(value = "INVOKE", target = "Ljava/util/Map;values()Ljava/util/Collection;"))
     private Collection<ScriptPack> injectPacks(Map<String, ScriptPack> original) {
 
@@ -205,6 +213,7 @@ public abstract class ScriptManagerMixin implements SortablePacksHolder, ScriptM
     public Map<String, List<MixinDSL>> getKubeLoader$mixinDSLs() {
         return kubeLoader$mixinDSLs;
     }
+
     public ScriptManager thiz() {
         return (ScriptManager) (Object) this;
     }

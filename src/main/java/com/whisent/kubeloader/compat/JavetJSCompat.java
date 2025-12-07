@@ -9,7 +9,7 @@ public class JavetJSCompat {
     public static boolean isLoaded = false;
     public static void init() {
         if (ModList.get().isLoaded("javetjs")) {
-            isLoaded = true;
+            isLoaded = false;
         }
 
         //JavetJSApi.eval(BabelWrapper.runtime, ScriptType.STARTUP,"console.log","test.js");

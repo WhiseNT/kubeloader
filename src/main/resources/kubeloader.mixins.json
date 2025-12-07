@@ -9,6 +9,7 @@
     "AccessItemEntity",
     "AccessScriptFileInfo",
     "AccessScriptManager",
+    "BindingsEventMixin",
     "BoundTickingBlockEntityMixin",
     "EntityMixin",
     "ItemBuilderMixin",
@@ -20,6 +21,7 @@
     "ScriptFileInfoMixin",
     "ScriptFileMixin",
     "ScriptManagerMixin",
+    "ScriptPackMixin",
     "ServerLevelMixin",
     "ServerPlayerMixin",
     "TridentItemMixin"

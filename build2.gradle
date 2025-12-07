@@ -32,7 +32,16 @@ base {
 java {
     toolchain.languageVersion = JavaLanguageVersion.of(17)
 }
+jarJar {}.enable()
+jarJar {}.fromRuntimeConfiguration()
 
+jarJar {
+    dependencies {
+        include(dependency("org.graalvm.polyglot:polyglot"))
+        include(dependency("org.graalvm.polyglot:js-language"))
+        include(dependency("org.graalvm.truffle:truffle-runtime"))
+    }
+}
 
 minecraft {
 
@@ -54,22 +63,12 @@ minecraft {
 
         client {
             jvmArg '-Dsecurejarhandler.log=true'
-            jvmArg '--add-exports=java.base/com.oracle.truffle.js.parser=graaljs'
-            jvmArg '--add-exports=java.base/com.oracle.truffle.js.lang=graaljs'
-            jvmArg '--add-opens=java.base/com.oracle.truffle.js.parser=ALL-UNNAMED'
-            jvmArg '--add-opens=java.base/com.oracle.truffle.js.lang=ALL-UNNAMED'
-            jvmArg '--add-modules=ALL-SYSTEM'
             property 'forge.enabledGameTestNamespaces', mod_id
             property 'mixin.env.remapRefMap', 'true'
             property 'mixin.env.refMapRemappingFile', "${projectDir}/build/createSrgToMcp/output.srg"
         }
 
         server {
-            jvmArg '--add-exports=java.base/com.oracle.truffle.js.parser=graaljs'
-            jvmArg '--add-exports=java.base/com.oracle.truffle.js.lang=graaljs'
-            jvmArg '--add-opens=java.base/com.oracle.truffle.js.parser=ALL-UNNAMED'
-            jvmArg '--add-opens=java.base/com.oracle.truffle.js.lang=ALL-UNNAMED'
-            jvmArg '--add-modules=ALL-SYSTEM'
             property 'forge.enabledGameTestNamespaces', mod_id
             args '--nogui'
         }
@@ -78,20 +77,10 @@ minecraft {
         // By default, the server will crash when no gametests are provided.
         // The gametest system is also enabled by default for other run configs under the /test command.
         gameTestServer {
-            jvmArg '--add-exports=java.base/com.oracle.truffle.js.parser=graaljs'
-            jvmArg '--add-exports=java.base/com.oracle.truffle.js.lang=graaljs'
-            jvmArg '--add-opens=java.base/com.oracle.truffle.js.parser=ALL-UNNAMED'
-            jvmArg '--add-opens=java.base/com.oracle.truffle.js.lang=ALL-UNNAMED'
-            jvmArg '--add-modules=ALL-SYSTEM'
             property 'forge.enabledGameTestNamespaces', mod_id
         }
 
         data {
-            jvmArg '--add-exports=java.base/com.oracle.truffle.js.parser=graaljs'
-            jvmArg '--add-exports=java.base/com.oracle.truffle.js.lang=graaljs'
-            jvmArg '--add-opens=java.base/com.oracle.truffle.js.parser=ALL-UNNAMED'
-            jvmArg '--add-opens=java.base/com.oracle.truffle.js.lang=ALL-UNNAMED'
-            jvmArg '--add-modules=ALL-SYSTEM'
             // example of overriding the workingDirectory set in configureEach above
             workingDirectory project.file('run-data')
 
@@ -118,6 +107,7 @@ repositories {
             includeGroup "dev.architectury"
         }
     }
+
     maven {
         // saps.dev Maven (KubeJS and Rhino)
         url = "https://maven.saps.dev/minecraft"
@@ -136,12 +126,9 @@ repositories {
 dependencies {
 
     minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
-    //implementation fg.deobf("dev.latvian.mods:kubejs-forge:${kubejs_version}")
-    implementation fg.deobf("curse.maven:kubejs-238086:5853326")
-    //implementation fg.deobf("dev.latvian.mods:rhino-forge:${rhino_version}")
-    implementation fg.deobf("curse.maven:rhino-416294:6186971")
-    //implementation fg.deobf("dev.architectury:architectury-forge:${architectury_version}")
-    implementation fg.deobf("curse.maven:architectury-api-419699:5137938")
+    implementation fg.deobf("dev.latvian.mods:kubejs-forge:${kubejs_version}")
+    implementation fg.deobf("dev.latvian.mods:rhino-forge:${rhino_version}")
+    implementation fg.deobf("dev.architectury:architectury-forge:${architectury_version}")
     //minecraftLibrary(compileOnly 'com.caoccao.javet:javet:[5.0.2,5.1)')
     //minecraftLibrary(compileOnly 'com.caoccao.javet:javet-node-windows-x86_64:[5.0.2,5.1)')
     compileOnly 'com.caoccao.javet:javet:[5.0.2,5.1)'
@@ -151,17 +138,19 @@ dependencies {
 
     // GraalVM JS 引擎（必须同时包含 sdk 和 js-language）
 
-    //implementation "org.graalvm.polyglot:polyglot:[24.2.2,24.3)"
-    //implementation "org.graalvm.js:js-language:[24.2.2,24.3)"
-    //implementation "org.graalvm.truffle:truffle-runtime:[24.2.2,24.3)"
-    implementation "curse.maven:graaljs-1284543:6642435"
-    //jarJar "org.graalvm.polyglot:polyglot:[24.2.2,24.3)"
-    //jarJar "org.graalvm.js:js-language:[24.2.2,24.3)"
-    //jarJar "org.graalvm.truffle:truffle-runtime:[24.2.2,24.3)"
+    implementation "org.graalvm.polyglot:polyglot:[24.2.2,24.3)"
+    implementation "org.graalvm.js:js-language:[24.2.2,24.3)"
+    implementation "org.graalvm.truffle:truffle-runtime:[24.2.2,24.3)"
 
-    //minecraftLibrary(implementation "org.graalvm.polyglot:polyglot:[24.2.2,24.3)")
-    //minecraftLibrary(implementation "org.graalvm.js:js-language:[24.2.2,24.3)")
-    //minecraftLibrary(implementation "org.graalvm.truffle:truffle-runtime:[24.2.2,24.3)")
+    jarJar "org.graalvm.polyglot:polyglot:[24.2.2,24.3)"
+    jarJar "org.graalvm.js:js-language:[24.2.2,24.3)"
+    jarJar "org.graalvm.truffle:truffle-runtime:[24.2.2,24.3)"
+
+    minecraftLibrary(implementation "org.graalvm.polyglot:polyglot:[24.2.2,24.3)")
+    minecraftLibrary(implementation "org.graalvm.js:js-language:[24.2.2,24.3)")
+    minecraftLibrary(implementation "org.graalvm.truffle:truffle-runtime:[24.2.2,24.3)")
+
+
     //implementation fg.deobf("curse.maven:probejs-585406:5227399")
     annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
 
@@ -201,4 +190,8 @@ tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8' // Use the UTF-8 charset for Java compilation
 }
 
+reobf {
+    jarJar {}
+}
+jar.finalizedBy 'jarJar'
 

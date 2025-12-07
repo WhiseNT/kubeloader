@@ -3,6 +3,8 @@ package com.whisent.kubeloader.scripts;
 import com.caoccao.javet.exceptions.JavetException;
 import com.whisent.javetjs.babel.BabelWrapper;
 import com.whisent.kubeloader.compat.JavetJSCompat;
+import com.whisent.kubeloader.graal.GraalApi;
+import com.whisent.kubeloader.impl.mixin.ScriptManagerInterface;
 import com.whisent.kubeloader.klm.ast.AstToSourceConverter;
 import com.whisent.kubeloader.klm.ast.JSInjector;
 import com.whisent.kubeloader.klm.dsl.EventProbe;
@@ -90,12 +92,20 @@ public class KLScriptLoader {
         return file.endsWith(".js");
     }
     public static void evalString(ScriptPack pack,ScriptFileInfo info,String code) {
-        pack.manager.context.evaluateString(
-                pack.scope,
-                code,
-                info.location,
-                1,
-                (Object)null
-        );
+        if (false) {
+            //graalEvalString(pack,code);
+        } else {
+            pack.manager.context.evaluateString(
+                    pack.scope,
+                    code,
+                    info.location,
+                    1,
+                    (Object)null
+            );
+        }
+
+    }
+    public static void graalEvalString(ScriptPack pack,String code) {
+
     }
 }

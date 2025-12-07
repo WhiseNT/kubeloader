@@ -9,7 +9,7 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 
-@Mixin(JavaWrapper.class)
+@Mixin(value = JavaWrapper.class, remap = false)
 public class JavaWrapperMixin {
     @Shadow @Final private ScriptManager manager;
 
