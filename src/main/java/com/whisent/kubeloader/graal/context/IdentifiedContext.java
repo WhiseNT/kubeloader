@@ -26,9 +26,6 @@ public class IdentifiedContext implements AutoCloseable {
     public void eval(String script) {
         GraalApi.eval(this.context, script);
     }
-    public void eval(String script,String filePath) {
-        GraalApi.eval(this.context, script,filePath,this.type);
-    }
 
     @Override
     public void close() {

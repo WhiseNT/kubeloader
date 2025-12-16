@@ -14,13 +14,6 @@ public class TestClass {
         GraalApi.registerBinding(ctx.getContext(), "TestEvent", TestEvent.class);
         GraalApi.registerBinding(ctx.getContext(), "TestObject", new TestObject());
         String filePath = "testpack:test.js";
-        ctx.eval( """
-            console.log(KLUtils.genUUID('test'));
-            TestEvent.onTest(()=>{
-                console.log('test event fired');
-            });
-            TestObject.printMessage();
 
-        """,filePath);
     }
 }

@@ -16,12 +16,19 @@ public class BindingsEventMixin {
     @Inject(method = "add", at = @org.spongepowered.asm.mixin.injection.At("HEAD"))
     public void kubeLoader$add(String name, Object value, CallbackInfo ci) {
         if (value != null) {
-            ContextMap.getContexts(((BindingsEvent) (Object) this).manager.scriptType).forEach(identifiedContext -> {
-                Context context = identifiedContext.getContext();
-                GraalApi.registerBinding(context, name, value);
-                //System.out.println("注册绑定: " + name + " -> " + value);
-            });
-
+            System.out.println("[KubeLoader] Binding " + name + " to " + value.getClass().getName());
+            var bindings = ((ScriptManagerInterface)thiz().manager).getKubeLoader$bindings();
+            
+            if (bindings.get(name) == null) {
+                bindings.put(name, value);
+            } else {
+                bindings.remove(name);
+                bindings.put(name, value);
+            }
         }
+    }
+
+    private BindingsEvent thiz() {
+        return (BindingsEvent) (Object) this;
     }
 }

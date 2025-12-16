@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class Debugger {
-    public static boolean enable = false;
+    public static boolean enable = true;
 
     public static List<DebuggerLogTypes> logTypes = new ArrayList<>();
 

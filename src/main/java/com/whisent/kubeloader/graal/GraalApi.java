@@ -1,5 +1,12 @@
 package com.whisent.kubeloader.graal;
 
+import com.whisent.kubeloader.impl.mixin.GraalPack;
+import com.whisent.kubeloader.impl.mixin.ScriptManagerInterface;
+import dev.latvian.mods.kubejs.event.EventGroup;
+import dev.latvian.mods.kubejs.event.EventGroupWrapper;
+import dev.latvian.mods.kubejs.script.ScriptFileInfo;
+import dev.latvian.mods.kubejs.script.ScriptManager;
+import dev.latvian.mods.kubejs.script.ScriptPack;
 import dev.latvian.mods.kubejs.script.ScriptType;
 import dev.latvian.mods.kubejs.util.ConsoleJS;
 import org.graalvm.polyglot.*;
@@ -20,29 +27,48 @@ public class GraalApi {
         if (context == null || name == null || value == null) {
             throw new IllegalArgumentException("Context, name and value must not be null");
         }
-        if (value instanceof Class<?>) {
-            Class<?> clazz = (Class<?>) value;
-            String className = clazz.getName();
-            // 获取 JS 上下文中的 Java.type 函数
-            Value javaObj = context.getBindings("js").getMember("Java");
-            if (javaObj == null || javaObj.isNull()) {
-                throw new IllegalStateException("Java object not available in JS context. " +
-                        "Make sure you have initialized Java interop (e.g., via Java.type).");
-            }
+        System.out.println("[KubeLoader] Binding " + name + " to " + value.getClass());
+        // 特殊处理EventGroupWrapper类型（来自KubeJS）
+        if (value instanceof EventGroupWrapper eventGroupWrapper) {
+            // 使用动态代理包装EventGroupWrapper
+            try {
 
-            Value typeFunc = javaObj.getMember("type");
-            if (typeFunc == null || !typeFunc.canExecute()) {
-                throw new IllegalStateException("Java.type function is not available in JS context.");
+                return;
+            } catch (Exception e) {
+                System.err.println("[KubeLoader] Failed to create EventGroupWrapperProxy for " + name + ": " + e.getMessage());
+                e.printStackTrace();
+                // 如果代理类创建失败，回退到直接绑定
+                context.getBindings("js").putMember(name, value);
             }
-
-            // 执行 Java.type(className)
-            Value classRef = typeFunc.execute(className);
-            // 将类引用绑定到 JS
-            context.getBindings("js").putMember(name, classRef);
+            return;
         } else {
-            // 普通 Java 对象，直接绑定（依赖 allowHostAccess）
-            context.getBindings("js").putMember(name, value);
+            if (value instanceof Class<?>) {
+                Class<?> clazz = (Class<?>) value;
+                String className = clazz.getName();
+
+                // 首先尝试通过Java.type方式绑定（保持原有功能）
+                Value javaObj = context.getBindings("js").getMember("Java");
+                if (javaObj != null && !javaObj.isNull()) {
+                    Value typeFunc = javaObj.getMember("type");
+                    if (typeFunc != null && typeFunc.canExecute()) {
+                        // 执行 Java.type(className)
+                        Value classRef = typeFunc.execute(className);
+                        // 将类引用绑定到 JS
+                        context.getBindings("js").putMember(name, classRef);
+                        return;
+                    }
+                }
+
+                // 如果Java.type不可用，则回退到使用context.asValue(clazz)
+                Value classRef = context.asValue(clazz);
+                context.getBindings("js").putMember(name, classRef);
+            } else {
+                // 普通 Java 对象，直接绑定（依赖 allowHostAccess）
+                context.getBindings("js").putMember(name, value);
+            }
         }
+        
+
     }
 
     /**
@@ -58,11 +84,15 @@ public class GraalApi {
         }
     }
 
-    public static void eval(Context context, String script, String filePath, ScriptType type) {
+    public static void eval(Context context, String script, ScriptFileInfo info, ScriptPack pack) {
+        String filePath = info.location;
+        ScriptType type = pack.manager.scriptType;
         if (context == null || script == null) return;
 
         try {
             Source source = Source.newBuilder("js", script, filePath).build();
+            GraalPack graalPack = (GraalPack) pack;
+            graalPack.kubeLoader$getDynamicGraalConsole().setSourceLocation(filePath);
             context.eval(source);
         } catch (PolyglotException e) {
 
@@ -165,6 +195,22 @@ public class GraalApi {
             Java.loadClass = Java.type;
         }
     """);
+        return ctx;
+    }
+
+    public static Context createContext(ScriptManager manager) {
+        ScriptManagerInterface thiz = (ScriptManagerInterface) manager;
+        Context ctx = createContext();
+        thiz.getKubeLoader$bindings().forEach((name, value) -> {
+            // 特殊处理EventGroupWrapper
+            if (name.endsWith("_EVENT_GROUP")) {
+                String originalName = name.substring(0, name.length() - "_EVENT_GROUP".length());
+                System.out.println("[KubeLoader] Binding EventGroupWrapper: " + originalName);
+                ctx.getBindings("js").putMember(originalName, value);
+            } else {
+                registerBinding(ctx,name,value);
+            }
+        });
         return ctx;
     }
 }

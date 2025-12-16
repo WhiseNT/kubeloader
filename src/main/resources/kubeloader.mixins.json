@@ -11,6 +11,7 @@
     "AccessScriptManager",
     "BindingsEventMixin",
     "BoundTickingBlockEntityMixin",
+    "ConsoleJSMixin",
     "EntityMixin",
     "ItemBuilderMixin",
     "ItemEntityMixin",

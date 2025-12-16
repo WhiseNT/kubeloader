@@ -4,7 +4,7 @@ import com.caoccao.javet.exceptions.JavetException;
 import com.whisent.javetjs.babel.BabelWrapper;
 import com.whisent.kubeloader.compat.JavetJSCompat;
 import com.whisent.kubeloader.graal.GraalApi;
-import com.whisent.kubeloader.impl.mixin.ScriptManagerInterface;
+import com.whisent.kubeloader.impl.mixin.GraalPack;
 import com.whisent.kubeloader.klm.ast.AstToSourceConverter;
 import com.whisent.kubeloader.klm.ast.JSInjector;
 import com.whisent.kubeloader.klm.dsl.EventProbe;
@@ -14,6 +14,7 @@ import dev.latvian.mods.kubejs.script.ScriptFileInfo;
 import dev.latvian.mods.kubejs.script.ScriptPack;
 import dev.latvian.mods.rhino.Parser;
 import dev.latvian.mods.rhino.ast.AstRoot;
+import org.graalvm.polyglot.Context;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.util.List;
@@ -26,6 +27,7 @@ public class KLScriptLoader {
     public static void load(ScriptPack pack, ScriptFileInfo info,
                             Map<String, List<MixinDSL>> mixinMap, CallbackInfo ci) throws JavetException {
         String sourceCode = String.join("\n", info.lines);
+
 
         if (JavetJSCompat.isLoaded) {
             if (BabelWrapper.runtime == null) {
@@ -92,8 +94,10 @@ public class KLScriptLoader {
         return file.endsWith(".js");
     }
     public static void evalString(ScriptPack pack,ScriptFileInfo info,String code) {
+
         if (false) {
             //graalEvalString(pack,code);
+            graalEvalString(pack,info,code);
         } else {
             pack.manager.context.evaluateString(
                     pack.scope,
@@ -105,7 +109,21 @@ public class KLScriptLoader {
         }
 
     }
-    public static void graalEvalString(ScriptPack pack,String code) {
+    public static void simpleEvalString(ScriptPack pack, String code) {
+        GraalPack graalPack = (GraalPack) pack;
+        Context context = graalPack.kubeLoader$getGraalContext();
+        GraalApi.eval(context, code);
 
+    }
+    public static void graalEvalString(ScriptPack pack,ScriptFileInfo info, String code) {
+        GraalPack graalPack = (GraalPack) pack;
+        Context context = graalPack.kubeLoader$getGraalContext();
+        if (context != null) {
+            context.getBindings("js")
+                    .putMember("console",graalPack.kubeLoader$getDynamicGraalConsole());
+        }
+
+
+        GraalApi.eval(context,code,info,pack);
     }
 }
