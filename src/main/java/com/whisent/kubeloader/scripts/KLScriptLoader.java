@@ -1,8 +1,9 @@
 package com.whisent.kubeloader.scripts;
 
-import com.caoccao.javet.exceptions.JavetException;
 import com.whisent.javetjs.babel.BabelWrapper;
 import com.whisent.kubeloader.compat.JavetJSCompat;
+import com.whisent.kubeloader.graal.GraalApi;
+import com.whisent.kubeloader.impl.mixin.GraalPack;
 import com.whisent.kubeloader.klm.ast.AstToSourceConverter;
 import com.whisent.kubeloader.klm.ast.JSInjector;
 import com.whisent.kubeloader.klm.dsl.EventProbe;
@@ -12,6 +13,7 @@ import dev.latvian.mods.kubejs.script.ScriptFileInfo;
 import dev.latvian.mods.kubejs.script.ScriptPack;
 import dev.latvian.mods.rhino.Parser;
 import dev.latvian.mods.rhino.ast.AstRoot;
+import org.graalvm.polyglot.Context;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.util.List;
@@ -77,7 +79,7 @@ public class KLScriptLoader {
                 JSInjector.injectFromDSL(root, dsl);
                 modifiedSourceCode.set(converter.convertAndFix(root, dsl.getAction()));
             }
-            Debugger.out("修改后的源代码 " + info.location + ":\n" + modifiedSourceCode.get());
+            //Debugger.out("修改后的源代码 " + info.location + ":\n" + modifiedSourceCode.get());
             pack.manager.scriptType.console.info("Apply mixin for " + info.location + " from " + dsl.getSourcePath());
         });
         return modifiedSourceCode.get();
@@ -90,12 +92,28 @@ public class KLScriptLoader {
         return file.endsWith(".js");
     }
     public static void evalString(ScriptPack pack,ScriptFileInfo info,String code) {
-        pack.manager.context.evaluateString(
-                pack.scope,
-                code,
-                info.location,
-                1,
-                (Object)null
-        );
+        if (true) {
+            //graalEvalString(pack,code);
+            graalEvalString(pack,info,code);
+        } else {
+            pack.manager.context.evaluateString(
+                    pack.scope,
+                    code,
+                    info.location,
+                    1,
+                    (Object)null
+            );
+        }
+    }
+    public static void graalEvalString(ScriptPack pack,ScriptFileInfo info, String code) {
+        GraalPack graalPack = (GraalPack) pack;
+        Context context = graalPack.kubeLoader$getGraalContext();
+        if (context != null) {
+            context.getBindings("js")
+                    .putMember("console",graalPack.kubeLoader$getDynamicGraalConsole());
+        }
+
+
+        GraalApi.eval(context,code,info,pack);
     }
 }

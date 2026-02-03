@@ -13,12 +13,22 @@ import net.minecraft.world.SimpleContainer;
 
 import net.minecraft.world.entity.MoverType;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.UUID;
 
 public class KLUtil {
+    /**
+     * Test method for GraalJS type wrapper
+     * Now you can call: KLUtils.testStack("minecraft:diamond")
+     * The string will be automatically converted to ItemStack
+     */
+    public static ItemStack testStack(ItemStack stack) {
+        return stack;
+    }
+
     public static String test() {
         String testTScode = """
                 // ===== 1. interface：应被完全移除 =====

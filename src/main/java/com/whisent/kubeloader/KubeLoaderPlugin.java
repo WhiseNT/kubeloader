@@ -53,6 +53,21 @@ public class KubeLoaderPlugin extends KubeJSPlugin {
     @Override
     public void registerTypeWrappers(ScriptType type, TypeWrappers typeWrappers) {
         super.registerTypeWrappers(type, typeWrappers);
-
+        
+        // Example: Register custom type wrappers for Rhino (similar to other mods)
+        // typeWrappers.registerSimple(YourCustomClass.class, o -> {
+        //     if (o instanceof YourCustomClass custom) return custom;
+        //     return YourCustomUtil.fromString(o.toString());
+        // });
+        
+        // Note: KubeLoader also implements GraalJS wrapper mechanism
+        // See: com.whisent.kubeloader.graal.wrapper.TypeWrapperRegistry
+        // For GraalJS, use TypeWrapperRegistry.registerSimple() in the same way:
+        // TypeWrapperRegistry.registerSimple(YourCustomClass.class, o -> {
+        //     if (o instanceof YourCustomClass custom) return custom;
+        //     return YourCustomUtil.fromString(o.toString());
+        // });
+        // The GraalJS wrappers are automatically initialized when creating GraalJS contexts
+        // and provide similar functionality to Rhino's TypeWrappers for backward compatibility
     }
 }

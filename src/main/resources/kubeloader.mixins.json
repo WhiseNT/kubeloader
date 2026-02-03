@@ -6,11 +6,16 @@
   "refmap": "kubeloader.refmap.json",
   "mixins": [
     "AccessBoundTickingBlockEntity",
+    "AccessEventHandlerContainer",
     "AccessItemEntity",
     "AccessScriptFileInfo",
     "AccessScriptManager",
+    "BindingsEventMixin",
     "BoundTickingBlockEntityMixin",
     "EntityMixin",
+    "EventHandlerContainerMixin",
+    "EventHandlerMixin",
+    "ForgeEventsMixin",
     "ItemBuilderMixin",
     "ItemEntityMixin",
     "ItemMixin",
@@ -20,9 +25,11 @@
     "ScriptFileInfoMixin",
     "ScriptFileMixin",
     "ScriptManagerMixin",
+    "ScriptPackMixin",
     "ServerLevelMixin",
     "ServerPlayerMixin",
-    "TridentItemMixin"
+    "TridentItemMixin",
+    "TypeWrappersMixin"
   ],
   "client": [
   ],
