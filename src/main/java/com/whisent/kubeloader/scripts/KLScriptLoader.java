@@ -24,7 +24,7 @@ import java.util.concurrent.atomic.AtomicReference;
 public class KLScriptLoader {
 
     public static void load(ScriptPack pack, ScriptFileInfo info,
-                            Map<String, List<MixinDSL>> mixinMap, CallbackInfo ci) throws JavetException {
+                            Map<String, List<MixinDSL>> mixinMap, CallbackInfo ci)  {
         String sourceCode = String.join("\n", info.lines);
 
         if (JavetJSCompat.isLoaded) {
