@@ -1,8 +1,10 @@
 package com.whisent.kubeloader.scripts;
 
-import com.whisent.javetjs.babel.BabelWrapper;
-import com.whisent.kubeloader.compat.JavetJSCompat;
+import com.whisent.kubeloader.ConfigManager;
+import com.whisent.kubeloader.compat.GraalJSCompat;
+import com.whisent.kubeloader.graal.DynamicGraalConsole;
 import com.whisent.kubeloader.graal.GraalApi;
+import com.whisent.kubeloader.graal.event.GraalEventHandlerProxy;
 import com.whisent.kubeloader.impl.mixin.GraalPack;
 import com.whisent.kubeloader.klm.ast.AstToSourceConverter;
 import com.whisent.kubeloader.klm.ast.JSInjector;
@@ -27,33 +29,21 @@ public class KLScriptLoader {
                             Map<String, List<MixinDSL>> mixinMap, CallbackInfo ci)  {
         String sourceCode = String.join("\n", info.lines);
 
-        if (JavetJSCompat.isLoaded) {
-            if (BabelWrapper.runtime == null) {
-                BabelWrapper.init();
-            }
-        }
         //根据文件后缀进行处理
         if (isTsFile(info.file)) {
             Debugger.out("正在处理 " + info.location + " 文件");
             //typescript擦除类型
 
-
-            if (JavetJSCompat.isLoaded) {
-                sourceCode = BabelWrapper.getTransformScript(sourceCode,true);
-            } else {
-                sourceCode = TsEraser.eraseTypes(sourceCode);
-                Debugger.out("修改后的源代码(TS→ES6) " + info.location + ":\n" + sourceCode);
-                //转换es6语法
+            sourceCode = TsEraser.eraseTypes(sourceCode);
+            Debugger.out("修改后的源代码(TS→ES6) " + info.location + ":\n" + sourceCode);
+            //根据配置决定是否转换ES6语法
+            if (ConfigManager.shouldUseModernJS()) {
                 sourceCode = ModernJSParser.parse(sourceCode);
                 Debugger.out("修改后的源代码(ES6→ES5) " + info.location + ":\n" + sourceCode);
             }
         } else if (isJsFile(info.file)) {
-            if (JavetJSCompat.isLoaded) {
-                System.out.println("正在处理 " + info.location + " 文件");
-                System.out.println("源代码 " + info.location + ":\n" + sourceCode);
-                sourceCode = BabelWrapper.getTransformScript(sourceCode,false);
-                System.out.println("修改后的源代码(TS→ES5) " + info.location + ":\n" + sourceCode);
-            } else {
+            //根据配置决定是否进行现代JS转换
+            if (ConfigManager.shouldUseModernJS()) {
                 sourceCode = ModernJSParser.parse(sourceCode);
                 Debugger.out("修改后的源代码(ES5兼容运行) " + info.location + ":\n" + sourceCode);
             }
@@ -92,9 +82,9 @@ public class KLScriptLoader {
         return file.endsWith(".js");
     }
     public static void evalString(ScriptPack pack,ScriptFileInfo info,String code) {
-        if (true) {
-            //graalEvalString(pack,code);
-            graalEvalString(pack,info,code);
+
+        if (GraalJSCompat.canUseGraalJS) {
+            graalEvalString(pack, info, code);
         } else {
             pack.manager.context.evaluateString(
                     pack.scope,
@@ -106,14 +96,63 @@ public class KLScriptLoader {
         }
     }
     public static void graalEvalString(ScriptPack pack,ScriptFileInfo info, String code) {
-        GraalPack graalPack = (GraalPack) pack;
-        Context context = graalPack.kubeLoader$getGraalContext();
-        if (context != null) {
-            context.getBindings("js")
-                    .putMember("console",graalPack.kubeLoader$getDynamicGraalConsole());
+        if (!GraalJSCompat.canUseGraalJS) {
+            pack.manager.context.evaluateString(
+                    pack.scope,
+                    code,
+                    info.location,
+                    1,
+                    (Object)null
+            );
+            return;
+        } else {
+            GraalApi.loadScript(pack, info, code);
         }
+        
 
-
-        GraalApi.eval(context,code,info,pack);
+    }
+    
+    /**
+     * Script metadata object exposed to JavaScript as __script__
+     * Provides access to script file information
+     */
+    public static class ScriptMetadata {
+        private final ScriptFileInfo info;
+        private final ScriptPack pack;
+        
+        public ScriptMetadata(ScriptFileInfo info, ScriptPack pack) {
+            this.info = info;
+            this.pack = pack;
+        }
+        
+        /** Get script file name (e.g., "e.js") */
+        public String getName() {
+            return info.file;
+        }
+        
+        /** Get full script location (e.g., "server_scripts:e.js") */
+        public String getLocation() {
+            return info.location;
+        }
+        
+        /** Get script type (e.g., "server", "client", "startup") */
+        public String getType() {
+            return pack.manager.scriptType.name;
+        }
+        
+        /** Get script namespace (e.g., "kubejs", "server_scripts") */
+        public String getNamespace() {
+            return pack.info.namespace;
+        }
+        
+        /** Get script directory path */
+        public String getPath() {
+            return info.file;
+        }
+        
+        @Override
+        public String toString() {
+            return info.location;
+        }
     }
 }

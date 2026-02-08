@@ -9,6 +9,9 @@ import org.graalvm.polyglot.Value;
  * 
  * This implementation queries TypeWrapperRegistry for registered types
  * and creates targetTypeMapping for each registered type dynamically.
+ * 
+ * Note: For KubeJS annotation-based method mapping (@RemapForJS, @RemapPrefixForJS),
+ * we handle that at the event proxy level in GraalEventHandlerProxy.
  */
 public class CustomHostAccess {
     
@@ -16,7 +19,15 @@ public class CustomHostAccess {
      * Create a custom HostAccess that applies type wrappers for all registered types
      */
     public static HostAccess create() {
+        // Use HostAccess.ALL as base - it allows:
+        // - All public methods (including static methods)
+        // - All public fields (including final fields)
+        // - Reflection
+        // - Array/List/Map access
         HostAccess.Builder builder = HostAccess.newBuilder(HostAccess.ALL);
+        
+        // HostAccess.ALL already allows all public static methods
+        // No additional configuration needed
         
         // Dynamically register targetTypeMapping for all types in TypeWrapperRegistry
         for (Class<?> targetType : TypeWrapperRegistry.getRegisteredTypes()) {
@@ -25,6 +36,7 @@ public class CustomHostAccess {
         
         System.out.println("[KubeLoader] CustomHostAccess registered " + 
                 TypeWrapperRegistry.getRegisteredTypes().size() + " type mappings");
+        System.out.println("[KubeLoader] CustomHostAccess based on HostAccess.ALL (allows all public methods/fields including static)");
         
         return builder.build();
     }

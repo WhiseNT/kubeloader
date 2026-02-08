@@ -10,8 +10,7 @@ import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 
 @Mixin(JavaWrapper.class)
-public class JavaWrapperMixin {
-    @Shadow @Final private ScriptManager manager;
+public class JavaWrapperMixin {  @Shadow @Final private ScriptManager manager;
 
     @Unique
     @RemapForJS("type")

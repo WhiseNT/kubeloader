@@ -9,6 +9,6 @@ import java.util.Map;
 public interface ScriptManagerInterface {
     Map<String, List<MixinDSL>> getKubeLoader$mixinDSLs();
     Map<String, Object> getKubeLoader$bindings();
-    Map<String, Context> getKubeLoader$scriptContexts();
+    Map<String, Object> getKubeLoader$scriptContexts();
 }
 

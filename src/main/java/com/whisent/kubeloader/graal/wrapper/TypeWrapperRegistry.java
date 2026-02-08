@@ -22,7 +22,6 @@ public class TypeWrapperRegistry {
      */
     public static <T> void registerSimple(Class<T> targetClass, Function<Object, T> converter) {
         WRAPPERS.put(targetClass, new TypeWrapperEntry<>(null, converter));
-        System.out.println("[KubeLoader] Registered simple TypeWrapper for " + targetClass.getSimpleName());
     }
     
     /**
@@ -33,7 +32,6 @@ public class TypeWrapperRegistry {
      */
     public static <T> void registerSimple(Class<T> targetClass, Predicate<Object> predicate, Function<Object, T> converter) {
         WRAPPERS.put(targetClass, new TypeWrapperEntry<>(predicate, converter));
-        System.out.println("[KubeLoader] Registered conditional TypeWrapper for " + targetClass.getSimpleName());
     }
     
     /**
@@ -72,7 +70,7 @@ public class TypeWrapperRegistry {
                         return result;
                     }
                 } catch (Exception e) {
-                    System.err.println("[KubeLoader] Failed to wrap " + input + " to " + targetClass.getSimpleName() + ": " + e.getMessage());
+                    // Silently continue to next wrapper
                 }
             }
         }

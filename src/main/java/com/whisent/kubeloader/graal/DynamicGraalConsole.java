@@ -6,51 +6,56 @@ import java.util.Arrays;
 
 public class DynamicGraalConsole {
     private final ConsoleJS console;
-    private String sourceLocation = "Unknown";
+    private final String sourceLocation;  // Final - captured at creation time
 
-    public DynamicGraalConsole(ConsoleJS console) {
+    public DynamicGraalConsole(ConsoleJS console, String sourceLocation) {
         this.console = console;
-    }
-    public void setSourceLocation(String sourceLocation) {
         this.sourceLocation = sourceLocation;
-    }
-    public String getSourceLocation() {
-        return sourceLocation;
     }
 
     public void log(Object... args) {
-        String prefix = buildMessage(); // e.g. "test_content.js: "
-        if (args == null || args.length == 1) {
-            console.log(prefix+args[0]);
+        String prefix = buildMessage();
+        if (args == null || args.length == 0) {
+            console.log(prefix);
+        } else if (args.length == 1) {
+            console.log(prefix + args[0]);
         } else {
-            console.log(prefix+ Arrays.stream(args).skip(0));
+            console.log(prefix + Arrays.stream(args).map(Object::toString).reduce("", (a, b) -> a + " " + b));
         }
     }
-    public void info(Object args) {
-        console.info(buildMessage() + args);
+    
+    public void info(Object... args) {
+        console.info(buildMessage() + format(args));
     }
 
     public void debug(Object... args) {
         console.debug(buildMessage() + format(args));
     }
 
-    public void warn(Object args) {
-        console.warn(buildMessage() + args);
+    public void warn(Object... args) {
+        console.warn(buildMessage() + format(args));
     }
 
-    public void error(Object args) {
-        console.error(buildMessage() + args);
+    public void error(Object... args) {
+        console.error(buildMessage() + format(args));
     }
 
     private String buildMessage() {
-        String messageText;
-        try {
-
-            messageText = sourceLocation + ": ";
-        } catch (Exception e) {
-            messageText = "";
+        if (sourceLocation != null && !sourceLocation.isEmpty()) {
+            return sourceLocation + ": ";
         }
-        return messageText;
+        return "";
+    }
+    
+    // 获取详细的源码位置信息（包括行号）
+    private String getDetailedLocation() {
+        try {
+            // 在 JS 环境中抛出并捕获错误来获取调用栈
+            // 这需要在 JS 侧配合实现
+            return buildMessage();
+        } catch (Exception e) {
+            return buildMessage();
+        }
     }
 
     private String format(Object[] args) {

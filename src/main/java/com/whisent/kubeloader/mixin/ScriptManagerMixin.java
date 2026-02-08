@@ -1,19 +1,17 @@
 package com.whisent.kubeloader.mixin;
 
 import com.whisent.kubeloader.Kubeloader;
+import com.whisent.kubeloader.compat.GraalJSCompat;
 import com.whisent.kubeloader.definition.ContentPack;
 import com.whisent.kubeloader.definition.PackLoadingContext;
 import com.whisent.kubeloader.definition.inject.SortablePacksHolder;
-
-import com.whisent.kubeloader.graal.DynamicGraalConsole;
-import com.whisent.kubeloader.graal.GraalApi;
+import com.whisent.kubeloader.graal.GraalScriptManager;
 import com.whisent.kubeloader.impl.CommonScriptsLoader;
 import com.whisent.kubeloader.impl.ContentPackProviders;
 import com.whisent.kubeloader.impl.depends.DependencyReport;
 import com.whisent.kubeloader.impl.depends.PackDependencyBuilder;
 import com.whisent.kubeloader.impl.depends.PackDependencyValidator;
 import com.whisent.kubeloader.impl.depends.SortableContentPack;
-import com.whisent.kubeloader.impl.mixin.GraalPack;
 import com.whisent.kubeloader.impl.mixin.ScriptFileInfoInterface;
 import com.whisent.kubeloader.impl.mixin.ScriptManagerInterface;
 import com.whisent.kubeloader.klm.MixinManager;
@@ -25,10 +23,7 @@ import dev.latvian.mods.kubejs.KubeJS;
 import dev.latvian.mods.kubejs.script.*;
 import dev.latvian.mods.kubejs.util.UtilsJS;
 import net.minecraft.network.chat.Component;
-import net.minecraftforge.common.crafting.StrictNBTIngredient;
-import org.graalvm.polyglot.Context;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -57,7 +52,7 @@ public abstract class ScriptManagerMixin implements SortablePacksHolder, ScriptM
     private Map<String, List<MixinDSL>> kubeLoader$mixinDSLs = new HashMap<>();
 
     @Unique
-    public Map<String, Context> kubeLoader$scriptContexts = new HashMap<>();
+    public Map<String, Object> kubeLoader$scriptContexts = new HashMap<>();
 
     @Unique
     public Map<String,Object> kubeLoader$bindings = new HashMap<>();
@@ -84,39 +79,23 @@ public abstract class ScriptManagerMixin implements SortablePacksHolder, ScriptM
 
 
         var sortablePacks = new HashMap<String, SortableContentPack>();
-        System.out.println("触发"+scriptType);
         for (var contentPack : packs) {
             Kubeloader.LOGGER.debug("寻找到contentPack: {}", contentPack);
             var scriptPack = contentPack.getPack(context);
             System.out.println("测试"+scriptType);
 
             var namespace = contentPack.id();
-
-            if (kubeLoader$scriptContexts.get(namespace) == null) {
-                kubeLoader$scriptContexts.put(namespace, GraalApi.createContext());
-            } else {
-                kubeLoader$scriptContexts.get(namespace).close();
-                kubeLoader$scriptContexts.put(namespace, GraalApi.createContext());
+            if (GraalJSCompat.canUseGraalJS) {
+                GraalScriptManager.loadContentPack(this, scriptType, scriptPack, namespace);
             }
-            if (scriptPack != null) {
-                var graalPack = ((GraalPack)scriptPack);
-                graalPack.kubeLoader$setGraalContext(kubeLoader$scriptContexts.get(namespace));
-                graalPack.kubeLoader$setDynamicGraalConsole(new DynamicGraalConsole(thiz().scriptType.console));
-            }
-
 
             List<ScriptPack> scriptPacks;
 
             if (KubeJS.MOD_ID.equals(namespace)) {
-
-                if (kubeLoader$scriptContexts.get(thiz().scriptType.name) == null) {
-                    kubeLoader$scriptContexts.put(thiz().scriptType.name,
-                            GraalApi.createContext(thiz()));
-                } else {
-                    kubeLoader$scriptContexts.get(thiz().scriptType.name).close();
-                    kubeLoader$scriptContexts.put(thiz().scriptType.name,
-                            GraalApi.createContext(thiz()));
+                if (GraalJSCompat.canUseGraalJS) {
+                    GraalScriptManager.loadScriptPack(this, namespace);
                 }
+
 
 
                 scriptPacks = original
@@ -124,12 +103,10 @@ public abstract class ScriptManagerMixin implements SortablePacksHolder, ScriptM
                         .stream()
                         .filter(p -> !indexed.containsKey(p.info.namespace))
                         .toList();
+                if (GraalJSCompat.canUseGraalJS) {
+                    GraalScriptManager.setContext(this, scriptType, scriptPacks);
+                }
 
-                scriptPacks.forEach(p -> {
-                    var graalPack = ((GraalPack)p);
-                    graalPack.kubeLoader$setGraalContext(kubeLoader$scriptContexts.get(thiz().scriptType.name));
-                    graalPack.kubeLoader$setDynamicGraalConsole(new DynamicGraalConsole(thiz().scriptType.console));
-                });
 
 
             } else if (scriptPack != null) {
@@ -257,7 +234,7 @@ public abstract class ScriptManagerMixin implements SortablePacksHolder, ScriptM
         return kubeLoader$mixinDSLs;
     }
 
-    public Map<String,Context> getKubeLoader$scriptContexts() {
+    public Map<String, Object> getKubeLoader$scriptContexts() {
         return this.kubeLoader$scriptContexts;
     }
 

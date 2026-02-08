@@ -28,6 +28,9 @@ public class KLUtil {
     public static ItemStack testStack(ItemStack stack) {
         return stack;
     }
+    public static String testString(String str) {
+        return str;
+    }
 
     public static String test() {
         String testTScode = """

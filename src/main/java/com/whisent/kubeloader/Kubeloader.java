@@ -3,7 +3,7 @@ package com.whisent.kubeloader;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
-import com.whisent.kubeloader.compat.JavetJSCompat;
+import com.whisent.kubeloader.compat.GraalJSCompat;
 import com.whisent.kubeloader.event.KubeLoaderClientEventHandler;
 import com.whisent.kubeloader.impl.ContentPackProviders;
 import com.whisent.kubeloader.impl.dummy.DummyContentPack;
@@ -62,7 +62,13 @@ public class Kubeloader
     public Kubeloader() throws IOException {
         IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
 
-        JavetJSCompat.init();
+        // 初始化兼容性检测（在最早期阶段）
+        GraalJSCompat.init();
+        ConfigManager.init();
+        
+        LOGGER.info("KubeLoader 兼容性检测完成:");
+        LOGGER.info("- GraalJS 可用性: {}", GraalJSCompat.canUseGraalJS);
+        LOGGER.info("- 当前配置: {}", ConfigManager.getConfig());
         //LOGGER.info(ResourcePath.toString());
         //LOGGER.info(PackPath.toString());
         //将resource写入,先清理资源文件再进行写入

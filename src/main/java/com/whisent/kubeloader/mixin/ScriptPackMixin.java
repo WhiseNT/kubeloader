@@ -1,28 +1,27 @@
 package com.whisent.kubeloader.mixin;
 
 import com.whisent.kubeloader.graal.DynamicGraalConsole;
+import com.whisent.kubeloader.graal.GraalApi;
 import com.whisent.kubeloader.impl.mixin.GraalPack;
 import dev.latvian.mods.kubejs.script.ScriptPack;
-import org.graalvm.polyglot.Context;
+
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 
 @Mixin(value = ScriptPack.class,remap = false)
 public class ScriptPackMixin implements GraalPack {
     @Unique
-    private Context kubeLoader$graalContext;
+    public Object kubeLoader$graalContext;
     @Unique
     private DynamicGraalConsole kubeLoader$dynamicGraalConsole;
     @Unique
-    public void kubeLoader$setGraalContext(Context context) {
-
-        context.getBindings("js").putMember("console",thiz().manager.scriptType.console);
+    public void kubeLoader$setGraalContext(Object context) {
+        GraalApi.setGraalContext(this, context);
         this.kubeLoader$graalContext = context;
-
     }
 
     @Override
-    public Context kubeLoader$getGraalContext() {
+    public Object kubeLoader$getGraalContext() {
         return kubeLoader$graalContext;
     }
     @Override

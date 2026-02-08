@@ -1,5 +1,6 @@
 package com.whisent.kubeloader.mixin;
 
+import com.whisent.kubeloader.compat.GraalJSCompat;
 import com.whisent.kubeloader.graal.wrapper.TypeWrapperRegistry;
 import dev.latvian.mods.kubejs.util.ConsoleJS;
 import dev.latvian.mods.rhino.util.wrap.TypeWrapperFactory;
@@ -29,18 +30,21 @@ public class TypeWrappersMixin {
     }
 
     private void registerGraalWrapper(Class target, TypeWrapperFactory factory, CallbackInfo ci) {
-        try {
-            if (factory instanceof TypeWrapperFactory.Simple) {
-                TypeWrapperFactory.Simple simpleFactory = (TypeWrapperFactory.Simple) factory;
-                TypeWrapperRegistry.registerSimple(target, simpleFactory::wrapSimple);
-            } else {
-                TypeWrapperRegistry.register(target, input -> factory.wrap(null, input));
-            }
-            
+        if (GraalJSCompat.canUseGraalJS) {
+            try {
+                if (factory instanceof TypeWrapperFactory.Simple) {
+                    TypeWrapperFactory.Simple simpleFactory = (TypeWrapperFactory.Simple) factory;
+                    TypeWrapperRegistry.registerSimple(target, simpleFactory::wrapSimple);
+                } else {
+                    TypeWrapperRegistry.register(target, input -> factory.wrap(null, input));
+                }
 
-        } catch (Exception e) {
-            ConsoleJS.STARTUP.error("[KubeLoader] Failed to sync TypeWrapper for " + target.getSimpleName() + ": " + e.getMessage());
+
+            } catch (Exception e) {
+                ConsoleJS.STARTUP.error("[KubeLoader] Failed to sync TypeWrapper for " + target.getSimpleName() + ": " + e.getMessage());
+            }
         }
+
     }
 
 
