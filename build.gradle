@@ -115,7 +115,7 @@ dependencies {
     implementation fg.deobf("curse.maven:kubejs-238086:5853326")
     implementation fg.deobf("curse.maven:rhino-416294:6186971")
     implementation fg.deobf("curse.maven:architectury-api-419699:5137938")
-    //implementation "curse.maven:graaljs-1284543:6642435"
+    implementation "curse.maven:graaljs-1284543:6642435"
     //implementation fg.deobf("curse.maven:probejs-585406:5227399")
     
     annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
