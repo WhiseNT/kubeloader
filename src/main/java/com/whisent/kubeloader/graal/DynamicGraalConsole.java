@@ -4,6 +4,7 @@ import dev.latvian.mods.kubejs.util.ConsoleJS;
 
 import java.util.Arrays;
 
+//有bug
 public class DynamicGraalConsole {
     private final ConsoleJS console;
     private final String sourceLocation;  // Final - captured at creation time
