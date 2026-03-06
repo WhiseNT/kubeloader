@@ -112,23 +112,11 @@ repositories {
 dependencies {
 
     minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
-    //implementation fg.deobf("dev.latvian.mods:kubejs-forge:${kubejs_version}")
     implementation fg.deobf("curse.maven:kubejs-238086:5853326")
-    //implementation fg.deobf("dev.latvian.mods:rhino-forge:${rhino_version}")
     implementation fg.deobf("curse.maven:rhino-416294:6186971")
-    //implementation fg.deobf("dev.architectury:architectury-forge:${architectury_version}")
     implementation fg.deobf("curse.maven:architectury-api-419699:5137938")
-    //minecraftLibrary(implementation "curse.maven:graaljs-1284543:[6642435,6642440]")
-//    minecraftLibrary(implementation "blank:GraalJS:[1.0.0,1.0.1]")
-//    jarJar "blank:GraalJS:[1.0.0,1.0.1]"
-    implementation "blank:GraalJS:1.0.0"
     //implementation "curse.maven:graaljs-1284543:6642435"
-    //minecraftLibrary(compileOnly 'com.caoccao.javet:javet:[5.0.2,5.1)')
-    //minecraftLibrary(compileOnly 'com.caoccao.javet:javet-node-windows-x86_64:[5.0.2,5.1)')
-    compileOnly 'com.caoccao.javet:javet:[5.0.2,5.1)'
-    compileOnly 'com.caoccao.javet:javet-node-windows-x86_64:[5.0.2,5.1)'
     //implementation fg.deobf("curse.maven:probejs-585406:5227399")
-    //implementation fg.deobf("blank:ziper:1.0.0")
     
     annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
 
