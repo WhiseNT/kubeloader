@@ -15,7 +15,6 @@ import dev.latvian.mods.kubejs.script.ScriptFileInfo;
 import dev.latvian.mods.kubejs.script.ScriptPack;
 import dev.latvian.mods.rhino.Parser;
 import dev.latvian.mods.rhino.ast.AstRoot;
-import org.graalvm.polyglot.Context;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.util.List;
