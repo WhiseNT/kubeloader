@@ -90,21 +90,18 @@ public abstract class ScriptManagerMixin implements SortablePacksHolder, ScriptM
             }
 
             List<ScriptPack> scriptPacks;
-
+            //加载kjs自带脚本
             if (KubeJS.MOD_ID.equals(namespace)) {
                 if (GraalJSCompat.canUseGraalJS) {
                     GraalScriptManager.loadScriptPack(this, namespace);
                 }
-
-
-
                 scriptPacks = original
                         .values()
                         .stream()
                         .filter(p -> !indexed.containsKey(p.info.namespace))
                         .toList();
                 if (GraalJSCompat.canUseGraalJS) {
-                    GraalScriptManager.setContext(this, scriptType, scriptPacks,namespace);
+                    GraalScriptManager.setContext(this, scriptType, scriptPacks,scriptType.name);
                 }
 
 
