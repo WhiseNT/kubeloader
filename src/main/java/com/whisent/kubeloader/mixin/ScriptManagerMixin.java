@@ -104,7 +104,7 @@ public abstract class ScriptManagerMixin implements SortablePacksHolder, ScriptM
                         .filter(p -> !indexed.containsKey(p.info.namespace))
                         .toList();
                 if (GraalJSCompat.canUseGraalJS) {
-                    GraalScriptManager.setContext(this, scriptType, scriptPacks);
+                    GraalScriptManager.setContext(this, scriptType, scriptPacks,namespace);
                 }
 
 

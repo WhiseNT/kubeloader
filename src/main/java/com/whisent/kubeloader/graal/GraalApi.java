@@ -179,15 +179,18 @@ public class GraalApi {
         GraalPack graalPack = (GraalPack) pack;
         Context context = (Context) graalPack.kubeLoader$getGraalContext();
 
-        if (context != null) {
-            var bindings = context.getBindings("js");
-
-            // Inject script metadata as __script__ global variable
-            KLScriptLoader.ScriptMetadata scriptMetadata = new KLScriptLoader.ScriptMetadata(info, pack);
-            bindings.putMember("__script__", scriptMetadata);
-
-            System.out.println("[KubeLoader] Copying KubeJS bindings to GraalJS context:");
+        if (context == null) {
+            LOGGER.error("[KubeLoader] GraalJS Context is null for pack: {}. Script execution skipped.", pack.info.namespace);
+            return;
         }
+
+        var bindings = context.getBindings("js");
+
+        // Inject script metadata as __script__ global variable
+        KLScriptLoader.ScriptMetadata scriptMetadata = new KLScriptLoader.ScriptMetadata(info, pack);
+        bindings.putMember("__script__", scriptMetadata);
+
+        System.out.println("[KubeLoader] Copying KubeJS bindings to GraalJS context:");
 
         // Wrap the script code to inject a local 'console' variable with correct file location
         // This ensures each script and its closures capture the correct console instance
@@ -358,6 +361,11 @@ public class GraalApi {
         }
     }
     public static void setGraalContext(GraalPack pack,Object context) {
-        ((Context)pack.kubeLoader$getGraalContext()).getBindings("js").putMember("console",((ScriptPack)pack).manager.scriptType.console);
+        if (context == null) {
+            LOGGER.error("[KubeLoader] Attempt to set null GraalJS context");
+            return;
+        }
+        Context ctx = (Context) context;
+        ctx.getBindings("js").putMember("console",((ScriptPack)pack).manager.scriptType.console);
     }
 }

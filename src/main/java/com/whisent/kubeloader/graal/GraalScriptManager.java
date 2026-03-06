@@ -14,25 +14,48 @@ public class GraalScriptManager {
         loadScriptPack(manager, namespace);
         if (scriptPack != null) {
             var graalPack = ((GraalPack)scriptPack);
-            graalPack.kubeLoader$setGraalContext(manager.getKubeLoader$scriptContexts().get(namespace));
+            Object context = manager.getKubeLoader$scriptContexts().get(namespace);
+            if (context == null) {
+                System.err.println("[KubeLoader] ERROR: No GraalJS context found for namespace: " + namespace);
+                return;
+            }
+            graalPack.kubeLoader$setGraalContext(context);
+            System.out.println("[KubeLoader] Set GraalJS context for pack: " + scriptPack.info.namespace + " with namespace: " + namespace);
             // Note: DynamicGraalConsole is now created per-script-file in KLScriptLoader
             graalPack.kubeLoader$setDynamicGraalConsole(new DynamicGraalConsole(scriptType.console, ""));
         }
     }
     public static void loadScriptPack(ScriptManagerInterface manager,String namespace) {
+        System.out.println("[KubeLoader] Loading script pack for namespace: " + namespace);
         if (manager.getKubeLoader$scriptContexts().get(namespace) == null) {
-            manager.getKubeLoader$scriptContexts().put(namespace,
-                    GraalApi.createContext((ScriptManager) manager));
+            Context context = GraalApi.createContext((ScriptManager) manager);
+            if (context != null) {
+                manager.getKubeLoader$scriptContexts().put(namespace, context);
+                System.out.println("[KubeLoader] Created new GraalJS context for namespace: " + namespace);
+            } else {
+                System.err.println("[KubeLoader] Failed to create GraalJS context for namespace: " + namespace);
+            }
         } else {
             ((Context) manager.getKubeLoader$scriptContexts().get(namespace)).close();
-            manager.getKubeLoader$scriptContexts().put(namespace,
-                    GraalApi.createContext((ScriptManager) manager));
+            Context context = GraalApi.createContext((ScriptManager) manager);
+            if (context != null) {
+                manager.getKubeLoader$scriptContexts().put(namespace, context);
+                System.out.println("[KubeLoader] Replaced existing GraalJS context for namespace: " + namespace);
+            } else {
+                System.err.println("[KubeLoader] Failed to replace GraalJS context for namespace: " + namespace);
+            }
         }
     }
-    public static void setContext(ScriptManagerInterface manager, ScriptType scriptType,List<ScriptPack> scriptPacks) {
+    public static void setContext(ScriptManagerInterface manager, ScriptType scriptType,List<ScriptPack> scriptPacks,String namespace) {
         scriptPacks.forEach(p -> {
             var graalPack = ((GraalPack)p);
-            graalPack.kubeLoader$setGraalContext((Context) manager.getKubeLoader$scriptContexts().get(scriptType.name));
+            Object context = manager.getKubeLoader$scriptContexts().get(namespace);
+            if (context == null) {
+                System.err.println("[KubeLoader] ERROR: No GraalJS context found for namespace: " + namespace + " when setting context for pack: " + p.info.namespace);
+                return;
+            }
+            graalPack.kubeLoader$setGraalContext((Context) context);
+            System.out.println("[KubeLoader] Set context for pack: " + p.info.namespace + " with namespace: " + namespace);
             // Note: DynamicGraalConsole is now created per-script-file in KLScriptLoader
             graalPack.kubeLoader$setDynamicGraalConsole(new DynamicGraalConsole(scriptType.console, ""));
         });
