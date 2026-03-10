@@ -1,71 +1,78 @@
 package com.whisent.kubeloader.graal;
 
 import dev.latvian.mods.kubejs.util.ConsoleJS;
+import org.graalvm.polyglot.Value;
+import org.graalvm.polyglot.proxy.ProxyExecutable;
+import org.graalvm.polyglot.proxy.ProxyObject;
 
-import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
 
-//有bug
-public class DynamicGraalConsole {
+public class DynamicGraalConsole implements ProxyObject {
     private final ConsoleJS console;
-    private final String sourceLocation;  // Final - captured at creation time
+    private final String sourceLocation;
+    private final Map<String, ProxyExecutable> members = new HashMap<>();
 
     public DynamicGraalConsole(ConsoleJS console, String sourceLocation) {
         this.console = console;
         this.sourceLocation = sourceLocation;
-    }
-
-    public void log(Object... args) {
-        String prefix = buildMessage();
-        if (args == null || args.length == 0) {
-            console.log(prefix);
-        } else if (args.length == 1) {
-            console.log(prefix + args[0]);
-        } else {
-            console.log(prefix + Arrays.stream(args).map(Object::toString).reduce("", (a, b) -> a + " " + b));
-        }
+        members.put("__log", createLogMethod("log"));
+        members.put("__info", createLogMethod("info"));
+        members.put("__debug", createLogMethod("debug"));
+        members.put("__warn", createLogMethod("warn"));
+        members.put("__error", createLogMethod("error"));
     }
     
-    public void info(Object... args) {
-        console.info(buildMessage() + format(args));
-    }
-
-    public void debug(Object... args) {
-        console.debug(buildMessage() + format(args));
-    }
-
-    public void warn(Object... args) {
-        console.warn(buildMessage() + format(args));
-    }
-
-    public void error(Object... args) {
-        console.error(buildMessage() + format(args));
-    }
-
-    private String buildMessage() {
-        if (sourceLocation != null && !sourceLocation.isEmpty()) {
-            return sourceLocation + ": ";
-        }
-        return "";
+    private ProxyExecutable createLogMethod(String level) {
+        return args -> {
+            if (args.length >= 2) {
+                String line = args[0].asString();
+                Value messages = args[1];
+                String formatted = formatMessages(messages);
+                String fullMsg =  sourceLocation + "#" + line + ": " + formatted;
+                switch(level) {
+                    case "log": console.log(fullMsg); break;
+                    case "info": console.info(fullMsg); break;
+                    case "debug": console.debug(fullMsg); break;
+                    case "warn": console.warn(fullMsg); break;
+                    case "error": console.error(fullMsg); break;
+                }
+            }
+            return null;
+        };
     }
     
-    // 获取详细的源码位置信息（包括行号）
-    private String getDetailedLocation() {
-        try {
-            // 在 JS 环境中抛出并捕获错误来获取调用栈
-            // 这需要在 JS 侧配合实现
-            return buildMessage();
-        } catch (Exception e) {
-            return buildMessage();
-        }
-    }
-
-    private String format(Object[] args) {
-        if (args == null || args.length == 0) return "";
+    private String formatMessages(Value messages) {
         StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < args.length; i++) {
+        long size = messages.getArraySize();
+        for (long i = 0; i < size; i++) {
             if (i > 0) sb.append(" ");
-            sb.append(args[i]);
+            Value v = messages.getArrayElement(i);
+            if (v.isNull()) sb.append("null");
+            else if (v.isString()) sb.append(v.asString());
+            else if (v.isNumber() || v.isBoolean()) sb.append(v.toString());
+            else sb.append(v.toString());
         }
         return sb.toString();
+    }
+
+    @Override
+    public Object getMember(String name) {
+        return members.get(name);
+    }
+
+    @Override
+    public Object getMemberKeys() {
+        return members.keySet().toArray();
+    }
+
+    @Override
+    public boolean hasMember(String name) {
+        return members.containsKey(name);
+    }
+
+    @Override
+    public void putMember(String key, Value value) {
+        throw new UnsupportedOperationException("Cannot modify console");
     }
 }

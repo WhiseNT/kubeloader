@@ -19,7 +19,7 @@ public class BindingsEventMixin {
             }
             var bindings = ((ScriptManagerInterface)thiz().manager).getKubeLoader$bindings();
 
-            if ("Java".equals(bindings.get(name)) || "Text".equals(bindings.get(name))) {
+            if ("Java".equals(name)) {
                 // 保留特殊的Java和Text绑定
                 return;
             } else {

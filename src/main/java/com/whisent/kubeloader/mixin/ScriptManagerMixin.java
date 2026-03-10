@@ -90,26 +90,24 @@ public abstract class ScriptManagerMixin implements SortablePacksHolder, ScriptM
             }
 
             List<ScriptPack> scriptPacks;
-            //加载kjs自带脚本
             if (KubeJS.MOD_ID.equals(namespace)) {
                 if (GraalJSCompat.canUseGraalJS) {
-                    GraalScriptManager.loadScriptPack(this, namespace);
+                    for (ScriptPack pack : original.values()) {
+                        String packNamespace = pack.info.namespace;
+                        GraalScriptManager.loadScriptPack(this, packNamespace);
+                    }
                 }
-                scriptPacks = original
-                        .values()
-                        .stream()
-                        .filter(p -> !indexed.containsKey(p.info.namespace))
-                        .toList();
+                scriptPacks = original.values().stream()
+                    .filter(p -> !indexed.containsKey(p.info.namespace))
+                    .toList();
                 if (GraalJSCompat.canUseGraalJS) {
-                    GraalScriptManager.setContext(this, scriptType, scriptPacks,scriptType.name);
+                    for (ScriptPack pack : scriptPacks) {
+                        GraalScriptManager.setContextForPack(this, pack);
+                    }
                 }
-
-
-
             } else if (scriptPack != null) {
                 scriptPacks = List.of(contentPack.postProcessPack(context, scriptPack));
             } else {
-                // 空的，可以被诸如没有xxxx_scirpts文件夹之类的情况出发，此时仍然参与排序
                 scriptPacks = List.of();
             }
 
@@ -244,3 +242,7 @@ public abstract class ScriptManagerMixin implements SortablePacksHolder, ScriptM
         return (ScriptManager) (Object) this;
     }
 }
+
+
+
+

@@ -31,7 +31,7 @@ public class GraalApi {
     private static boolean wrappersInitialized = false;
 
     /**
-     * 向指定 Context 注册绑定（通用版本）
+     * 向指定 Context 注册绑定
      * 
      * 绑定策略：
      * 1. EventGroupWrapper → GraalEventGroupProxy 包装
@@ -175,54 +175,65 @@ public class GraalApi {
             throw new RuntimeException(e);
         }
     }
-    public static void loadScript(ScriptPack pack,ScriptFileInfo info,String code) {
+    public static void loadScript(ScriptPack pack, ScriptFileInfo info, String code) {
         GraalPack graalPack = (GraalPack) pack;
         Context context = (Context) graalPack.kubeLoader$getGraalContext();
-
+    
         if (context == null) {
-            LOGGER.error("[KubeLoader] GraalJS Context is null for pack: {}. Script execution skipped.", pack.info.namespace);
+            LOGGER.error("[KubeLoader] GraalJS Context is null for pack: {}", pack.info.namespace);
             return;
         }
-
+    
         var bindings = context.getBindings("js");
-
-        // Inject script metadata as __script__ global variable
+    
+        // 注入脚本元数据
         KLScriptLoader.ScriptMetadata scriptMetadata = new KLScriptLoader.ScriptMetadata(info, pack);
         bindings.putMember("__script__", scriptMetadata);
-
-        System.out.println("[KubeLoader] Copying KubeJS bindings to GraalJS context:");
-
-        // Wrap the script code to inject a local 'console' variable with correct file location
-        // This ensures each script and its closures capture the correct console instance
         DynamicGraalConsole fileConsole = new DynamicGraalConsole(
-                pack.manager.scriptType.console,
-                info.location
+            pack.manager.scriptType.console,
+            info.location
         );
-
-        // 直接绑定 console 对象，让它指向 DynamicGraalConsole
-        // 保持绑定在整个 Context 生命周期内，但允许多次覆盖
+        bindings.putMember("__kubeLoaderNativeConsole", fileConsole);
+    
         try {
             GraalEventHandlerProxy.ScriptTypeThreadLocal.set(pack.manager.scriptType, context);
-
-            // 直接绑定 console 对象，所有增强功能都在 Java 侧 DynamicGraalConsole 中实现
-            context.getBindings("js").putMember("console", fileConsole);
-
-            // 执行原始代码
+            context.eval("js", """
+                (function() {
+                    let nativeConsole = __kubeLoaderNativeConsole
+                    function createLogger(level) {
+                        return function(...args) {
+                            try {
+                                throw new Error()
+                            } catch (e) {
+                                let stackLines = e.stack.split('\\n')
+                                let callerLine = stackLines[2] || ''
+                                let match = callerLine.match(/:(\\d+):\\d+/)
+                                let lineNumber = match ? match[1] : '?'
+                                nativeConsole['__' + level](String(lineNumber), args)
+                            }
+                        }
+                    }
+                    console = {
+                        log: createLogger('log'),
+                        info: createLogger('info'),
+                        warn: createLogger('warn'),
+                        error: createLogger('error'),
+                        debug: createLogger('debug')
+                    }
+                    console.native = nativeConsole
+                })()
+            """);
             GraalApi.eval(context, code, info, pack);
-
-            // 注意：不清理 console 绑定，让它在后续事件回调中也可用
-            // 每个新脚本会覆盖之前的 console 绑定，这是预期行为
+            
         } finally {
-            // Always clear ThreadLocal to prevent memory leaks
             GraalEventHandlerProxy.ScriptTypeThreadLocal.clear();
         }
     }
 
 
     /**
-     * 创建一个预配置的 GraalJS Context（推荐配置）
+     * 创建一个预配置的 GraalJS Context
      */
-
     public static Context createContext() {
         // 检查依赖可用性
         if (!GraalJSCompat.canUseGraalJS) {
@@ -246,10 +257,10 @@ public class GraalApi {
 
         // 直接在 JS 中定义 loadClass = Java.type
         ctx.eval("js", """
-        if (typeof Java !== 'undefined' && !Java.loadClass) {
-            Java.loadClass = Java.type;
-        }
-    """);
+            Java.loadClass = Java.type
+            Java.class = Java.type("java.lang.Class").forName("java.lang.Class")
+            Java.class.forName = Java.type("java.lang.Class").forName
+        """);
         
         // Register WrapperHelper for advanced usage
         WrapperHelper.registerInContext(ctx);
@@ -369,3 +380,8 @@ public class GraalApi {
         ctx.getBindings("js").putMember("console",((ScriptPack)pack).manager.scriptType.console);
     }
 }
+
+
+
+
+

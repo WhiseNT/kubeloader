@@ -60,4 +60,26 @@ public class GraalScriptManager {
             graalPack.kubeLoader$setDynamicGraalConsole(new DynamicGraalConsole(scriptType.console, ""));
         });
     }
+    public static void setContextForPack(ScriptManagerInterface manager, ScriptPack pack) {
+        var graalPack = ((GraalPack) pack);
+        String namespace = pack.info.namespace;
+        Object context = manager.getKubeLoader$scriptContexts().get(namespace);
+        
+        if (context == null) {
+            // 如果找不到，尝试用 scriptType 名称作为 fallback
+            context = manager.getKubeLoader$scriptContexts().get(pack.manager.scriptType.name);
+        }
+        
+        if (context == null) {
+            System.err.println("[KubeLoader] ERROR: No GraalJS context found for namespace: " + namespace);
+            // 尝试创建一个临时的
+            context = GraalApi.createContext((ScriptManager) manager);
+            if (context != null) {
+                manager.getKubeLoader$scriptContexts().put(namespace, context);
+            }
+        }
+        
+        graalPack.kubeLoader$setGraalContext((Context) context);
+        graalPack.kubeLoader$setDynamicGraalConsole(new DynamicGraalConsole(pack.manager.scriptType.console, ""));
+    }
 }
