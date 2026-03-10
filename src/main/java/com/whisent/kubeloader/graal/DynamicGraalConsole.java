@@ -25,11 +25,12 @@ public class DynamicGraalConsole implements ProxyObject {
     
     private ProxyExecutable createLogMethod(String level) {
         return args -> {
-            if (args.length >= 2) {
-                String line = args[0].asString();
-                Value messages = args[1];
+            if (args.length >= 3) {
+                String filePath = args[0].asString();
+                String line = args[1].asString();
+                Value messages = args[2];
                 String formatted = formatMessages(messages);
-                String fullMsg =  sourceLocation + "#" + line + ": " + formatted;
+                String fullMsg = "[" + filePath + ":" + line + "] " + formatted;
                 switch(level) {
                     case "log": console.log(fullMsg); break;
                     case "info": console.info(fullMsg); break;

@@ -247,6 +247,7 @@ public class GraalEventHandlerProxy implements ProxyExecutable {
                 }
                 
                 // Special mappings for common fields that don't follow getter naming conventions
+                
                 // ItemClickedEventJS: private player field -> getEntity() method
                 if ("player".equals(key)) {
                     try {
@@ -447,6 +448,22 @@ public class GraalEventHandlerProxy implements ProxyExecutable {
                     Object result = method.invoke(obj, javaArgs);
                     System.out.println("[KubeLoader] Method invoked successfully, result: " + result);
                     return wrapResult(result, context);
+                    
+                } catch (java.lang.reflect.InvocationTargetException e) {
+                    // Ã¥Â¤â€žÃ§Ââ€ Ã¦â€“Â¹Ã¦Â³â€¢Ã¨Â°Æ’Ã§â€Â¨Ã¦Å â€ºÃ¥â€¡ÂºÃ§Å¡â€žÃ¥Â¼â€šÃ¥Â¸Â¸
+                    Throwable cause = e.getCause();
+                    System.out.println("[KubeLoader] Method " + method.getName() + " threw exception: " + cause.getClass().getName());
+                    
+                    // Ã§â€°Â¹Ã¦Â®Å Ã¥Â¤â€žÃ§Ââ€ EventExitÃ¥Â¼â€šÃ¥Â¸Â¸Ã¯Â¼Ë†Ã¨Â¿â„¢Ã¦ËœÂ¯Ã¦Â­Â£Ã¥Â¸Â¸Ã¨Â¡Å’Ã¤Â¸ÂºÃ¯Â¼â€°
+                    if (cause instanceof dev.latvian.mods.kubejs.event.EventExit) {
+                        System.out.println("[KubeLoader] EventExit thrown (normal for cancel operations)");
+                        return null; // Ã¨Â¿â€Ã¥â€ºÅ¾nullÃ¨Â¡Â¨Ã§Â¤ÂºÃ¦Ë†ÂÃ¥Å Å¸
+                    }
+                    
+                    // Ã¥â€¦Â¶Ã¤Â»â€“Ã¥Â¼â€šÃ¥Â¸Â¸Ã©Å“â‚¬Ã¨Â¦ÂÃ¨Â®Â°Ã¥Â½â€¢
+                    System.err.println("[KubeLoader] Method invocation failed: " + cause.getMessage());
+                    cause.printStackTrace();
+                    throw new RuntimeException("Error invoking method " + method.getName(), cause);
                     
                 } catch (Exception e) {
                     System.err.println("[KubeLoader] Error invoking method '" + method.getName() + "': " + e.getClass().getName() + ": " + e.getMessage());
@@ -655,6 +672,13 @@ public class GraalEventHandlerProxy implements ProxyExecutable {
                     keys.add(field.getName());
                 }
                 
+                // Add direct methods (including cancel)
+                for (java.lang.reflect.Method method : obj.getClass().getMethods()) {
+                    if (!method.getName().startsWith("get") && !method.getName().startsWith("is")) {
+                        keys.add(method.getName());
+                    }
+                }
+                
                 return keys.toArray();
             }
             
@@ -766,4 +790,6 @@ public class GraalEventHandlerProxy implements ProxyExecutable {
             CURRENT_CONTEXT.remove();
         }
     }
+    
+
 }

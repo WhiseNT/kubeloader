@@ -1,5 +1,6 @@
 package com.whisent.kubeloader.compat;
 
+import com.whisent.kubeloader.ConfigManager;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -25,7 +26,7 @@ public class GraalJSCompat {
         // 检查类路径中的核心类是否存在
         isGraalJSAvailable = checkGraalJSCoreClasses();
         // 确定是否可以使用 GraalJS 功能
-        canUseGraalJS = isGraalJSAvailable;
+        canUseGraalJS = isGraalJSAvailable && ConfigManager.shouldUseGraalJS();
     }
     
     /**

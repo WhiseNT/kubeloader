@@ -197,32 +197,37 @@ public class GraalApi {
     
         try {
             GraalEventHandlerProxy.ScriptTypeThreadLocal.set(pack.manager.scriptType, context);
-            context.eval("js", """
-                (function() {
-                    let nativeConsole = __kubeLoaderNativeConsole
-                    function createLogger(level) {
-                        return function(...args) {
-                            try {
-                                throw new Error()
-                            } catch (e) {
-                                let stackLines = e.stack.split('\\n')
-                                let callerLine = stackLines[2] || ''
-                                let match = callerLine.match(/:(\\d+):\\d+/)
-                                let lineNumber = match ? match[1] : '?'
-                                nativeConsole['__' + level](String(lineNumber), args)
+        context.eval("js", """
+            (function() {
+                let nativeConsole = __kubeLoaderNativeConsole
+                function createLogger(level) {
+                    return function(...args) {
+                        try {
+                            throw new Error()
+                        } catch (e) {
+                            let stackLines = e.stack.split('\\n')
+                            let callerLine = stackLines[2] || ''
+                            let match = callerLine.match(/(.+):(\\d+):\\d+/)
+                            let filePath = match ? match[1].trim() : 'unknown'
+                            filePath = filePath.replace(/^at\\s+/, '')
+                            filePath = filePath.replace(/[()]/g, '')
+                            if (filePath.includes(' ')) {
+                                filePath = filePath.split(' ').pop()
                             }
+                            let lineNumber = match ? match[2] : '?'
+                            nativeConsole['__' + level](filePath, String(lineNumber), args)
                         }
                     }
-                    console = {
-                        log: createLogger('log'),
-                        info: createLogger('info'),
-                        warn: createLogger('warn'),
-                        error: createLogger('error'),
-                        debug: createLogger('debug')
-                    }
-                    console.native = nativeConsole
-                })()
-            """);
+                }
+                globalThis.console = {
+                    log: createLogger('log'),
+                    info: createLogger('info'),
+                    warn: createLogger('warn'),
+                    error: createLogger('error'),
+                    debug: createLogger('debug')
+                }
+            })()
+        """);
             GraalApi.eval(context, code, info, pack);
             
         } finally {
@@ -380,8 +385,3 @@ public class GraalApi {
         ctx.getBindings("js").putMember("console",((ScriptPack)pack).manager.scriptType.console);
     }
 }
-
-
-
-
-

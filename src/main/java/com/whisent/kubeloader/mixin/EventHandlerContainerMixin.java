@@ -1,5 +1,6 @@
 package com.whisent.kubeloader.mixin;
 
+import com.machinezoo.noexception.WrappedException;
 import com.oracle.truffle.js.runtime.JSException;
 import com.whisent.kubeloader.compat.GraalJSCompat;
 import com.whisent.kubeloader.graal.GraalApi;
@@ -38,6 +39,21 @@ public class EventHandlerContainerMixin {
             } catch (Throwable ex) {
                 if (GraalJSCompat.canUseGraalJS) {
                     GraalApi.throwException(ex,exh,event,itr);
+                } else {
+                    // 复制原始方法的异常处理逻辑
+                    Throwable throwable;
+                    WrappedException e;
+                    for(throwable = ex; throwable instanceof WrappedException; throwable = e) {
+                        e = (WrappedException)throwable;
+                    }
+
+                    if (throwable instanceof EventExit exit) {
+                        throw exit;
+                    }
+
+                    if (exh == null || (throwable = exh.handle(event, itr, throwable)) != null) {
+                        throw EventResult.Type.ERROR.exit(throwable);
+                    }
                 }
             }
 

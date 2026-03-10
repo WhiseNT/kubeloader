@@ -80,18 +80,21 @@ public abstract class EventHandlerMixin {
                     return;
                 }
             } else if (args.length == 2) {
-                Object extraIdArg = args[0];
-                Object handler = args[1];
+                if (GraalJSCompat.canUseGraalJS) {
+                    Object extraIdArg = args[0];
+                    Object handler = args[1];
 
-                IEventHandler adapted = GraalApi.createGraalHandler(handler, type);
+                    IEventHandler adapted = GraalApi.createGraalHandler(handler, type);
 
-                // Support multiple extraIds (ListJS.orSelf)
-                for (Object extraId : ListJS.orSelf(extraIdArg)) {
-                    listen(type, extraId, adapted);
+                    // Support multiple extraIds (ListJS.orSelf)
+                    for (Object extraId : ListJS.orSelf(extraIdArg)) {
+                        listen(type, extraId, adapted);
+                    }
+
+                    cir.setReturnValue(null);
+                    return;
                 }
 
-                cir.setReturnValue(null);
-                return;
             }
         } catch (Exception ex) {
             type.console.error("Failed to register GraalJS event handler: " + ex.getMessage());
