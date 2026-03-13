@@ -1,5 +1,6 @@
 package com.whisent.kubeloader.mixin;
 
+import com.whisent.kubeloader.ConfigManager;
 import com.whisent.kubeloader.Kubeloader;
 import com.whisent.kubeloader.compat.GraalJSCompat;
 import com.whisent.kubeloader.definition.ContentPack;
@@ -79,10 +80,10 @@ public abstract class ScriptManagerMixin implements SortablePacksHolder, ScriptM
 
 
         var sortablePacks = new HashMap<String, SortableContentPack>();
+        thiz().scriptType.console.log("[KubeLoader] JS Engine: "+ ConfigManager.getConfig().getEngine());
         for (var contentPack : packs) {
             Kubeloader.LOGGER.debug("寻找到contentPack: {}", contentPack);
             var scriptPack = contentPack.getPack(context);
-            System.out.println("测试"+scriptType);
 
             var namespace = contentPack.id();
             if (GraalJSCompat.canUseGraalJS) {

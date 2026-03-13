@@ -110,13 +110,50 @@ public class GraalEventHandlerProxy implements ProxyExecutable {
                     // Execute the GraalJS function with the proxy
                     Value result = graalFunction.execute(eventProxy);
                     
-                    // Return the result
+                    // Process the result properly for EventResult handling
                     if (result != null && !result.isNull()) {
+                        // Handle EventResult returns
+                        if (result.isHostObject()) {
+                            Object hostObject = result.asHostObject();
+                            if (hostObject instanceof dev.latvian.mods.kubejs.event.EventResult) {
+                                return hostObject;
+                            }
+                        }
+                        
+                        // Handle boolean returns (common pattern in JS)
+                        if (result.isBoolean()) {
+                            boolean boolValue = result.asBoolean();
+                            // For boolean, true means pass, false means interrupt
+                            // We need to create appropriate EventResult, but since we don't have constants,
+                            // we'll return the boolean and let the caller handle it
+                            return boolValue;
+                        }
+                        
+                        // Handle string returns that might represent event results
+                        if (result.isString()) {
+                            String strValue = result.asString();
+                            switch (strValue.toLowerCase()) {
+                                case "pass":
+                                case "true":
+                                    return true; // Pass
+                                case "false":
+                                case "cancel":
+                                case "interrupt":
+                                case "stop":
+                                    return false; // Interrupt
+                            }
+                        }
+                        
+                        // Default: return the unwrapped host object if available
                         if (result.isHostObject()) {
                             return result.asHostObject();
                         }
-                        return result;
+                        
+                        // Return null for unsupported types (will be treated as PASS)
+                        return null;
                     }
+                    
+                    // Null result means PASS
                     return null;
                     
                 } finally {
@@ -247,19 +284,6 @@ public class GraalEventHandlerProxy implements ProxyExecutable {
                 }
                 
                 // Special mappings for common fields that don't follow getter naming conventions
-                
-                // ItemClickedEventJS: private player field -> getEntity() method
-                if ("player".equals(key)) {
-                    try {
-                        java.lang.reflect.Method getter = findMethod(event.getClass(), "getEntity");
-                        if (getter != null) {
-                            Object result = getter.invoke(event);
-                            return wrapResult(result, context);
-                        }
-                    } catch (Exception e) {
-                        System.err.println("[KubeLoader] Error accessing player via getEntity(): " + e.getMessage());
-                    }
-                }
                 
                 // Try to find a getter method for this key
                 String getterName = "get" + Character.toUpperCase(key.charAt(0)) + key.substring(1);
@@ -450,17 +474,17 @@ public class GraalEventHandlerProxy implements ProxyExecutable {
                     return wrapResult(result, context);
                     
                 } catch (java.lang.reflect.InvocationTargetException e) {
-                    // Ã¥Â¤â€žÃ§Ââ€ Ã¦â€“Â¹Ã¦Â³â€¢Ã¨Â°Æ’Ã§â€Â¨Ã¦Å â€ºÃ¥â€¡ÂºÃ§Å¡â€žÃ¥Â¼â€šÃ¥Â¸Â¸
+                    // ÃƒÂ¥Ã‚Â¤Ã¢â‚¬Å¾ÃƒÂ§Ã‚ÂÃ¢â‚¬Â ÃƒÂ¦Ã¢â‚¬â€œÃ‚Â¹ÃƒÂ¦Ã‚Â³Ã¢â‚¬Â¢ÃƒÂ¨Ã‚Â°Ã†â€™ÃƒÂ§Ã¢â‚¬ÂÃ‚Â¨ÃƒÂ¦Ã…Â Ã¢â‚¬ÂºÃƒÂ¥Ã¢â‚¬Â¡Ã‚ÂºÃƒÂ§Ã…Â¡Ã¢â‚¬Å¾ÃƒÂ¥Ã‚Â¼Ã¢â‚¬Å¡ÃƒÂ¥Ã‚Â¸Ã‚Â¸
                     Throwable cause = e.getCause();
                     System.out.println("[KubeLoader] Method " + method.getName() + " threw exception: " + cause.getClass().getName());
                     
-                    // Ã§â€°Â¹Ã¦Â®Å Ã¥Â¤â€žÃ§Ââ€ EventExitÃ¥Â¼â€šÃ¥Â¸Â¸Ã¯Â¼Ë†Ã¨Â¿â„¢Ã¦ËœÂ¯Ã¦Â­Â£Ã¥Â¸Â¸Ã¨Â¡Å’Ã¤Â¸ÂºÃ¯Â¼â€°
+                    // ÃƒÂ§Ã¢â‚¬Â°Ã‚Â¹ÃƒÂ¦Ã‚Â®Ã…Â ÃƒÂ¥Ã‚Â¤Ã¢â‚¬Å¾ÃƒÂ§Ã‚ÂÃ¢â‚¬Â EventExitÃƒÂ¥Ã‚Â¼Ã¢â‚¬Å¡ÃƒÂ¥Ã‚Â¸Ã‚Â¸ÃƒÂ¯Ã‚Â¼Ã‹â€ ÃƒÂ¨Ã‚Â¿Ã¢â€žÂ¢ÃƒÂ¦Ã‹Å“Ã‚Â¯ÃƒÂ¦Ã‚Â­Ã‚Â£ÃƒÂ¥Ã‚Â¸Ã‚Â¸ÃƒÂ¨Ã‚Â¡Ã…â€™ÃƒÂ¤Ã‚Â¸Ã‚ÂºÃƒÂ¯Ã‚Â¼Ã¢â‚¬Â°
                     if (cause instanceof dev.latvian.mods.kubejs.event.EventExit) {
                         System.out.println("[KubeLoader] EventExit thrown (normal for cancel operations)");
-                        return null; // Ã¨Â¿â€Ã¥â€ºÅ¾nullÃ¨Â¡Â¨Ã§Â¤ÂºÃ¦Ë†ÂÃ¥Å Å¸
+                        return null; // ÃƒÂ¨Ã‚Â¿Ã¢â‚¬ÂÃƒÂ¥Ã¢â‚¬ÂºÃ…Â¾nullÃƒÂ¨Ã‚Â¡Ã‚Â¨ÃƒÂ§Ã‚Â¤Ã‚ÂºÃƒÂ¦Ã‹â€ Ã‚ÂÃƒÂ¥Ã…Â Ã…Â¸
                     }
                     
-                    // Ã¥â€¦Â¶Ã¤Â»â€“Ã¥Â¼â€šÃ¥Â¸Â¸Ã©Å“â‚¬Ã¨Â¦ÂÃ¨Â®Â°Ã¥Â½â€¢
+                    // ÃƒÂ¥Ã¢â‚¬Â¦Ã‚Â¶ÃƒÂ¤Ã‚Â»Ã¢â‚¬â€œÃƒÂ¥Ã‚Â¼Ã¢â‚¬Å¡ÃƒÂ¥Ã‚Â¸Ã‚Â¸ÃƒÂ©Ã…â€œÃ¢â€šÂ¬ÃƒÂ¨Ã‚Â¦Ã‚ÂÃƒÂ¨Ã‚Â®Ã‚Â°ÃƒÂ¥Ã‚Â½Ã¢â‚¬Â¢
                     System.err.println("[KubeLoader] Method invocation failed: " + cause.getMessage());
                     cause.printStackTrace();
                     throw new RuntimeException("Error invoking method " + method.getName(), cause);

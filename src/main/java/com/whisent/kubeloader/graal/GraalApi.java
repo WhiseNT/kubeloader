@@ -257,7 +257,12 @@ public class GraalApi {
                 .allowHostAccess(CustomHostAccess.create())  // Use custom host access with wrapper support
                 .allowHostClassLookup(s -> true)
                 .allowNativeAccess(true)  // Allow native object member modification
-                .option("engine.WarnInterpreterOnly", "false")
+                .option("js.WarnInterpreterOnly", "false")
+                .option("js.Mode", "throughput")        // 吞吐量模式
+                .option("js.Compilation", "true")       // 确保编译开启
+                .option("js.BackgroundCompilation", "true")
+                .option("js.Inlining", "true")
+                .option("js.Splitting", "true")
                 .build();
 
         // 直接在 JS 中定义 loadClass = Java.type
@@ -266,7 +271,6 @@ public class GraalApi {
             Java.class = Java.type("java.lang.Class").forName("java.lang.Class")
             Java.class.forName = Java.type("java.lang.Class").forName
         """);
-        
         // Register WrapperHelper for advanced usage
         WrapperHelper.registerInContext(ctx);
         
@@ -326,27 +330,61 @@ public class GraalApi {
     public static IEventHandler createGraalHandler(Object handler, ScriptType type) {
         return event -> {
             try {
-            if (handler instanceof Value graalFunction && graalFunction.canExecute()) {
-                // Execute GraalJS function with event parameter
-                Value result = graalFunction.execute(event);
+                if (handler instanceof Value graalFunction && graalFunction.canExecute()) {
+                    // Execute GraalJS function with event parameter
+                    Value result = graalFunction.execute(event);
 
-                // Return the result from GraalJS function (may be null)
-                if (result != null && !result.isNull()) {
-                    // If it's a host object, unwrap it
-                    if (result.isHostObject()) {
-                        return result.asHostObject();
+                    // Process the result properly for EventResult handling
+                    if (result != null && !result.isNull()) {
+                        // Handle EventResult returns
+                        if (result.isHostObject()) {
+                            Object hostObject = result.asHostObject();
+                            if (hostObject instanceof dev.latvian.mods.kubejs.event.EventResult) {
+                                return hostObject;
+                            }
+                        }
+                        
+                        // Handle boolean returns (common pattern in JS)
+                        if (result.isBoolean()) {
+                            boolean boolValue = result.asBoolean();
+                            // For boolean, true means pass, false means interrupt
+                            // We need to create appropriate EventResult, but since we don't have constants,
+                            // we'll return the boolean and let the caller handle it
+                            return boolValue;
+                        }
+                        
+                        // Handle string returns that might represent event results
+                        if (result.isString()) {
+                            String strValue = result.asString();
+                            switch (strValue.toLowerCase()) {
+                                case "pass":
+                                case "true":
+                                    return true; // Pass
+                                case "false":
+                                case "cancel":
+                                case "interrupt":
+                                case "stop":
+                                    return false; // Interrupt
+                            }
+                        }
+                        
+                        // Default: return the unwrapped host object if available
+                        if (result.isHostObject()) {
+                            return result.asHostObject();
+                        }
+                        
+                        // Return null for unsupported types (will be treated as PASS)
+                        return null;
                     }
-                    // Otherwise return the Value itself
-                    return result;
+                    
+                    // Null result means PASS
+                    return null;
                 }
-                return null;
-            }
             } catch (Exception e) {
                 type.console.error("Error in GraalJS event handler", e);
-            } return null;
-
+            }
+            return null;
         };
-
     }
     public static void throwException(Throwable ex, EventExceptionHandler exh,EventJS event,EventHandlerContainer itr ) throws EventExit {
         var throwable = ex;

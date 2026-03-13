@@ -91,12 +91,33 @@ public class ConfigManager {
         }
         // 都不存在则创建默认TOML配置
         else {
+            // 检测 GraalJS 是否可用
+            boolean graalJSAvailable = checkGraalJSAvailable();
+            if (graalJSAvailable) {
+                config.setEngine("GraalJS");
+                LOGGER.info("[KubeLoader] 检测到 GraalJS 可用，将使用 GraalJS 作为默认引擎");
+            } else {
+                config.setEngine("Rhino");
+                LOGGER.info("[KubeLoader] GraalJS 不可用，将使用 Rhino 作为默认引擎");
+            }
             saveDefaultConfig();
             LOGGER.info("[KubeLoader] 创建默认TOML配置文件: {}", CONFIG_FILE_TOML);
         }
         
         // 验证配置值
         validateConfig();
+    }
+    
+    /**
+     * 检测 GraalJS 是否可用
+     */
+    private static boolean checkGraalJSAvailable() {
+        try {
+            Class.forName("org.graalvm.polyglot.Engine");
+            return true;
+        } catch (ClassNotFoundException e) {
+            return false;
+        }
     }
     
     /**

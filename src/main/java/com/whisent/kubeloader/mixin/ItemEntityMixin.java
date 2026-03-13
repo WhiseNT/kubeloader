@@ -34,17 +34,17 @@ public class ItemEntityMixin {
     @Inject(
             method = "hurt",
             at = @At(
-                    value = "HEAD"
+                    value = "INVOKE",
+                    target = "Lnet/minecraft/world/entity/item/ItemEntity;markHurt()V"
             ),
             cancellable = true
     )
     private void onHurt(DamageSource source, float amount, CallbackInfoReturnable<Boolean> cir) {
         ItemEntity itemEntity = (ItemEntity) (Object) this;
         ItemEntityHurtEventJS event = new ItemEntityHurtEventJS(itemEntity, itemEntity.level(), itemEntity.position(), source, amount);
-        EventResult result = ItemEntityEvents
-                .ITEM_ENTITY_HURT
-                .post(event, itemEntity.getItem().getItem());
+        EventResult result = ItemEntityEvents.ITEM_ENTITY_HURT.post(event, itemEntity.getItem().getItem());
         if (result.interruptFalse()) {
+            cir.setReturnValue(false);
             cir.cancel();
         }
     }
