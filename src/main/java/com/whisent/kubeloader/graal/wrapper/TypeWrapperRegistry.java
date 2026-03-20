@@ -14,6 +14,7 @@ import java.util.function.Predicate;
 public class TypeWrapperRegistry {
     
     private static final Map<Class<?>, TypeWrapperEntry<?>> WRAPPERS = new ConcurrentHashMap<>();
+    private static final Map<Class<?>, TypeWrapperEntry<?>[]> ASSIGNABLE_WRAPPER_CACHE = new ConcurrentHashMap<>();
     
     /**
      * Register a simple type wrapper (like KubeJS's registerSimple)
@@ -75,19 +76,23 @@ public class TypeWrapperRegistry {
             }
         }
         
-        // Try wrappers for superclasses and interfaces
-        for (Map.Entry<Class<?>, TypeWrapperEntry<?>> mapEntry : WRAPPERS.entrySet()) {
-            if (mapEntry.getKey().isAssignableFrom(targetClass)) {
-                TypeWrapperEntry<?> wrapperEntry = mapEntry.getValue();
-                if (wrapperEntry.predicate == null || wrapperEntry.predicate.test(input)) {
-                    try {
-                        Object result = wrapperEntry.converter.apply(input);
-                        if (result != null) {
-                            return result;
-                        }
-                    } catch (Exception e) {
-                        // Continue to next wrapper
+        // Try wrappers for superclasses and interfaces (use cache for efficiency)
+        TypeWrapperEntry<?>[] assignableWrappers = ASSIGNABLE_WRAPPER_CACHE.computeIfAbsent(targetClass, clazz -> {
+            return WRAPPERS.entrySet().stream()
+                .filter(e -> e.getKey().isAssignableFrom(clazz))
+                .map(Map.Entry::getValue)
+                .toArray(TypeWrapperEntry[]::new);
+        });
+        
+        for (TypeWrapperEntry<?> wrapperEntry : assignableWrappers) {
+            if (wrapperEntry.predicate == null || wrapperEntry.predicate.test(input)) {
+                try {
+                    Object result = wrapperEntry.converter.apply(input);
+                    if (result != null) {
+                        return result;
                     }
+                } catch (Exception e) {
+                    // Continue to next wrapper
                 }
             }
         }
@@ -145,6 +150,7 @@ public class TypeWrapperRegistry {
      */
     public static void clear() {
         WRAPPERS.clear();
+        ASSIGNABLE_WRAPPER_CACHE.clear();
     }
     
     /**

@@ -25,10 +25,12 @@ import java.util.*;
 public class StaticClassProxy implements ProxyObject {
     private final Class<?> targetClass;
     private final Map<String, List<Method>> staticMethods;
+    private final Map<String, ProxyExecutable> methodProxyCache;
     
     public StaticClassProxy(Class<?> clazz) {
         this.targetClass = clazz;
         this.staticMethods = new HashMap<>();
+        this.methodProxyCache = new HashMap<>();
         
         // 收集所有 public static 方法
         for (Method method : clazz.getMethods()) {
@@ -36,20 +38,22 @@ public class StaticClassProxy implements ProxyObject {
                 staticMethods.computeIfAbsent(method.getName(), k -> new ArrayList<>()).add(method);
             }
         }
-        
-        System.out.println("[KubeLoader] StaticClassProxy for " + clazz.getSimpleName() + 
-                " found " + staticMethods.size() + " static methods");
     }
     
     @Override
     public Object getMember(String key) {
+        ProxyExecutable cached = methodProxyCache.get(key);
+        if (cached != null) {
+            return cached;
+        }
+        
         List<Method> methods = staticMethods.get(key);
         if (methods == null || methods.isEmpty()) {
             return null;
         }
         
         // 返回可执行的代理
-        return (ProxyExecutable) args -> {
+        ProxyExecutable executable = args -> {
             // 尝试找到匹配的方法（根据参数数量）
             for (Method method : methods) {
                 if (method.getParameterCount() == args.length) {
@@ -78,6 +82,9 @@ public class StaticClassProxy implements ProxyObject {
             throw new IllegalArgumentException("No matching method found for " + key + 
                     " with " + args.length + " arguments in class " + targetClass.getName());
         };
+        
+        methodProxyCache.put(key, executable);
+        return executable;
     }
     
     @Override

@@ -139,6 +139,7 @@ public class WrapperHelper {
         private final Object target;
         private final Map<String, Method[]> methodCache;
         private final Map<String, Field> fieldCache;
+        private final Map<String, TypeWrappingProxy> proxyCache;
         private final boolean isArray;
         private final boolean isList;
         private final boolean isMap;
@@ -150,6 +151,7 @@ public class WrapperHelper {
             this.isMap = target instanceof java.util.Map;
             this.methodCache = new HashMap<>();
             this.fieldCache = new HashMap<>();
+            this.proxyCache = new HashMap<>();
             
             if (!isArray && !isList && !isMap) {
                 String remapPrefix = clazz.getAnnotation(RemapPrefixForJS.class) != null ? clazz.getAnnotation(RemapPrefixForJS.class).value() : null;
@@ -211,16 +213,21 @@ public class WrapperHelper {
              }
 
              if (!isArray && !isList) {
+                TypeWrappingProxy cachedProxy = proxyCache.get(key);
+                if (cachedProxy != null) {
+                    return cachedProxy;
+                }
                 Method[] methods = methodCache.get(key);
                 if (methods != null && methods.length > 0) {
-                    return new TypeWrappingProxy(target, methods[0]);
+                    TypeWrappingProxy newProxy = new TypeWrappingProxy(target, methods[0]);
+                    proxyCache.put(key, newProxy);
+                    return newProxy;
                 }
                 
                 try {
                     var field = target.getClass().getField(key);
                     field.setAccessible(true);
                     Object value = field.get(target);
-                    System.out.println("[KubeLoader] Accessing field: " + key + " in class " + target.getClass().getName());
                     return wrapReturnValue(value);
                 } catch (Exception e) {
                     return null;
@@ -272,11 +279,9 @@ public class WrapperHelper {
 
         @Override
         public Object get(long index) {
-            System.out.println("[KubeLoader] TypeConvertingProxyObject.get(" + index + ") isArray=" + isArray + " isList=" + isList);
             if (isArray) {
                 try {
                     Object element = java.lang.reflect.Array.get(target, (int) index);
-                    System.out.println("[KubeLoader] Array element: " + element + " class=" + (element != null ? element.getClass().getName() : "null"));
                     return wrapReturnValue(element);
                 } catch (Exception e) {
                     System.out.println("[KubeLoader] Array get error: " + e);
@@ -286,7 +291,6 @@ public class WrapperHelper {
             if (isList) {
                 try {
                     Object element = ((java.util.List<?>) target).get((int) index);
-                    System.out.println("[KubeLoader] List element: " + element + " class=" + (element != null ? element.getClass().getName() : "null"));
                     return wrapReturnValue(element);
                 } catch (Exception e) {
                     System.out.println("[KubeLoader] List get error: " + e);
