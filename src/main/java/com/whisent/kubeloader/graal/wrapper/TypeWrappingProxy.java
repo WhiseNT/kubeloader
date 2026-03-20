@@ -44,7 +44,8 @@ public class TypeWrappingProxy implements ProxyExecutable {
         }
         
         try {
-            return method.invoke(target, wrappedArgs);
+            Object result = method.invoke(target, wrappedArgs);
+            return WrapperHelper.wrapReturnValue(result);
         } catch (Exception e) {
             throw new RuntimeException("Failed to invoke method " + method.getName(), e);
         }

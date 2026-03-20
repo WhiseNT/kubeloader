@@ -1,6 +1,7 @@
 package com.whisent.kubeloader.graal;
 
 import com.whisent.kubeloader.graal.wrapper.TypeWrapperRegistry;
+import com.whisent.kubeloader.graal.wrapper.WrapperHelper;
 import org.graalvm.polyglot.Value;
 import org.graalvm.polyglot.proxy.ProxyExecutable;
 import org.graalvm.polyglot.proxy.ProxyObject;
@@ -63,7 +64,7 @@ public class StaticClassProxy implements ProxyObject {
                         
                         // 调用静态方法
                         Object result = method.invoke(null, javaArgs);
-                        return result;
+                        return WrapperHelper.wrapReturnValue(result);
                         
                     } catch (Exception e) {
                         // 继续尝试下一个重载

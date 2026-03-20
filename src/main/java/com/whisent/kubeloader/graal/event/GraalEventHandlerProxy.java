@@ -1,19 +1,27 @@
  package com.whisent.kubeloader.graal.event;
 
-import com.whisent.kubeloader.graal.wrapper.RhinoAnnotationWrapper;
-import dev.latvian.mods.kubejs.event.EventHandler;
-import dev.latvian.mods.kubejs.event.IEventHandler;
-import dev.latvian.mods.kubejs.script.ScriptType;
-import dev.latvian.mods.kubejs.util.ListJS;
-import dev.latvian.mods.kubejs.util.UtilsJS;
-import dev.latvian.mods.rhino.util.RemapForJS;
-import dev.latvian.mods.rhino.util.RemapPrefixForJS;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
+
 import org.graalvm.polyglot.Context;
 import org.graalvm.polyglot.Value;
 import org.graalvm.polyglot.proxy.ProxyExecutable;
 import org.graalvm.polyglot.proxy.ProxyObject;
 
-/**
+import com.whisent.kubeloader.graal.wrapper.WrapperHelper;
+
+import dev.latvian.mods.kubejs.event.EventHandler;
+import dev.latvian.mods.kubejs.event.IEventHandler;
+import dev.latvian.mods.kubejs.script.ScriptType;
+import dev.latvian.mods.kubejs.util.ListJS;
+import dev.latvian.mods.rhino.util.RemapForJS;
+import dev.latvian.mods.rhino.util.RemapPrefixForJS;
+
+ /**
  * Proxy for EventHandler to make it callable from GraalJS.
  * 
  * This wraps KubeJS's EventHandler (which extends Rhino's BaseFunction)
@@ -27,6 +35,9 @@ import org.graalvm.polyglot.proxy.ProxyObject;
 public class GraalEventHandlerProxy implements ProxyExecutable {
     private final EventHandler handler;
     private final Context capturedContext; // Capture GraalJS context at registration time
+    private static final Map<Class<?>, EventProxyMetadata> EVENT_PROXY_METADATA_CACHE = new ConcurrentHashMap<>();
+    private static final Object CACHE_MISS = new Object();
+    private static final AtomicBoolean SCRIPT_TYPE_WARNED = new AtomicBoolean(false);
     
     public GraalEventHandlerProxy(EventHandler handler) {
         this.handler = handler;
@@ -232,9 +243,8 @@ public class GraalEventHandlerProxy implements ProxyExecutable {
             return type;
         }
         
-        // Fallback: try to detect from stack or default to STARTUP
-        // This is not ideal but prevents crashes
-        System.err.println("[KubeLoader] Warning: Could not determine ScriptType, defaulting to STARTUP");
+        if (SCRIPT_TYPE_WARNED.compareAndSet(false, true)) {
+        }
         return ScriptType.STARTUP;
     }
     
@@ -256,159 +266,183 @@ public class GraalEventHandlerProxy implements ProxyExecutable {
      * - etc.
      */
     private ProxyObject createEventProxy(Object event, Context context) {
-        return new ProxyObject() {
-            @Override
-            public Object getMember(String key) {
-                try {
-                    // First, check all methods for @RemapForJS annotation
-                    for (java.lang.reflect.Method method : event.getClass().getMethods()) {
-                        RemapForJS remap = method.getAnnotation(RemapForJS.class);
-                        if (remap != null && remap.value().equals(key)) {
-                            // Found a method with matching @RemapForJS annotation
-                            // ALWAYS return ProxyExecutable, even for no-arg methods
-                            return createMethodProxy(method, event, context);
-                        }
+        EventProxyMetadata metadata = EVENT_PROXY_METADATA_CACHE.computeIfAbsent(event.getClass(), GraalEventHandlerProxy::buildEventProxyMetadata);
+        return new EventProxy(event, context, metadata);
+    }
+
+    private static EventProxyMetadata buildEventProxyMetadata(Class<?> clazz) {
+        Method[] methods = clazz.getMethods();
+        Field[] fields = clazz.getFields();
+
+        Map<String, Accessor> accessorByKey = new HashMap<>();
+        java.util.Set<String> getterKeys = new java.util.HashSet<>();
+        java.util.Set<String> publicFieldKeys = new java.util.HashSet<>();
+
+        for (Field field : fields) {
+            publicFieldKeys.add(field.getName());
+            RemapForJS remap = field.getAnnotation(RemapForJS.class);
+            if (remap != null) {
+                accessorByKey.putIfAbsent(remap.value(), Accessor.forField(field, AccessorType.REMAP_FIELD));
+            }
+        }
+
+        boolean hasGetEntity = false;
+        for (Method method : methods) {
+            if (method.getParameterCount() == 0 && "getEntity".equals(method.getName())) {
+                hasGetEntity = true;
+            }
+            RemapForJS remap = method.getAnnotation(RemapForJS.class);
+            if (remap != null) {
+                accessorByKey.putIfAbsent(remap.value(), Accessor.forMethod(method, AccessorType.REMAP_METHOD));
+            }
+        }
+
+        for (Method method : methods) {
+            if (method.getParameterCount() != 0) {
+                continue;
+            }
+            String name = method.getName();
+            if (name.startsWith("get") && name.length() > 3) {
+                String key = Character.toLowerCase(name.charAt(3)) + name.substring(4);
+                getterKeys.add(key);
+                accessorByKey.putIfAbsent(key, Accessor.forMethod(method, AccessorType.GETTER));
+            }
+        }
+
+        for (Method method : methods) {
+            if (method.getParameterCount() != 0) {
+                continue;
+            }
+            String name = method.getName();
+            if (name.startsWith("is") && name.length() > 2) {
+                String key = Character.toLowerCase(name.charAt(2)) + name.substring(3);
+                getterKeys.add(key);
+                accessorByKey.putIfAbsent(key, Accessor.forMethod(method, AccessorType.GETTER));
+            }
+        }
+
+        for (Field field : fields) {
+            accessorByKey.putIfAbsent(field.getName(), Accessor.forField(field, AccessorType.PUBLIC_FIELD));
+        }
+
+        for (Method method : methods) {
+            if (method.getParameterCount() == 0) {
+                accessorByKey.putIfAbsent(method.getName(), Accessor.forMethod(method, AccessorType.NOARG_METHOD));
+            }
+        }
+
+        java.util.Set<String> keys = new java.util.HashSet<>();
+        keys.addAll(publicFieldKeys);
+        keys.addAll(getterKeys);
+
+        Object[] memberKeys = keys.toArray();
+        return new EventProxyMetadata(accessorByKey, memberKeys, hasGetEntity);
+    }
+
+    private static final class EventProxyMetadata {
+        private final Map<String, Accessor> accessorByKey;
+        private final Object[] memberKeys;
+        private final boolean hasGetEntity;
+
+        private EventProxyMetadata(
+                Map<String, Accessor> accessorByKey,
+                Object[] memberKeys,
+                boolean hasGetEntity
+        ) {
+            this.accessorByKey = accessorByKey;
+            this.memberKeys = memberKeys;
+            this.hasGetEntity = hasGetEntity;
+        }
+    }
+
+    private enum AccessorType {
+        REMAP_METHOD,
+        REMAP_FIELD,
+        GETTER,
+        PUBLIC_FIELD,
+        NOARG_METHOD
+    }
+
+    private static final class Accessor {
+        private final Method method;
+        private final Field field;
+        private final AccessorType type;
+
+        private Accessor(Method method, Field field, AccessorType type) {
+            this.method = method;
+            this.field = field;
+            this.type = type;
+        }
+
+        private static Accessor forMethod(Method method, AccessorType type) {
+            return new Accessor(method, null, type);
+        }
+
+        private static Accessor forField(Field field, AccessorType type) {
+            return new Accessor(null, field, type);
+        }
+    }
+
+    private final class EventProxy implements ProxyObject {
+        private final Object event;
+        private final Context context;
+        private final EventProxyMetadata metadata;
+        private final Map<String, Object> memberCache = new HashMap<>();
+
+        private EventProxy(Object event, Context context, EventProxyMetadata metadata) {
+            this.event = event;
+            this.context = context;
+            this.metadata = metadata;
+        }
+
+        @Override
+        public Object getMember(String key) {
+            Object cached = memberCache.get(key);
+            if (cached != null) {
+                return cached == CACHE_MISS ? null : cached;
+            }
+
+            Accessor accessor = metadata.accessorByKey.get(key);
+            if (accessor != null) {
+                if (accessor.method != null) {
+                    Object result = createMethodProxy(accessor.method, event, context);
+                    if (result instanceof ProxyExecutable) {
+                        memberCache.put(key, result);
                     }
-                    
-                    // Also check fields for @RemapForJS annotation
-                    for (java.lang.reflect.Field field : event.getClass().getFields()) {
-                        RemapForJS remap = field.getAnnotation(RemapForJS.class);
-                        if (remap != null && remap.value().equals(key)) {
-                            Object result = field.get(event);
-                            return wrapResult(result, context);
-                        }
-                    }
-                    
-                } catch (Exception e) {
-                    System.err.println("[KubeLoader] Error checking @RemapForJS annotations for '" + key + "': " + e.getMessage());
+                    return result;
                 }
-                
-                // Special mappings for common fields that don't follow getter naming conventions
-                
-                // Try to find a getter method for this key
-                String getterName = "get" + Character.toUpperCase(key.charAt(0)) + key.substring(1);
-                String isGetterName = "is" + Character.toUpperCase(key.charAt(0)) + key.substring(1);
-                
-                try {
-                    // Try "getXxx()" pattern - return as ProxyExecutable
-                    java.lang.reflect.Method getter = findMethod(event.getClass(), getterName);
-                    if (getter != null) {
-                        return createMethodProxy(getter, event, context);
-                    }
-                    
-                    // Try "isXxx()" pattern for booleans
-                    getter = findMethod(event.getClass(), isGetterName);
-                    if (getter != null) {
-                        return createMethodProxy(getter, event, context);
-                    }
-                    
-                    // Try direct field access (for public fields)
+                if (accessor.field != null) {
                     try {
-                        java.lang.reflect.Field field = event.getClass().getField(key);
-                        Object result = field.get(event);
-                        return wrapResult(result, context);
-                    } catch (NoSuchFieldException ignored) {
-                        // Field doesn't exist
+                        return wrapResult(accessor.field.get(event), context);
+                    } catch (Exception e) {
+                        System.err.println("[KubeLoader] Error accessing member '" + key + "': " + e.getMessage());
+                        return null;
                     }
-                    
-                    // Try method with same name as key
-                    java.lang.reflect.Method method = findMethod(event.getClass(), key);
-                    if (method != null) {
-                        return createMethodProxy(method, event, context);
-                    }
-                    
-                } catch (Exception e) {
-                    System.err.println("[KubeLoader] Error accessing member '" + key + "': " + e.getMessage());
                 }
-                
-                // If all fails, return null
-                return null;
             }
-            
-            @Override
-            public Object getMemberKeys() {
-                // Return all possible member names (fields + getter methods)
-                java.util.Set<String> keys = new java.util.HashSet<>();
-                
-                // Add all public fields
-                for (java.lang.reflect.Field field : event.getClass().getFields()) {
-                    keys.add(field.getName());
-                }
-                
-                // Add all getter methods (getXxx, isXxx)
-                for (java.lang.reflect.Method method : event.getClass().getMethods()) {
-                    String name = method.getName();
-                    if (method.getParameterCount() == 0) {
-                        if (name.startsWith("get") && name.length() > 3) {
-                            // "getFoo" -> "foo"
-                            String key = Character.toLowerCase(name.charAt(3)) + name.substring(4);
-                            keys.add(key);
-                        } else if (name.startsWith("is") && name.length() > 2) {
-                            // "isFoo" -> "foo"
-                            String key = Character.toLowerCase(name.charAt(2)) + name.substring(3);
-                            keys.add(key);
-                        }
-                    }
-                }
-                
-                return keys.toArray();
+
+            memberCache.put(key, CACHE_MISS);
+            return null;
+        }
+
+        @Override
+        public Object getMemberKeys() {
+            return metadata.memberKeys.clone();
+        }
+
+        @Override
+        public boolean hasMember(String key) {
+            if ("player".equals(key)) {
+                return metadata.hasGetEntity;
             }
-            
-            @Override
-            public boolean hasMember(String key) {
-                // Check for @RemapForJS annotation first
-                for (java.lang.reflect.Method method : event.getClass().getMethods()) {
-                    RemapForJS remap = method.getAnnotation(RemapForJS.class);
-                    if (remap != null && remap.value().equals(key)) {
-                        return true;
-                    }
-                }
-                
-                for (java.lang.reflect.Field field : event.getClass().getFields()) {
-                    RemapForJS remap = field.getAnnotation(RemapForJS.class);
-                    if (remap != null && remap.value().equals(key)) {
-                        return true;
-                    }
-                }
-                
-                // Special mapping: "player" -> getEntity()
-                if ("player".equals(key)) {
-                    return findMethod(event.getClass(), "getEntity") != null;
-                }
-                
-                // Check if we can access this member
-                String getterName = "get" + Character.toUpperCase(key.charAt(0)) + key.substring(1);
-                String isGetterName = "is" + Character.toUpperCase(key.charAt(0)) + key.substring(1);
-                
-                // Check for getter methods
-                if (findMethod(event.getClass(), getterName) != null) {
-                    return true;
-                }
-                if (findMethod(event.getClass(), isGetterName) != null) {
-                    return true;
-                }
-                
-                // Check for public field
-                try {
-                    event.getClass().getField(key);
-                    return true;
-                } catch (NoSuchFieldException ignored) {
-                }
-                
-                // Check for method with same name
-                if (findMethod(event.getClass(), key) != null) {
-                    return true;
-                }
-                
-                return false;
-            }
-            
-            @Override
-            public void putMember(String key, org.graalvm.polyglot.Value value) {
-                // EventJS objects are typically immutable, but we can support this if needed
-                throw new UnsupportedOperationException("Cannot modify EventJS properties");
-            }
-        };
+
+            return metadata.accessorByKey.containsKey(key);
+        }
+
+        @Override
+        public void putMember(String key, Value value) {
+            throw new UnsupportedOperationException("Cannot modify EventJS properties");
+        }
     }
     
     /**
@@ -416,11 +450,16 @@ public class GraalEventHandlerProxy implements ProxyExecutable {
      */
     private java.lang.reflect.Method findMethod(Class<?> clazz, String methodName) {
         try {
-            java.lang.reflect.Method method = clazz.getMethod(methodName);
-            if (method.getParameterCount() == 0) {
-                return method;
-            }
-        } catch (NoSuchMethodException ignored) {
+            return clazz.getMethod(methodName);
+        } catch (NoSuchMethodException e) {
+            try {
+                for (java.lang.reflect.Method m : clazz.getMethods()) {
+                    if (m.getName().equals(methodName) && m.getParameterCount() == 0) {
+                        m.setAccessible(true);
+                        return m;
+                    }
+                }
+            } catch (Exception ignored) {}
         }
         return null;
     }
@@ -441,17 +480,13 @@ public class GraalEventHandlerProxy implements ProxyExecutable {
                 Object result = method.invoke(obj);
                 return wrapResult(result, context);
             } catch (Exception e) {
-                System.err.println("[KubeLoader] Error invoking getter '" + method.getName() + "': " + e.getMessage());
-                e.printStackTrace();
                 return null;
             }
         } else {
             // Method with parameters: return ProxyExecutable
+            Class<?>[] paramTypes = method.getParameterTypes();
             return (org.graalvm.polyglot.proxy.ProxyExecutable) args -> {
                 try {
-                    System.out.println("[KubeLoader] Invoking method: " + method.getName() + " with " + args.length + " args on " + obj.getClass().getName());
-                    
-                    Class<?>[] paramTypes = method.getParameterTypes();
                     Object[] javaArgs = new Object[paramCount];
                     
                     for (int i = 0; i < paramCount && i < args.length; i++) {
@@ -459,43 +494,25 @@ public class GraalEventHandlerProxy implements ProxyExecutable {
                         Class<?> expectedType = paramTypes[i];
                         
                         // Try to wrap using KubeJS TypeWrappers if types don't match
-                        if (convertedArg != null && !expectedType.isInstance(convertedArg)) {
-                            System.out.println("[KubeLoader]   Type mismatch: expected " + expectedType.getName() + ", got " + convertedArg.getClass().getName());
-
-                        }
-                        
-                        System.out.println("[KubeLoader]   Arg[" + i + "]: " + convertedArg + " (" + (convertedArg != null ? convertedArg.getClass().getName() : "null") + ")");
                         javaArgs[i] = convertedArg;
                     }
-                    
-                    System.out.println("[KubeLoader] Calling method.invoke...");
                     Object result = method.invoke(obj, javaArgs);
-                    System.out.println("[KubeLoader] Method invoked successfully, result: " + result);
                     return wrapResult(result, context);
                     
                 } catch (java.lang.reflect.InvocationTargetException e) {
-                    // ÃƒÂ¥Ã‚Â¤Ã¢â‚¬Å¾ÃƒÂ§Ã‚ÂÃ¢â‚¬Â ÃƒÂ¦Ã¢â‚¬â€œÃ‚Â¹ÃƒÂ¦Ã‚Â³Ã¢â‚¬Â¢ÃƒÂ¨Ã‚Â°Ã†â€™ÃƒÂ§Ã¢â‚¬ÂÃ‚Â¨ÃƒÂ¦Ã…Â Ã¢â‚¬ÂºÃƒÂ¥Ã¢â‚¬Â¡Ã‚ÂºÃƒÂ§Ã…Â¡Ã¢â‚¬Å¾ÃƒÂ¥Ã‚Â¼Ã¢â‚¬Å¡ÃƒÂ¥Ã‚Â¸Ã‚Â¸
                     Throwable cause = e.getCause();
+                    // ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¥ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¾ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¦ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¹ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¦ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¨ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â°ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¨ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¦ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂºÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¥ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂºÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¾ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¥ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¥ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸
                     System.out.println("[KubeLoader] Method " + method.getName() + " threw exception: " + cause.getClass().getName());
                     
-                    // ÃƒÂ§Ã¢â‚¬Â°Ã‚Â¹ÃƒÂ¦Ã‚Â®Ã…Â ÃƒÂ¥Ã‚Â¤Ã¢â‚¬Å¾ÃƒÂ§Ã‚ÂÃ¢â‚¬Â EventExitÃƒÂ¥Ã‚Â¼Ã¢â‚¬Å¡ÃƒÂ¥Ã‚Â¸Ã‚Â¸ÃƒÂ¯Ã‚Â¼Ã‹â€ ÃƒÂ¨Ã‚Â¿Ã¢â€žÂ¢ÃƒÂ¦Ã‹Å“Ã‚Â¯ÃƒÂ¦Ã‚Â­Ã‚Â£ÃƒÂ¥Ã‚Â¸Ã‚Â¸ÃƒÂ¨Ã‚Â¡Ã…â€™ÃƒÂ¤Ã‚Â¸Ã‚ÂºÃƒÂ¯Ã‚Â¼Ã¢â‚¬Â°
+                    // ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â°ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¹ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¦ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â®ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¥ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¾ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â EventExitÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¥ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¥ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¯ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¹ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¨ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¿ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¾ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¦ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¹ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¯ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¦ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â£ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¥ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¨ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂºÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¯ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â°
                     if (cause instanceof dev.latvian.mods.kubejs.event.EventExit) {
-                        System.out.println("[KubeLoader] EventExit thrown (normal for cancel operations)");
-                        return null; // ÃƒÂ¨Ã‚Â¿Ã¢â‚¬ÂÃƒÂ¥Ã¢â‚¬ÂºÃ…Â¾nullÃƒÂ¨Ã‚Â¡Ã‚Â¨ÃƒÂ§Ã‚Â¤Ã‚ÂºÃƒÂ¦Ã‹â€ Ã‚ÂÃƒÂ¥Ã…Â Ã…Â¸
+                        return null; // ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¨ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¿ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¥ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂºÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¾nullÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¨ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¨ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂºÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¦ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¹ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¥ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸
                     }
                     
-                    // ÃƒÂ¥Ã¢â‚¬Â¦Ã‚Â¶ÃƒÂ¤Ã‚Â»Ã¢â‚¬â€œÃƒÂ¥Ã‚Â¼Ã¢â‚¬Å¡ÃƒÂ¥Ã‚Â¸Ã‚Â¸ÃƒÂ©Ã…â€œÃ¢â€šÂ¬ÃƒÂ¨Ã‚Â¦Ã‚ÂÃƒÂ¨Ã‚Â®Ã‚Â°ÃƒÂ¥Ã‚Â½Ã¢â‚¬Â¢
-                    System.err.println("[KubeLoader] Method invocation failed: " + cause.getMessage());
-                    cause.printStackTrace();
+                    // ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¥ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¦ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¶ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â»ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¥ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¥ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¨ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¦ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¨ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â®ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â°ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¥ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â½ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢
                     throw new RuntimeException("Error invoking method " + method.getName(), cause);
                     
                 } catch (Exception e) {
-                    System.err.println("[KubeLoader] Error invoking method '" + method.getName() + "': " + e.getClass().getName() + ": " + e.getMessage());
-                    if (e.getCause() != null) {
-                        System.err.println("[KubeLoader]   Caused by: " + e.getCause().getClass().getName() + ": " + e.getCause().getMessage());
-                        e.getCause().printStackTrace();
-                    }
-                    e.printStackTrace();
                     throw new RuntimeException("Error invoking method", e);
                 }
             };
@@ -509,7 +526,8 @@ public class GraalEventHandlerProxy implements ProxyExecutable {
     private Object wrapResult(Object result, Context context) {
         // Use RhinoAnnotationWrapper to handle Rhino annotations
         // It will return a ProxyObject if annotations exist, otherwise return raw object
-        return RhinoAnnotationWrapper.wrap(result);
+        //return RhinoAnnotationWrapper.wrap(result);
+        return WrapperHelper.wrapReturnValue(result);
     }
     
     /**
@@ -517,14 +535,10 @@ public class GraalEventHandlerProxy implements ProxyExecutable {
      */
     private boolean hasRemapForJSAnnotations(Class<?> clazz) {
         boolean hasAnnotations = false;
-        
-        // Debug: print all @RemapForJS and @RemapPrefixForJS annotations found
-        System.out.println("[KubeLoader] Checking @RemapForJS/@RemapPrefixForJS annotations on " + clazz.getName());
-        
+
         // Check class-level @RemapPrefixForJS
         RemapPrefixForJS prefixRemap = clazz.getAnnotation(RemapPrefixForJS.class);
         if (prefixRemap != null) {
-            System.out.println("[KubeLoader]   Found @RemapPrefixForJS(\"" + prefixRemap.value() + "\") on class: " + clazz.getName());
             hasAnnotations = true;
         }
         
@@ -532,7 +546,6 @@ public class GraalEventHandlerProxy implements ProxyExecutable {
         for (Class<?> iface : clazz.getInterfaces()) {
             RemapPrefixForJS ifacePrefixRemap = iface.getAnnotation(RemapPrefixForJS.class);
             if (ifacePrefixRemap != null) {
-                System.out.println("[KubeLoader]   Found @RemapPrefixForJS(\"" + ifacePrefixRemap.value() + "\") on interface: " + iface.getName());
                 hasAnnotations = true;
             }
         }
@@ -541,7 +554,6 @@ public class GraalEventHandlerProxy implements ProxyExecutable {
         for (java.lang.reflect.Method method : clazz.getMethods()) {
             RemapForJS remap = method.getAnnotation(RemapForJS.class);
             if (remap != null) {
-                System.out.println("[KubeLoader]   Found @RemapForJS(\"" + remap.value() + "\") on method: " + method.getName());
                 hasAnnotations = true;
             }
         }
@@ -550,242 +562,20 @@ public class GraalEventHandlerProxy implements ProxyExecutable {
         for (java.lang.reflect.Field field : clazz.getFields()) {
             RemapForJS remap = field.getAnnotation(RemapForJS.class);
             if (remap != null) {
-                System.out.println("[KubeLoader]   Found @RemapForJS(\"" + remap.value() + "\") on field: " + field.getName());
                 hasAnnotations = true;
             }
         }
-        
-        if (!hasAnnotations) {
-            System.out.println("[KubeLoader]   No @RemapForJS/@RemapPrefixForJS annotations found");
-        }
-        
+
         return hasAnnotations;
     }
     
     /**
-     * Create a smart proxy for objects with @RemapForJS annotations
-     * This mimics Rhino's behavior of mapping JS property names to Java methods/fields
+     * Create a smart proxy for objects using WrapperHelper.
+     * This uses WrapperHelper.wrapObject() which handles @RemapForJS and @RemapPrefixForJS
+     * annotations automatically, providing Rhino-like behavior in GraalJS.
      */
     private ProxyObject createSmartProxy(Object obj, Context context) {
-        return new ProxyObject() {
-            @Override
-            public Object getMember(String key) {
-                try {
-                    // PRIORITY 0: Check for @RemapPrefixForJS on class level
-                    RemapPrefixForJS prefixRemap = obj.getClass().getAnnotation(RemapPrefixForJS.class);
-                    if (prefixRemap != null) {
-                        String prefix = prefixRemap.value();
-                        String prefixedMethodName = prefix + key;
-                        
-                        // Try to find method with prefix (e.g., "kjs$tell" for key="tell")
-                        for (java.lang.reflect.Method method : obj.getClass().getMethods()) {
-                            if (method.getName().equals(prefixedMethodName)) {
-                                System.out.println("[KubeLoader] @RemapPrefixForJS matched: " + prefixedMethodName + " -> " + key);
-                                return createMethodProxy(method, obj, context);
-                            }
-                        }
-                    }
-                    
-                    // Also check all interfaces for @RemapPrefixForJS
-                    for (Class<?> iface : obj.getClass().getInterfaces()) {
-                        RemapPrefixForJS ifacePrefixRemap = iface.getAnnotation(RemapPrefixForJS.class);
-                        if (ifacePrefixRemap != null) {
-                            String prefix = ifacePrefixRemap.value();
-                            String prefixedMethodName = prefix + key;
-                            
-                            // Try to find method with prefix
-                            for (java.lang.reflect.Method method : obj.getClass().getMethods()) {
-                                if (method.getName().equals(prefixedMethodName)) {
-                                    System.out.println("[KubeLoader] @RemapPrefixForJS (interface) matched: " + prefixedMethodName + " -> " + key);
-                                    return createMethodProxy(method, obj, context);
-                                }
-                            }
-                        }
-                    }
-                    
-                    // PRIORITY 1: Check for @RemapForJS on methods (any parameter count)
-                    for (java.lang.reflect.Method method : obj.getClass().getMethods()) {
-                        RemapForJS remap = method.getAnnotation(RemapForJS.class);
-                        if (remap != null && remap.value().equals(key)) {
-                            System.out.println("[KubeLoader] @RemapForJS matched: " + method.getName() + " -> " + key);
-                            return createMethodProxy(method, obj, context);
-                        }
-                    }
-                    
-                    // PRIORITY 2: Check for @RemapForJS on fields
-                    for (java.lang.reflect.Field field : obj.getClass().getFields()) {
-                        RemapForJS remap = field.getAnnotation(RemapForJS.class);
-                        if (remap != null && remap.value().equals(key)) {
-                            System.out.println("[KubeLoader] @RemapForJS field matched: " + field.getName() + " -> " + key);
-                            Object result = field.get(obj);
-                            return wrapResult(result, context);
-                        }
-                    }
-                    
-                    // PRIORITY 3: Try standard JavaBean getter pattern
-                    String getterName = "get" + Character.toUpperCase(key.charAt(0)) + key.substring(1);
-                    java.lang.reflect.Method getter = findMethod(obj.getClass(), getterName);
-                    if (getter != null) {
-                        return createMethodProxy(getter, obj, context);
-                    }
-                    
-                    // PRIORITY 4: Try "isXxx" pattern for booleans
-                    String isGetterName = "is" + Character.toUpperCase(key.charAt(0)) + key.substring(1);
-                    java.lang.reflect.Method isGetter = findMethod(obj.getClass(), isGetterName);
-                    if (isGetter != null) {
-                        return createMethodProxy(isGetter, obj, context);
-                    }
-                    
-                    // PRIORITY 5: Try direct method with same name (no parameters)
-                    java.lang.reflect.Method method = findMethod(obj.getClass(), key);
-                    if (method != null) {
-                        return createMethodProxy(method, obj, context);
-                    }
-                    
-                    // PRIORITY 6: Try direct field access
-                    try {
-                        java.lang.reflect.Field field = obj.getClass().getField(key);
-                        Object result = field.get(obj);
-                        return wrapResult(result, context);
-                    } catch (NoSuchFieldException ignored) {
-                    }
-                    
-                } catch (Exception e) {
-                    System.err.println("[KubeLoader] Error in smart proxy getMember('" + key + "'): " + e.getMessage());
-                    e.printStackTrace();
-                }
-                
-                return null;
-            }
-            
-            @Override
-            public Object getMemberKeys() {
-                java.util.Set<String> keys = new java.util.HashSet<>();
-                
-                // Add all @RemapForJS names
-                for (java.lang.reflect.Method method : obj.getClass().getMethods()) {
-                    RemapForJS remap = method.getAnnotation(RemapForJS.class);
-                    if (remap != null) {
-                        keys.add(remap.value());
-                    }
-                }
-                
-                for (java.lang.reflect.Field field : obj.getClass().getFields()) {
-                    RemapForJS remap = field.getAnnotation(RemapForJS.class);
-                    if (remap != null) {
-                        keys.add(remap.value());
-                    }
-                }
-                
-                // Add getter methods
-                for (java.lang.reflect.Method method : obj.getClass().getMethods()) {
-                    String name = method.getName();
-                    if (method.getParameterCount() == 0) {
-                        if (name.startsWith("get") && name.length() > 3) {
-                            String key = Character.toLowerCase(name.charAt(3)) + name.substring(4);
-                            keys.add(key);
-                        } else if (name.startsWith("is") && name.length() > 2) {
-                            String key = Character.toLowerCase(name.charAt(2)) + name.substring(3);
-                            keys.add(key);
-                        }
-                    }
-                }
-                
-                // Add public fields
-                for (java.lang.reflect.Field field : obj.getClass().getFields()) {
-                    keys.add(field.getName());
-                }
-                
-                // Add direct methods (including cancel)
-                for (java.lang.reflect.Method method : obj.getClass().getMethods()) {
-                    if (!method.getName().startsWith("get") && !method.getName().startsWith("is")) {
-                        keys.add(method.getName());
-                    }
-                }
-                
-                return keys.toArray();
-            }
-            
-            @Override
-            public boolean hasMember(String key) {
-                // Check @RemapPrefixForJS on class level
-                RemapPrefixForJS prefixRemap = obj.getClass().getAnnotation(RemapPrefixForJS.class);
-                if (prefixRemap != null) {
-                    String prefix = prefixRemap.value();
-                    String prefixedMethodName = prefix + key;
-                    
-                    // Check if method with prefix exists
-                    for (java.lang.reflect.Method method : obj.getClass().getMethods()) {
-                        if (method.getName().equals(prefixedMethodName)) {
-                            return true;
-                        }
-                    }
-                }
-                
-                // Check interfaces for @RemapPrefixForJS
-                for (Class<?> iface : obj.getClass().getInterfaces()) {
-                    RemapPrefixForJS ifacePrefixRemap = iface.getAnnotation(RemapPrefixForJS.class);
-                    if (ifacePrefixRemap != null) {
-                        String prefix = ifacePrefixRemap.value();
-                        String prefixedMethodName = prefix + key;
-                        
-                        // Check if method with prefix exists
-                        for (java.lang.reflect.Method method : obj.getClass().getMethods()) {
-                            if (method.getName().equals(prefixedMethodName)) {
-                                return true;
-                            }
-                        }
-                    }
-                }
-                
-                // Check @RemapForJS on methods
-                for (java.lang.reflect.Method method : obj.getClass().getMethods()) {
-                    RemapForJS remap = method.getAnnotation(RemapForJS.class);
-                    if (remap != null && remap.value().equals(key)) {
-                        return true;
-                    }
-                }
-                
-                // Check @RemapForJS on fields
-                for (java.lang.reflect.Field field : obj.getClass().getFields()) {
-                    RemapForJS remap = field.getAnnotation(RemapForJS.class);
-                    if (remap != null && remap.value().equals(key)) {
-                        return true;
-                    }
-                }
-                
-                // Check standard getter
-                String getterName = "get" + Character.toUpperCase(key.charAt(0)) + key.substring(1);
-                if (findMethod(obj.getClass(), getterName) != null) {
-                    return true;
-                }
-                
-                // Check "isXxx" getter
-                String isGetterName = "is" + Character.toUpperCase(key.charAt(0)) + key.substring(1);
-                if (findMethod(obj.getClass(), isGetterName) != null) {
-                    return true;
-                }
-                
-                // Check direct method
-                if (findMethod(obj.getClass(), key) != null) {
-                    return true;
-                }
-                
-                // Check direct field
-                try {
-                    obj.getClass().getField(key);
-                    return true;
-                } catch (NoSuchFieldException ignored) {
-                }
-                
-                return false;
-            }
-            
-            @Override
-            public void putMember(String key, org.graalvm.polyglot.Value value) {
-                throw new UnsupportedOperationException("Cannot modify properties");
-            }
-        };
+        return (ProxyObject) WrapperHelper.wrapObject(obj);
     }
     
     /**

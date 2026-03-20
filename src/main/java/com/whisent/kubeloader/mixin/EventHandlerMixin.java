@@ -58,7 +58,7 @@ public abstract class EventHandlerMixin {
         Object[] args,
         CallbackInfoReturnable<Object> cir
     ) {
-        if (!GraalJSCompat.canUseGraalJS) {
+        if (!GraalJSCompat.canUseGraalJS()) {
             return;
         }
         ScriptType type = cx.getProperty("Type", null);
@@ -72,7 +72,7 @@ public abstract class EventHandlerMixin {
             if (args.length == 1) {
                 Object handler = args[0];
                 
-                if (GraalJSCompat.canUseGraalJS) {
+                if (GraalJSCompat.canUseGraalJS()) {
                     // GraalJS handler without extraId
                     IEventHandler adapted = GraalApi.createGraalHandler(handler, type);
                     listen(type, null, adapted);
@@ -80,7 +80,7 @@ public abstract class EventHandlerMixin {
                     return;
                 }
             } else if (args.length == 2) {
-                if (GraalJSCompat.canUseGraalJS) {
+                if (GraalJSCompat.canUseGraalJS()) {
                     Object extraIdArg = args[0];
                     Object handler = args[1];
 

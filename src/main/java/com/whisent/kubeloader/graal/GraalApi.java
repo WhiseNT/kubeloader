@@ -1,6 +1,6 @@
 package com.whisent.kubeloader.graal;
 
-import com.oracle.truffle.js.runtime.JSException;
+import com.whisent.kubeloader.Kubeloader;
 import com.whisent.kubeloader.compat.GraalJSCompat;
 import com.whisent.kubeloader.graal.event.GraalEventGroupProxy;
 import com.whisent.kubeloader.graal.event.GraalEventHandlerProxy;
@@ -20,14 +20,11 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.graalvm.polyglot.*;
 
-import java.io.File;
 import java.io.IOException;
-import java.net.URL;
-import java.nio.file.Files;
 
 public class GraalApi {
-    
-    private static final Logger LOGGER = LogManager.getLogger();
+
+    private static final Logger LOGGER = Kubeloader.LOGGER;
     private static boolean wrappersInitialized = false;
 
     /**
@@ -108,25 +105,6 @@ public class GraalApi {
         Debugger.out("[KubeLoader] ⚠ Bound via asValue (requires @HostAccess.Export): " + name);
     }
 
-    /**
-     * 在指定 Context 中执行 JS 脚本
-     */
-    public static void eval(Context context, String script) {
-        if (context == null || script == null) return;
-        
-        // 检查依赖可用性
-        if (!GraalJSCompat.isGraalJSSafeToUse()) {
-            LOGGER.warn("[KubeLoader] 尝试执行脚本但 GraalJS 不可用");
-            return;
-        }
-        
-        try {
-            context.eval("js", script);
-        } catch (PolyglotException e) {
-            Debugger.out("[GraalJS] Script error: " + e.getMessage());
-            e.printStackTrace();
-        }
-    }
 
     public static void eval(Context context, String script, ScriptFileInfo info, ScriptPack pack) {
         String filePath = info.location;
@@ -134,7 +112,7 @@ public class GraalApi {
         if (context == null || script == null) return;
 
         // 检查依赖可用性
-        if (!GraalJSCompat.isGraalJSSafeToUse()) {
+        if (!GraalJSCompat.canUseGraalJS()) {
             LOGGER.warn("[KubeLoader] 尝试执行脚本但 GraalJS 不可用: {}", filePath);
             return;
         }
@@ -241,11 +219,12 @@ public class GraalApi {
      */
     public static Context createContext() {
         // 检查依赖可用性
+        System.out.println("[KubeLoader] GraalJS检查: canUseGraalJS=" + GraalJSCompat.canUseGraalJS);
         if (!GraalJSCompat.canUseGraalJS) {
             LOGGER.error("[KubeLoader] 无法创建 GraalJS Context：依赖不可用");
             return null;
         }
-        
+
         // Initialize type wrappers on first use (fallback for standalone usage)
         // Note: TypeWrappers will be automatically synced via TypeWrappersMixin when KubeJS registers them
         if (!wrappersInitialized) {
@@ -254,17 +233,17 @@ public class GraalApi {
 
         // Use custom HostAccess that applies type wrappers automatically
         Context ctx = Context.newBuilder("js")
-                .allowHostAccess(CustomHostAccess.create())  // Use custom host access with wrapper support
+                .allowHostAccess(CustomHostAccess.create())
                 .allowHostClassLookup(s -> true)
-                .allowNativeAccess(true)  // Allow native object member modification
-                .option("js.WarnInterpreterOnly", "false")
-                .option("js.Mode", "throughput")        // 吞吐量模式
-                .option("js.Compilation", "true")       // 确保编译开启
-                .option("js.BackgroundCompilation", "true")
-                .option("js.Inlining", "true")
-                .option("js.Splitting", "true")
+                .allowNativeAccess(true)
+                .allowAllAccess(true)
                 .build();
 
+        Engine engine = ctx.getEngine();
+        if (engine != null) {
+            System.out.println("[KubeLoader] GraalJS Engine:" + engine.getImplementationName() + " " + engine.getVersion());
+            System.out.println("[KubeLoader] GraalJS Engine options: " + engine.getOptions());
+        }
         // 直接在 JS 中定义 loadClass = Java.type
         ctx.eval("js", """
             Java.loadClass = Java.type
@@ -273,11 +252,11 @@ public class GraalApi {
         """);
         // Register WrapperHelper for advanced usage
         WrapperHelper.registerInContext(ctx);
-        
+
         // Load wrapper compatibility layer
         loadWrapperCompatLayer(ctx);
 
-        
+
         System.out.println("[KubeLoader] Context created with automatic object wrapping enabled");
         // Note: HostAccess checking removed due to version compatibility issues
         return ctx;
@@ -286,7 +265,7 @@ public class GraalApi {
     public static Context createContext(ScriptManager manager) {
         ScriptManagerInterface thiz = (ScriptManagerInterface) manager;
         Context ctx = createContext();
-        
+
         if (ctx == null) {
             LOGGER.error("[KubeLoader] Failed to create GraalJS context for manager: {}", manager);
             return null;
@@ -307,7 +286,7 @@ public class GraalApi {
 
         return ctx;
     }
-    
+
     /**
      * Load the wrapper compatibility layer script into the context
      */
@@ -343,7 +322,7 @@ public class GraalApi {
                                 return hostObject;
                             }
                         }
-                        
+
                         // Handle boolean returns (common pattern in JS)
                         if (result.isBoolean()) {
                             boolean boolValue = result.asBoolean();
@@ -352,7 +331,7 @@ public class GraalApi {
                             // we'll return the boolean and let the caller handle it
                             return boolValue;
                         }
-                        
+
                         // Handle string returns that might represent event results
                         if (result.isString()) {
                             String strValue = result.asString();
@@ -367,16 +346,16 @@ public class GraalApi {
                                     return false; // Interrupt
                             }
                         }
-                        
+
                         // Default: return the unwrapped host object if available
                         if (result.isHostObject()) {
                             return result.asHostObject();
                         }
-                        
+
                         // Return null for unsupported types (will be treated as PASS)
                         return null;
                     }
-                    
+
                     // Null result means PASS
                     return null;
                 }
@@ -400,12 +379,6 @@ public class GraalApi {
                 break;
             }
         }
-
-        // 处理JavaScript异常
-        while (throwable instanceof JSException e) {
-            throwable = e.getCause();
-        }
-
         if (throwable instanceof EventExit exit) {
             throw exit;
         }

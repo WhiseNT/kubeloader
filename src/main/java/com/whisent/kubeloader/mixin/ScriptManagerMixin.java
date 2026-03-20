@@ -86,13 +86,15 @@ public abstract class ScriptManagerMixin implements SortablePacksHolder, ScriptM
             var scriptPack = contentPack.getPack(context);
 
             var namespace = contentPack.id();
-            if (GraalJSCompat.canUseGraalJS) {
+            if (GraalJSCompat.canUseGraalJS()) {
                 GraalScriptManager.loadContentPack(this, scriptType, scriptPack, namespace);
             }
 
             List<ScriptPack> scriptPacks;
             if (KubeJS.MOD_ID.equals(namespace)) {
-                if (GraalJSCompat.canUseGraalJS) {
+                System.out.println("[KubeLoader] Detected KubeJS's own content pack. Loading all script packs from original map.");
+                if (GraalJSCompat.canUseGraalJS()) {
+                    System.out.println("[KubeLoader] Setting context for all original script packs.");
                     for (ScriptPack pack : original.values()) {
                         String packNamespace = pack.info.namespace;
                         GraalScriptManager.loadScriptPack(this, packNamespace);
@@ -101,8 +103,9 @@ public abstract class ScriptManagerMixin implements SortablePacksHolder, ScriptM
                 scriptPacks = original.values().stream()
                     .filter(p -> !indexed.containsKey(p.info.namespace))
                     .toList();
-                if (GraalJSCompat.canUseGraalJS) {
+                if (GraalJSCompat.canUseGraalJS()) {
                     for (ScriptPack pack : scriptPacks) {
+                        System.out.println("[KubeLoader] Setting context for all original script packs.");
                         GraalScriptManager.setContextForPack(this, pack);
                     }
                 }
@@ -243,7 +246,6 @@ public abstract class ScriptManagerMixin implements SortablePacksHolder, ScriptM
         return (ScriptManager) (Object) this;
     }
 }
-
 
 
 

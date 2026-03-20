@@ -1,6 +1,7 @@
 package com.whisent.kubeloader.graal;
 
 import dev.latvian.mods.kubejs.util.ConsoleJS;
+import com.whisent.kubeloader.graal.wrapper.WrapperHelper;
 import org.graalvm.polyglot.Value;
 import org.graalvm.polyglot.proxy.ProxyExecutable;
 import org.graalvm.polyglot.proxy.ProxyObject;
@@ -52,7 +53,10 @@ public class DynamicGraalConsole implements ProxyObject {
             if (v.isNull()) sb.append("null");
             else if (v.isString()) sb.append(v.asString());
             else if (v.isNumber() || v.isBoolean()) sb.append(v.toString());
-            else sb.append(v.toString());
+            else {
+                Object unwrapped = WrapperHelper.unwrap(v);
+                sb.append(unwrapped);
+            }
         }
         return sb.toString();
     }

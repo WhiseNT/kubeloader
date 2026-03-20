@@ -13,7 +13,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public class BindingsEventMixin {
     @Inject(method = "add", at = @org.spongepowered.asm.mixin.injection.At("HEAD"))
     public void kubeLoader$add(String name, Object value, CallbackInfo ci) {
-        if (GraalJSCompat.canUseGraalJS) {
+        if (GraalJSCompat.canUseGraalJS()) {
             if (name == null || value == null) {
                 return;
             }

@@ -128,7 +128,7 @@ public class RhinoAnnotationWrapper {
     /**
      * Get or create cached metadata for a class
      */
-    private static ClassMetadata getMetadata(Class<?> clazz) {
+    public static ClassMetadata getMetadata(Class<?> clazz) {
         return CLASS_METADATA_CACHE.computeIfAbsent(clazz, ClassMetadata::new);
     }
     
@@ -140,12 +140,26 @@ public class RhinoAnnotationWrapper {
             return null;
         }
         
+        if (obj instanceof org.graalvm.polyglot.Value ||
+            obj instanceof org.graalvm.polyglot.proxy.ProxyObject ||
+            obj instanceof org.graalvm.polyglot.proxy.ProxyExecutable) {
+            return obj;
+        }
+        
+        Class<?> clazz = obj.getClass();
+        if (clazz.isArray() || 
+            clazz.isPrimitive() || 
+            clazz.getName().startsWith("java.lang.") ||
+            clazz.getName().startsWith("java.util.")) {
+            return obj;
+        }
+
         // Get cached metadata
         ClassMetadata metadata = getMetadata(obj.getClass());
         
-        // If no annotations, return raw object (allows GraalJS direct access)
-        if (!metadata.hasAnnotations) {
-            return obj;
+        // If no annotations, try WrapperHelper as fallback for $ prefix support
+        if (metadata == null || !metadata.hasAnnotations) {
+            return WrapperHelper.wrapObject(obj);
         }
         
         // Return a ProxyObject that handles name mapping using cached metadata
@@ -169,6 +183,10 @@ public class RhinoAnnotationWrapper {
                 
                 // Check direct method access (non-annotated methods)
                 Method directMethod = metadata.methodsByName.get(jsName);
+                if (directMethod == null) {
+                    String altKey = "$" + jsName;
+                    directMethod = metadata.methodsByName.get(altKey);
+                }
                 if (directMethod != null) {
                     return createMethodProxy(directMethod, obj);
                 }

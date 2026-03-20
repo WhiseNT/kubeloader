@@ -61,10 +61,10 @@ public class Kubeloader
 
     public Kubeloader() throws IOException {
         IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
-
-        // 初始化兼容性检测（在最早期阶段）
         GraalJSCompat.init();
         ConfigManager.init();
+
+
 
         //LOGGER.info(ResourcePath.toString());
         //LOGGER.info(PackPath.toString());

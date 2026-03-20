@@ -83,8 +83,10 @@ public class KLScriptLoader {
     public static void evalString(ScriptPack pack,ScriptFileInfo info,String code) {
 
         if (GraalJSCompat.canUseGraalJS) {
+            System.out.println("[KubeLoader] Evaluating script with GraalJS: " + info.location);
             graalEvalString(pack, info, code);
         } else {
+            System.out.println("[KubeLoader] Evaluating script with Rhino: " + info.location);
             pack.manager.context.evaluateString(
                     pack.scope,
                     code,

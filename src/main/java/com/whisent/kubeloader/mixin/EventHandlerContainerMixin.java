@@ -1,7 +1,6 @@
 package com.whisent.kubeloader.mixin;
 
 import com.machinezoo.noexception.WrappedException;
-import com.oracle.truffle.js.runtime.JSException;
 import com.whisent.kubeloader.compat.GraalJSCompat;
 import com.whisent.kubeloader.graal.GraalApi;
 import dev.latvian.mods.kubejs.event.*;
@@ -32,7 +31,7 @@ public class EventHandlerContainerMixin {
         cancellable = true
     )
     private void handleGraalJSEventWithResult(EventJS event, EventExceptionHandler exh, CallbackInfoReturnable<EventResult> cir) throws EventExit {
-        if (!GraalJSCompat.canUseGraalJS) {
+        if (!GraalJSCompat.canUseGraalJS()) {
             return; // Let original method handle Rhino handlers
         }
 
@@ -78,7 +77,7 @@ public class EventHandlerContainerMixin {
             } catch (EventExit exit) {
                 throw exit;
             } catch (Throwable ex) {
-                if (GraalJSCompat.canUseGraalJS) {
+                if (GraalJSCompat.canUseGraalJS()) {
                     GraalApi.throwException(ex, exh, event, itr);
                 } else {
                     // Original exception handling logic

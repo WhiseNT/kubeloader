@@ -24,7 +24,9 @@ public class CustomHostAccess {
         // - All public fields (including final fields)
         // - Reflection
         // - Array/List/Map access
-        HostAccess.Builder builder = HostAccess.newBuilder(HostAccess.ALL);
+        HostAccess.Builder builder = HostAccess.newBuilder(HostAccess.ALL)
+                .allowPublicAccess(true)
+                .allowAccessInheritance(true);
         
         // HostAccess.ALL already allows all public static methods
         // No additional configuration needed
