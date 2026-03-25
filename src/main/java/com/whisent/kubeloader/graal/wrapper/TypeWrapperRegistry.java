@@ -15,6 +15,7 @@ public class TypeWrapperRegistry {
     
     private static final Map<Class<?>, TypeWrapperEntry<?>> WRAPPERS = new ConcurrentHashMap<>();
     private static final Map<Class<?>, TypeWrapperEntry<?>[]> ASSIGNABLE_WRAPPER_CACHE = new ConcurrentHashMap<>();
+    private static final TypeWrapperEntry<?>[] EMPTY_WRAPPER_ARRAY = new TypeWrapperEntry[0];
     
     /**
      * Register a simple type wrapper (like KubeJS's registerSimple)
@@ -53,58 +54,71 @@ public class TypeWrapperRegistry {
             return null;
         }
         
-        // If already a host object of the correct type, return as-is
-        if (value.isHostObject() && targetClass.isInstance(value.asHostObject())) {
-            return value.asHostObject();
+        if (value.isHostObject()) {
+            Object hostObj = value.asHostObject();
+            if (targetClass.isInstance(hostObj)) {
+                return hostObj;
+            }
         }
         
-        // Convert Value to a more generic Object for the converter
-        Object input = convertValueToObject(value);
-        
-        // Try registered wrapper for exact class
-        TypeWrapperEntry<?> entry = WRAPPERS.get(targetClass);
-        if (entry != null) {
-            if (entry.predicate == null || entry.predicate.test(input)) {
-                try {
-                    Object result = entry.converter.apply(input);
-                    if (result != null) {
-                        return result;
+        if (!WRAPPERS.isEmpty()) {
+            TypeWrapperEntry<?> entry = WRAPPERS.get(targetClass);
+            if (entry != null) {
+                Object input = valueToObject(value);
+                if (entry.predicate == null || entry.predicate.test(input)) {
+                    try {
+                        Object result = entry.converter.apply(input);
+                        if (result != null) {
+                            return result;
+                        }
+                    } catch (Exception ignored) {
                     }
-                } catch (Exception e) {
-                    // Silently continue to next wrapper
+                }
+            }
+            
+            TypeWrapperEntry<?>[] assignableWrappers = ASSIGNABLE_WRAPPER_CACHE.get(targetClass);
+            if (assignableWrappers == null) {
+                assignableWrappers = buildAssignableWrappers(targetClass);
+            }
+            
+            if (assignableWrappers.length > 0) {
+                Object input = valueToObject(value);
+                for (TypeWrapperEntry<?> wrapperEntry : assignableWrappers) {
+                    if (wrapperEntry != entry && (wrapperEntry.predicate == null || wrapperEntry.predicate.test(input))) {
+                        try {
+                            Object result = wrapperEntry.converter.apply(input);
+                            if (result != null) {
+                                return result;
+                            }
+                        } catch (Exception ignored) {
+                        }
+                    }
                 }
             }
         }
         
-        // Try wrappers for superclasses and interfaces (use cache for efficiency)
-        TypeWrapperEntry<?>[] assignableWrappers = ASSIGNABLE_WRAPPER_CACHE.computeIfAbsent(targetClass, clazz -> {
-            return WRAPPERS.entrySet().stream()
-                .filter(e -> e.getKey().isAssignableFrom(clazz))
-                .map(Map.Entry::getValue)
-                .toArray(TypeWrapperEntry[]::new);
-        });
-        
-        for (TypeWrapperEntry<?> wrapperEntry : assignableWrappers) {
-            if (wrapperEntry.predicate == null || wrapperEntry.predicate.test(input)) {
-                try {
-                    Object result = wrapperEntry.converter.apply(input);
-                    if (result != null) {
-                        return result;
-                    }
-                } catch (Exception e) {
-                    // Continue to next wrapper
-                }
-            }
-        }
-        
-        // No wrapper found, return original input or value
-        return input != null ? input : value;
+        return value;
     }
     
-    /**
-     * Convert GraalJS Value to a more generic Object that wrappers can handle
-     */
-    private static Object convertValueToObject(Value value) {
+    private static TypeWrapperEntry<?>[] buildAssignableWrappers(Class<?> targetClass) {
+        List<TypeWrapperEntry<?>> list = null;
+        for (Map.Entry<Class<?>, TypeWrapperEntry<?>> e : WRAPPERS.entrySet()) {
+            if (e.getKey().isAssignableFrom(targetClass)) {
+                if (list == null) {
+                    list = new ArrayList<>(4);
+                }
+                list.add(e.getValue());
+            }
+        }
+        if (list == null) {
+            return ASSIGNABLE_WRAPPER_CACHE.putIfAbsent(targetClass, EMPTY_WRAPPER_ARRAY);
+        }
+        TypeWrapperEntry<?>[] arr = list.toArray(new TypeWrapperEntry[0]);
+        ASSIGNABLE_WRAPPER_CACHE.put(targetClass, arr);
+        return arr;
+    }
+    
+    private static Object valueToObject(Value value) {
         if (value.isNull()) {
             return null;
         }
@@ -119,7 +133,7 @@ public class TypeWrapperRegistry {
                 return value.asInt();
             } else if (value.fitsInLong()) {
                 return value.asLong();
-            } else if (value.fitsInDouble()) {
+            } else {
                 return value.asDouble();
             }
         }
@@ -127,21 +141,20 @@ public class TypeWrapperRegistry {
             return value.asBoolean();
         }
         if (value.hasArrayElements()) {
-            long size = value.getArraySize();
-            List<Object> list = new ArrayList<>();
-            for (long i = 0; i < size; i++) {
-                list.add(convertValueToObject(value.getArrayElement(i)));
+            int size = (int) value.getArraySize();
+            ArrayList<Object> list = new ArrayList<>(size);
+            for (int i = 0; i < size; i++) {
+                list.add(valueToObject(value.getArrayElement(i)));
             }
             return list;
         }
         if (value.hasMembers()) {
-            Map<String, Object> map = new HashMap<>();
+            HashMap<String, Object> map = new HashMap<>();
             for (String key : value.getMemberKeys()) {
-                map.put(key, convertValueToObject(value.getMember(key)));
+                map.put(key, valueToObject(value.getMember(key)));
             }
             return map;
         }
-        // Return the Value itself if we can't convert it
         return value;
     }
     

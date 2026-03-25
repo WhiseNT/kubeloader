@@ -3,57 +3,74 @@ package com.whisent.kubeloader.graal.wrapper;
 import org.graalvm.polyglot.Value;
 import org.graalvm.polyglot.proxy.ProxyExecutable;
 
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
-import java.lang.reflect.Parameter;
+import sun.misc.Unsafe;
+import sun.reflect.ReflectionFactory;
 
-/**
- * Proxy executable that automatically wraps JavaScript values to Java types
- * based on method parameter types. This enables Rhino-like wrapper behavior in GraalJS.
- */
 public class TypeWrappingProxy implements ProxyExecutable {
+    
+    private static final Unsafe UNSAFE;
+    private static final ReflectionFactory REFLECTION_FACTORY;
     
     private final Object target;
     private final Method method;
+    private final MethodHandle methodHandle;
+    private final Class<?>[] paramTypes;
+    private final int paramLen;
+    
+    static {
+        try {
+            Field f = Unsafe.class.getDeclaredField("theUnsafe");
+            f.setAccessible(true);
+            UNSAFE = (Unsafe) f.get(null);
+            REFLECTION_FACTORY = ReflectionFactory.getReflectionFactory();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
     
     public TypeWrappingProxy(Object target, Method method) {
         this.target = target;
         this.method = method;
+        this.paramTypes = method.getParameterTypes();
+        this.paramLen = paramTypes.length;
+        try {
+            this.methodHandle = MethodHandles.lookup().unreflect(method).bindTo(target);
+        } catch (IllegalAccessException e) {
+            throw new RuntimeException("Cannot access method: " + method.getName(), e);
+        }
     }
     
     @Override
     public Object execute(Value... arguments) {
-        Parameter[] parameters = method.getParameters();
-        Object[] wrappedArgs = new Object[arguments.length];
+        int argLen = arguments.length;
+        Object[] wrappedArgs = argLen > paramLen ? new Object[argLen] : new Object[paramLen];
         
-        for (int i = 0; i < arguments.length; i++) {
-            if (i < parameters.length) {
-                Class<?> paramType = parameters[i].getType();
-                // Use TypeWrapperRegistry to wrap the value
+        for (int i = 0; i < argLen; i++) {
+            if (i < paramLen) {
+                Class<?> paramType = paramTypes[i];
                 Object wrapped = TypeWrapperRegistry.wrap(arguments[i], paramType);
                 
-                // If wrapper returned a Value (no conversion), try to convert to Java
                 if (wrapped instanceof Value) {
                     wrappedArgs[i] = convertValueToJava((Value) wrapped, paramType);
                 } else {
                     wrappedArgs[i] = wrapped;
                 }
             } else {
-                // Varargs or extra arguments
                 wrappedArgs[i] = arguments[i];
             }
         }
         
         try {
-            Object result = method.invoke(target, wrappedArgs);
-            return WrapperHelper.wrapReturnValue(result);
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to invoke method " + method.getName(), e);
+            return WrapperHelper.wrapReturnValue(methodHandle.invokeWithArguments(wrappedArgs));
+        } catch (Throwable t) {
+            throw new RuntimeException("Failed to invoke method " + method.getName(), t);
         }
     }
     
-    /**
-     * Convert a GraalJS Value to a Java object based on the target type
-     */
     private Object convertValueToJava(Value value, Class<?> targetType) {
         if (value.isNull()) {
             return null;
@@ -97,7 +114,6 @@ public class TypeWrappingProxy implements ProxyExecutable {
             }
         }
         
-        // Default: return as-is
         return value;
     }
 }

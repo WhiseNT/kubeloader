@@ -40,11 +40,7 @@ public class WrapperHelper {
             obj instanceof org.graalvm.polyglot.proxy.ProxyExecutable) {
             return obj;
         }
-        
-        if (obj instanceof TypeConvertingProxyObject) {
-            return ((TypeConvertingProxyObject) obj).getTarget();
-        }
-        
+
         Class<?> clazz = obj.getClass();
         
         if (clazz.isPrimitive() || 
@@ -224,15 +220,17 @@ public class WrapperHelper {
                     return newProxy;
                 }
                 
-                try {
-                    var field = target.getClass().getField(key);
-                    field.setAccessible(true);
-                    Object value = field.get(target);
-                    return wrapReturnValue(value);
-                } catch (Exception e) {
-                    return null;
+                Field field = fieldCache.get(key);
+                if (field != null) {
+                    try {
+                        field.setAccessible(true);
+                        Object value = field.get(target);
+                        return wrapReturnValue(value);
+                    } catch (Exception e) {
+                        return null;
+                    }
                 }
-            }
+             }
             
             return null;
         }
