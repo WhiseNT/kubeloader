@@ -1,0 +1,20 @@
+{
+  "required": false,
+  "minVersion": "0.8",
+  "package": "com.whisent.kubeloader.mixin",
+  "compatibilityLevel": "JAVA_8",
+  "refmap": "kubeloader.refmap.json",
+  "plugin": "com.whisent.kubeloader.mixin.ConditionalMixinPlugin",
+  "mixins": [
+    "graal.HostInteropReflectMixin",
+    "graal.HostObjectMixin",
+    "graal.HostMethodDescSingleMethodAccessor",
+    "graal.HostMethodDescSingleMethodReflectBaseMixin",
+    "graal.HostMethodDescSingleMethodMHBaseMixin"
+  ],
+  "client": [
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

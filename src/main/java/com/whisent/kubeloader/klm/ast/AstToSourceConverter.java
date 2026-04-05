@@ -1,11 +1,13 @@
 package com.whisent.kubeloader.klm.ast;
 
+import com.whisent.kubeloader.klm.dsl.MixinDSL;
 import dev.latvian.mods.rhino.Node;
 import dev.latvian.mods.rhino.Token;
 import dev.latvian.mods.rhino.ast.*;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 
 public class AstToSourceConverter {
@@ -610,9 +612,27 @@ public class AstToSourceConverter {
         }
     }
 
-    public String convertAndFix(AstRoot root,String injectCode) {
+    public String convertAndFix(AstRoot root, String injectCode) {
         String result = convert(root);
         result = result.replace("var InjectCode = KubeLoader", injectCode);
+        return result;
+    }
+
+    public String convertAndFixAll(AstRoot root, Map<MixinDSL, String> placeholderMap) {
+        String result = convert(root);
+        // 替换旧版占位符
+        result = result.replace("var InjectCode = KubeLoader", "");
+        // 替换所有唯一占位符
+        for (Map.Entry<MixinDSL, String> entry : placeholderMap.entrySet()) {
+            String fullPlaceholder = entry.getValue();
+            String action = entry.getKey().getAction();
+            // 提取变量名: __KubeLoaderInject_0
+            String varName = fullPlaceholder.substring(4, fullPlaceholder.indexOf(" = "));
+            
+            // 用正则替换，匹配各种空格变体
+            result = result.replaceAll("var\\s+" + varName + "\\s*=\\s*KubeLoader\\s*;?", action);
+            result = result.replaceAll("var\\s+" + varName + "\\s*=\\s*KubeLoader", action);
+        }
         return result;
     }
 }

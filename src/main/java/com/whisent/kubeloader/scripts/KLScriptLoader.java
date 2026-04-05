@@ -2,10 +2,7 @@ package com.whisent.kubeloader.scripts;
 
 import com.whisent.kubeloader.ConfigManager;
 import com.whisent.kubeloader.compat.GraalJSCompat;
-import com.whisent.kubeloader.graal.DynamicGraalConsole;
 import com.whisent.kubeloader.graal.GraalApi;
-import com.whisent.kubeloader.graal.event.GraalEventHandlerProxy;
-import com.whisent.kubeloader.impl.mixin.GraalPack;
 import com.whisent.kubeloader.klm.ast.AstToSourceConverter;
 import com.whisent.kubeloader.klm.ast.JSInjector;
 import com.whisent.kubeloader.klm.dsl.EventProbe;
@@ -17,6 +14,7 @@ import dev.latvian.mods.rhino.Parser;
 import dev.latvian.mods.rhino.ast.AstRoot;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -61,16 +59,20 @@ public class KLScriptLoader {
         AstRoot root = parser.parse(sourceCode, info.file, 0);
         AstToSourceConverter converter = new AstToSourceConverter(sourceCode);
         AtomicReference<String> modifiedSourceCode = new AtomicReference<>(sourceCode);
-        mixinMap.get(info.location).forEach(dsl -> {
+        // 按优先级升序排序，优先级高的后注入（addChildToFront 会把后注入的放更前面）
+        List<MixinDSL> sortedDsls = new ArrayList<>(mixinMap.get(info.location));
+        sortedDsls.sort((a, b) -> Integer.compare(a.getPriority(), b.getPriority()));
+        sortedDsls.forEach(dsl -> {
             if (Objects.equals(dsl.getType(), "EventSubscription")) {
                 modifiedSourceCode.set(EventProbe.applyTo(modifiedSourceCode.get(), dsl));
             } else if (Objects.equals(dsl.getType(), "FunctionDeclaration")) {
                 JSInjector.injectFromDSL(root, dsl);
-                modifiedSourceCode.set(converter.convertAndFix(root, dsl.getAction()));
             }
             //Debugger.out("修改后的源代码 " + info.location + ":\n" + modifiedSourceCode.get());
             pack.manager.scriptType.console.info("Apply mixin for " + info.location + " from " + dsl.getSourcePath());
         });
+        // 统一替换所有占位符
+        modifiedSourceCode.set(converter.convertAndFixAll(root, JSInjector.getPlaceholderMap()));
         return modifiedSourceCode.get();
     }
 

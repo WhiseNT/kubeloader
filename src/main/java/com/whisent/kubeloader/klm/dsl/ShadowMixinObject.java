@@ -7,6 +7,14 @@ import dev.latvian.mods.kubejs.typings.Info;
 /**
  * This class is only used to run through
  * JavaScript and has no actual functionality.
+ *
+ * <h3>定位语法</h3>
+ * <pre>
+ * .type() 已指定类型，.in() 只需写名称
+ * 示例: 'myFunc', 'console.log'
+ *
+ * .offset(行号) - 在函数体内第几行注入（从0开始）
+ * </pre>
  */
 public class ShadowMixinObject {
     public ShadowMixinObject() {
@@ -19,7 +27,11 @@ public class ShadowMixinObject {
     public ShadowMixinObject at(MixinAtEnum at) {
         return this;
     }
-    @Info("the mixin target's name,like 'testFunc' or 'StartupEvents.init'")
+    @Info("""
+        the mixin target.
+        Simple: 'functionName'
+        Locator: 'function:myFunc', 'call:console.log', 'for', 'if'
+        """)
     public ShadowMixinObject in(String target) {
         return this;
     }
@@ -33,6 +45,10 @@ public class ShadowMixinObject {
     }
     @Info("put your code here,create a function to wrap your code block")
     public ShadowMixinObject inject(Object action) {
+        return this;
+    }
+    @Info("inject at specific line offset inside the function body (0-based)")
+    public ShadowMixinObject offset(int offset) {
         return this;
     }
 }

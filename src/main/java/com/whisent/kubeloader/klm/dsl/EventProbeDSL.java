@@ -9,6 +9,8 @@ public class EventProbeDSL {
     private String functionBody;
     // 目标位置（第几个事件订阅）
     private int targetLocation = 0;
+    // 行偏移量（在函数体内第几行注入，从0开始）
+    private int offset = -1;
 
     public String getEventName() {
         return eventName;
@@ -42,6 +44,14 @@ public class EventProbeDSL {
         this.targetLocation = targetLocation;
     }
 
+    public int getOffset() {
+        return offset;
+    }
+
+    public void setOffset(int offset) {
+        this.offset = offset;
+    }
+
     @Override
     public String toString() {
         return "EventProbeDSL{" +
@@ -49,6 +59,7 @@ public class EventProbeDSL {
                 ", position='" + position + '\'' +
                 ", functionBody='" + functionBody + '\'' +
                 ", targetLocation='" + targetLocation + '\'' +
+                ", offset=" + offset +
                 '}';
     }
 }

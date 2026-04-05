@@ -1,7 +1,7 @@
 package com.whisent.kubeloader.graal;
 
 import dev.latvian.mods.kubejs.util.ConsoleJS;
-import com.whisent.kubeloader.graal.wrapper.WrapperHelper;
+//import com.whisent.kubeloader.graal.wrapper.WrapperHelper;
 import org.graalvm.polyglot.Value;
 import org.graalvm.polyglot.proxy.ProxyExecutable;
 import org.graalvm.polyglot.proxy.ProxyObject;
@@ -31,7 +31,7 @@ public class DynamicGraalConsole implements ProxyObject {
                 String line = args[1].asString();
                 Value messages = args[2];
                 String formatted = formatMessages(messages);
-                String fullMsg = "[" + filePath + ":" + line + "] " + formatted;
+                String fullMsg = filePath + "#" + line + ": " + formatted;
                 switch(level) {
                     case "log": console.log(fullMsg); break;
                     case "info": console.info(fullMsg); break;
@@ -54,8 +54,7 @@ public class DynamicGraalConsole implements ProxyObject {
             else if (v.isString()) sb.append(v.asString());
             else if (v.isNumber() || v.isBoolean()) sb.append(v.toString());
             else {
-                Object unwrapped = WrapperHelper.unwrap(v);
-                sb.append(unwrapped);
+                sb.append(v);
             }
         }
         return sb.toString();
