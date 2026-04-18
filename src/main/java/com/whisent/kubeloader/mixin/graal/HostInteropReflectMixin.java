@@ -5,7 +5,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Coerce;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
-import com.whisent.kubeloader.utils.graal.KJSNameRemapper;
+import com.whisent.kubeloader.graal.KJSNameRemapper;
 
 @Mixin(targets = "com.oracle.truffle.host.HostInteropReflect", remap = false)
 public class HostInteropReflectMixin {

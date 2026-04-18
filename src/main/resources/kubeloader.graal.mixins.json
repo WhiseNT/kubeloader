@@ -7,10 +7,7 @@
   "plugin": "com.whisent.kubeloader.mixin.ConditionalMixinPlugin",
   "mixins": [
     "graal.HostInteropReflectMixin",
-    "graal.HostObjectMixin",
-    "graal.HostMethodDescSingleMethodAccessor",
-    "graal.HostMethodDescSingleMethodReflectBaseMixin",
-    "graal.HostMethodDescSingleMethodMHBaseMixin"
+    "graal.HostObjectMixin"
   ],
   "client": [
   ],

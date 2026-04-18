@@ -230,7 +230,7 @@ public class GraalApi {
         }
         
         HostAccess hostAccess = getHostAccess();
-        
+
         Context ctx = Context.newBuilder("js")
             .engine(sharedEngine)
             .allowAllAccess(true)
@@ -239,7 +239,6 @@ public class GraalApi {
             .allowNativeAccess(true)
             .allowExperimentalOptions(true)
             .build();
-
         ctx.eval("js", """
             Java.loadClass = Java.type
             Java.class = Java.type("java.lang.Class").forName("java.lang.Class")

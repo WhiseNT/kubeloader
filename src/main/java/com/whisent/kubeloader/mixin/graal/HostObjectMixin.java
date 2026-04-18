@@ -8,7 +8,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import com.oracle.truffle.api.nodes.Node;
 import com.oracle.truffle.api.profiles.InlinedBranchProfile;
-import com.whisent.kubeloader.utils.graal.KJSNameRemapper;
+import com.whisent.kubeloader.graal.KJSNameRemapper;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
