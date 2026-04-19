@@ -2,7 +2,9 @@ package com.whisent.kubeloader.scripts;
 
 import com.whisent.kubeloader.ConfigManager;
 import com.whisent.kubeloader.compat.GraalJSCompat;
+import com.whisent.kubeloader.definition.meta.Engine;
 import com.whisent.kubeloader.graal.GraalApi;
+import com.whisent.kubeloader.impl.mixin.ScriptFileInfoInterface;
 import com.whisent.kubeloader.klm.ast.AstToSourceConverter;
 import com.whisent.kubeloader.klm.ast.JSInjector;
 import com.whisent.kubeloader.klm.dsl.EventProbe;
@@ -83,11 +85,43 @@ public class KLScriptLoader {
         return file.endsWith(".js");
     }
     public static void evalString(ScriptPack pack,ScriptFileInfo info,String code) {
-
-        if (GraalJSCompat.canUseGraalJS) {
+        // 获取脚本指定的引擎
+        Engine scriptEngine = getScriptEngine(info);
+        
+        // 根据引擎类型选择执行方式
+        if (scriptEngine == Engine.both) {
+            // 在两个引擎中都加载
+            System.out.println("[KubeLoader] Evaluating script with BOTH engines: " + info.location);
+            
+            // 先用 GraalJS 加载
+            if (GraalJSCompat.canUseGraalJS()) {
+                try {
+                    System.out.println("[KubeLoader] Evaluating with GraalJS: " + info.location);
+                    graalEvalString(pack, info, code);
+                } catch (Exception e) {
+                    System.out.println("[KubeLoader] GraalJS evaluation failed: " + e.getMessage());
+                }
+            } else {
+                System.out.println("[KubeLoader] GraalJS not available, skipping GraalJS evaluation");
+            }
+            
+            // 再用 Rhino 加载
+            try {
+                System.out.println("[KubeLoader] Evaluating with Rhino: " + info.location);
+                pack.manager.context.evaluateString(
+                        pack.scope,
+                        code,
+                        info.location,
+                        1,
+                        (Object)null
+                );
+            } catch (Exception e) {
+                System.out.println("[KubeLoader] Rhino evaluation failed: " + e.getMessage());
+            }
+        } else if (scriptEngine == Engine.graaljs && GraalJSCompat.canUseGraalJS()) {
             System.out.println("[KubeLoader] Evaluating script with GraalJS: " + info.location);
             graalEvalString(pack, info, code);
-        } else {
+        } else if (scriptEngine == Engine.rhino) {
             System.out.println("[KubeLoader] Evaluating script with Rhino: " + info.location);
             pack.manager.context.evaluateString(
                     pack.scope,
@@ -96,8 +130,37 @@ public class KLScriptLoader {
                     1,
                     (Object)null
             );
+        } else {
+            // DEFAULT：根据系统配置决定
+            if (GraalJSCompat.canUseGraalJS()) {
+                System.out.println("[KubeLoader] Evaluating script with GraalJS (DEFAULT): " + info.location);
+                graalEvalString(pack, info, code);
+            } else {
+                System.out.println("[KubeLoader] Evaluating script with Rhino (DEFAULT): " + info.location);
+                pack.manager.context.evaluateString(
+                        pack.scope,
+                        code,
+                        info.location,
+                        1,
+                        (Object)null
+                );
+            }
         }
     }
+    
+    /**
+     * 获取脚本指定的引擎
+     * @param info 脚本文件信息
+     * @return 引擎类型，如果未指定则返回DEFAULT
+     */
+    private static Engine getScriptEngine(ScriptFileInfo info) {
+        if (info instanceof ScriptFileInfoInterface) {
+            ScriptFileInfoInterface fileInfoInterface = (ScriptFileInfoInterface) info;
+            return fileInfoInterface.kubeLoader$getEngine().orElse(Engine.default_engine);
+        }
+        return Engine.default_engine;
+    }
+    
     public static void graalEvalString(ScriptPack pack,ScriptFileInfo info, String code) {
         if (!GraalJSCompat.canUseGraalJS) {
             pack.manager.context.evaluateString(
@@ -151,6 +214,28 @@ public class KLScriptLoader {
         /** Get script directory path */
         public String getPath() {
             return info.file;
+        }
+        
+        /** Get script engine type */
+        public String getEngine() {
+            if (info instanceof ScriptFileInfoInterface) {
+                ScriptFileInfoInterface fileInfoInterface = (ScriptFileInfoInterface) info;
+                return fileInfoInterface.kubeLoader$getEngine()
+                    .map(Engine::name)
+                    .orElse("default_engine");
+            }
+            return "default_engine";
+        }
+        
+        /** Check if script should be loaded in both engines */
+        public boolean isBothEngines() {
+            if (info instanceof ScriptFileInfoInterface) {
+                ScriptFileInfoInterface fileInfoInterface = (ScriptFileInfoInterface) info;
+                return fileInfoInterface.kubeLoader$getEngine()
+                    .map(engine -> engine == Engine.both)
+                    .orElse(false);
+            }
+            return false;
         }
         
         @Override

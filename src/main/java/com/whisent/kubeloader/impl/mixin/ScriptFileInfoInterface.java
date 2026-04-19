@@ -1,9 +1,11 @@
 package com.whisent.kubeloader.impl.mixin;
 
+import com.whisent.kubeloader.definition.meta.Engine;
 import dev.latvian.mods.kubejs.script.ScriptManager;
 import dev.latvian.mods.kubejs.script.ScriptSource;
 
 import java.io.IOException;
+import java.util.Optional;
 import java.util.Set;
 
 public interface ScriptFileInfoInterface {
@@ -20,4 +22,16 @@ public interface ScriptFileInfoInterface {
 
     Set<String> kubeLoader$getSides();
     String mixin = "";
+    
+    /**
+     * 获取脚本指定的引擎
+     * @return 引擎类型，如果未指定则返回Optional.empty()
+     */
+    Optional<Engine> kubeLoader$getEngine();
+    
+    /**
+     * 设置脚本使用的引擎
+     * @param engine 引擎类型
+     */
+    void kubeLoader$setEngine(Engine engine);
 }

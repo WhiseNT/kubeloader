@@ -2,7 +2,9 @@ package com.whisent.kubeloader.mixin;
 
 
 import com.whisent.kubeloader.compat.GraalJSCompat;
+import com.whisent.kubeloader.definition.inject.SortablePacksHolder;
 import com.whisent.kubeloader.impl.mixin.ScriptManagerInterface;
+import com.whisent.kubeloader.plugin.ContentPacksBinding;
 import dev.latvian.mods.kubejs.script.BindingsEvent;
 
 import org.spongepowered.asm.mixin.Mixin;
@@ -20,9 +22,14 @@ public class BindingsEventMixin {
             var bindings = ((ScriptManagerInterface)thiz().manager).getKubeLoader$bindings();
 
             if ("Java".equals(name)) {
-                // 保留特殊的Java和Text绑定
+                //特殊处理Java绑定
                 return;
-            } else {
+            } else if ("ContentPacks".equals(name)) {
+                bindings.remove(name);
+                var packsHolder = (SortablePacksHolder) thiz().manager;
+                bindings.put(name,new ContentPacksBinding(thiz().getType(), packsHolder));
+                return;
+            }else {
                 // 移除旧绑定并添加新绑定
                 bindings.remove(name);
                 bindings.put(name, value);
