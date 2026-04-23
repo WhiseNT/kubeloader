@@ -31,6 +31,12 @@ public class KLUtil {
     public static String testString(String str) {
         return str;
     }
+    public static String testString(Double number) {
+        return "double:" +  String.valueOf(number);
+    }
+    public static String testString(Integer integer) {
+        return "int:" + String.valueOf(integer) ;
+    }
 
     public static String test() {
         String testTScode = """
