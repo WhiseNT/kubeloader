@@ -23,7 +23,6 @@ import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
 
-// 我好像不小心把我之前实现的行数显示搞坏了, 额Whise你可以先修一下, 我没空我还要去整其他的
 public class GraalApi {
     private static final Logger LOGGER = Kubeloader.LOGGER;
     private static volatile HostAccess CACHED_HOST_ACCESS;
