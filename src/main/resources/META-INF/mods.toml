@@ -37,7 +37,7 @@ ordering = "NONE"
 side = "BOTH"
 
 [[dependencies."${mod_id}"]]
-modId = "graaljs"
+modId = "graal"
 mandatory = false
 versionRange = "*"
 ordering = "BEFORE"

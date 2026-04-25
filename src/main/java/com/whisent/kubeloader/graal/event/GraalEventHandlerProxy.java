@@ -5,10 +5,10 @@ import dev.latvian.mods.kubejs.event.EventExit;
 import dev.latvian.mods.kubejs.event.IEventHandler;
 import dev.latvian.mods.kubejs.script.ScriptType;
 import dev.latvian.mods.kubejs.util.ListJS;
-import org.graalvm.polyglot.Context;
-import org.graalvm.polyglot.PolyglotException;
-import org.graalvm.polyglot.Value;
-import org.graalvm.polyglot.proxy.ProxyExecutable;
+import graal.graalvm.polyglot.Context;
+import graal.graalvm.polyglot.PolyglotException;
+import graal.graalvm.polyglot.Value;
+import graal.graalvm.polyglot.proxy.ProxyExecutable;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 

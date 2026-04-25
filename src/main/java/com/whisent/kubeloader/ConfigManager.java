@@ -113,7 +113,7 @@ public class ConfigManager {
      */
     private static boolean checkGraalJSAvailable() {
         try {
-            Class.forName("org.graalvm.polyglot.Engine");
+            Class.forName("graal.graalvm.polyglot.Engine");
             return true;
         } catch (ClassNotFoundException e) {
             return false;

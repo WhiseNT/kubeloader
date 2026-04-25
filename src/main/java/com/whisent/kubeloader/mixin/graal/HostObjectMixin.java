@@ -12,8 +12,8 @@ import com.oracle.truffle.api.nodes.Node;
 import com.oracle.truffle.api.profiles.InlinedBranchProfile;
 import com.whisent.kubeloader.graal.event.GraalEventSignal;
 import com.whisent.kubeloader.graal.KJSNameRemapper;
-import org.graalvm.polyglot.Value;
-import org.graalvm.polyglot.proxy.ProxyExecutable;
+import graal.graalvm.polyglot.Value;
+import graal.graalvm.polyglot.proxy.ProxyExecutable;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;

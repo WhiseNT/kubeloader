@@ -2,7 +2,7 @@ package com.whisent.kubeloader.graal.event;
 
 import dev.latvian.mods.kubejs.event.EventGroupWrapper;
 import dev.latvian.mods.kubejs.event.EventHandler;
-import org.graalvm.polyglot.proxy.ProxyObject;
+import graal.graalvm.polyglot.proxy.ProxyObject;
 
 public class GraalEventGroupProxy implements ProxyObject {
     private final EventGroupWrapper wrapper;
@@ -31,7 +31,7 @@ public class GraalEventGroupProxy implements ProxyObject {
     }
 
     @Override
-    public void putMember(String key, org.graalvm.polyglot.Value value) {
+    public void putMember(String key, graal.graalvm.polyglot.Value value) {
         throw new UnsupportedOperationException("Cannot set event handlers directly on event group");
     }
 }

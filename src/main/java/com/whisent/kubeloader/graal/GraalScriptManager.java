@@ -5,7 +5,7 @@ import com.whisent.kubeloader.impl.mixin.ScriptManagerInterface;
 import dev.latvian.mods.kubejs.script.ScriptManager;
 import dev.latvian.mods.kubejs.script.ScriptPack;
 import dev.latvian.mods.kubejs.script.ScriptType;
-import org.graalvm.polyglot.Context;
+import graal.graalvm.polyglot.Context;
 
 import java.util.List;
 

@@ -5,8 +5,8 @@ import dev.latvian.mods.kubejs.script.ScriptType;
 import dev.latvian.mods.kubejs.KubeJSPlugin;
 import dev.latvian.mods.kubejs.util.KubeJSPlugins;
 import dev.latvian.mods.rhino.util.wrap.TypeWrappers;
-import org.graalvm.polyglot.HostAccess;
-import org.graalvm.polyglot.Value;
+import graal.graalvm.polyglot.HostAccess;
+import graal.graalvm.polyglot.Value;
 import com.whisent.kubeloader.Kubeloader;
 
 import java.lang.reflect.Field;

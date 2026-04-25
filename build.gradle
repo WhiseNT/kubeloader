@@ -117,8 +117,9 @@ dependencies {
     implementation fg.deobf("curse.maven:rhino-416294:6186971")
     implementation fg.deobf("curse.maven:architectury-api-419699:5137938")
     implementation fg.deobf("curse.maven:probejs-585406:5227399")
-//    compileOnly fg.deobf("curse.maven:graaljs-1284543:6642435")
-    implementation fg.deobf("curse.maven:graaljs-1284543:6642435")
+    //compileOnly fg.deobf("curse.maven:graaljs-1284543:6642435")
+//    implementation fg.deobf("curse.maven:graaljs-1284543:6642435")
+    implementation fg.deobf("curse.maven:graal-1504336:7983194")
 
     
     annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'

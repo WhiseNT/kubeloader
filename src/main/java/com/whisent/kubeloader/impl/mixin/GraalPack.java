@@ -1,7 +1,6 @@
 package com.whisent.kubeloader.impl.mixin;
 
 import com.whisent.kubeloader.graal.DynamicGraalConsole;
-import org.graalvm.polyglot.Context;
 
 public interface GraalPack {
     void kubeLoader$setGraalContext(Object context);

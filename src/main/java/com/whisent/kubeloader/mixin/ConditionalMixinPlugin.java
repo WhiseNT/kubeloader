@@ -1,5 +1,6 @@
 package com.whisent.kubeloader.mixin;
 
+import com.whisent.kubeloader.ConfigManager;
 import net.minecraftforge.fml.ModList;
 import org.objectweb.asm.tree.ClassNode;
 import org.spongepowered.asm.mixin.extensibility.IMixinConfigPlugin;
@@ -11,12 +12,12 @@ import java.util.Set;
 public class ConditionalMixinPlugin implements IMixinConfigPlugin {
 
     private static final String GRAALJS_MOD_ID = "graaljs";
+    private static final String GRAAL_MOD_ID = "graal";
     private boolean isGraalJSLoaded;
 
     @Override
     public void onLoad(String mixinPackage) {
-        // 通过 Forge ModList 检测 graaljs 模组是否实际加载
-        this.isGraalJSLoaded = true;
+        this.isGraalJSLoaded = ConfigManager.shouldUseModernJS();
 
         System.out.println("[KubeLoader] GraalJS mod loaded: " + isGraalJSLoaded);
     }

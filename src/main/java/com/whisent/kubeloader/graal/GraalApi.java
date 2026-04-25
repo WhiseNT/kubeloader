@@ -18,8 +18,8 @@ import dev.latvian.mods.kubejs.script.ScriptPack;
 import dev.latvian.mods.kubejs.script.ScriptType;
 import dev.latvian.mods.kubejs.util.ConsoleJS;
 
+import graal.graalvm.polyglot.*;
 import org.apache.logging.log4j.Logger;
-import org.graalvm.polyglot.*;
 
 import java.io.IOException;
 

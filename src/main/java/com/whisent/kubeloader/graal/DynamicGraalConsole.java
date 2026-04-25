@@ -2,9 +2,9 @@ package com.whisent.kubeloader.graal;
 
 import dev.latvian.mods.kubejs.util.ConsoleJS;
 //import com.whisent.kubeloader.graal.wrapper.WrapperHelper;
-import org.graalvm.polyglot.Value;
-import org.graalvm.polyglot.proxy.ProxyExecutable;
-import org.graalvm.polyglot.proxy.ProxyObject;
+import graal.graalvm.polyglot.Value;
+import graal.graalvm.polyglot.proxy.ProxyExecutable;
+import graal.graalvm.polyglot.proxy.ProxyObject;
 
 import java.util.HashMap;
 import java.util.Map;
