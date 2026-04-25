@@ -37,8 +37,14 @@ ordering = "NONE"
 side = "BOTH"
 
 [[dependencies."${mod_id}"]]
-modId = "javetjs"
+modId = "graaljs"
 mandatory = false
 versionRange = "*"
 ordering = "BEFORE"
 side = "BOTH"
+
+[[mixins]]
+config = "kubeloader.mixins.json"
+
+[[mixins]]
+config = "kubeloader.graal.mixins.json"

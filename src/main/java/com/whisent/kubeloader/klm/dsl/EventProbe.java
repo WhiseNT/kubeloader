@@ -45,6 +45,7 @@ public class EventProbe {
         dsl.setPosition(mixinDSL.getAt());
         dsl.setFunctionBody(mixinDSL.getAction());
         dsl.setTargetLocation(mixinDSL.getTargetLocation());
+        dsl.setOffset(mixinDSL.getOffset());
         return dsl;
 
     }

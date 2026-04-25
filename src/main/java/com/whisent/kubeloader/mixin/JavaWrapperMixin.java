@@ -11,8 +11,6 @@ import org.spongepowered.asm.mixin.Unique;
 
 @Mixin(JavaWrapper.class)
 public class JavaWrapperMixin {
-    @Shadow @Final private ScriptManager manager;
-
     @Unique
     @RemapForJS("type")
     @Info("""
@@ -20,6 +18,6 @@ public class JavaWrapperMixin {
     """
     )
     public void kubeLoader$type(String className) {
-        manager.loadJavaClass(className, true);
+        ((JavaWrapper)((Object)this)).loadClass(className);
     }
 }

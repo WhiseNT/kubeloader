@@ -51,7 +51,7 @@ public class ModContentPackProvider implements ContentPackProvider {
             return new ModContentPack(mod, ContentPackUtils.loadMetaDataOrThrow(file.getInputStream(entry)));
         } catch (Exception e) {
             // log
-            Kubeloader.LOGGER.error("Error when searching for ModContentPack in mod '{}'", mod.getModId(), e);
+            Kubeloader.LOGGER.warn("Can't find any ModContentPack in mod '{}'", mod.getModId());
             return null;
         }
     }

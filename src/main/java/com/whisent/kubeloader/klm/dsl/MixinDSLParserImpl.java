@@ -325,6 +325,71 @@ public class MixinDSLParserImpl {
             Debugger.out("未找到DOT或已到达文件末尾");
         }
 
+        // 解析.offset(...) - 可选
+        // 跳过可能存在的换行符
+        skipWhitespaceAndNewlines();
+        Debugger.out("检查offset方法，当前位置: " + position + "，当前token类型: " + (position < tokens.size() ? currentToken().type : "EOF"));
+        if (position < tokens.size() && currentToken().type == TokenType.DOT) {
+            Debugger.out("找到点号，跳过点号");
+            match(TokenType.DOT); // 跳过点号
+            skipWhitespaceAndNewlines();
+            
+            Token offsetToken = currentToken();
+            Debugger.out("offsetToken类型: " + offsetToken.type + "，值: " + offsetToken.value);
+            if (offsetToken.type == TokenType.IDENTIFIER && "offset".equals(offsetToken.value)) {
+                Debugger.out("找到offset方法");
+                position++; // 手动增加位置，跳过offset标识符
+                skipWhitespaceAndNewlines();
+                
+                if (position >= tokens.size() || currentToken().type != TokenType.LEFT_PAREN) {
+                    Debugger.out("期望'('但未找到，当前位置: " + position + "，当前token类型: " + (position < tokens.size() ? currentToken().type : "EOF"));
+                    if (position < tokens.size()) {
+                        Debugger.out("当前token值: " + currentToken().value);
+                    }
+                    return dsl;
+                }
+                position++; // 跳过左括号
+                
+                skipWhitespaceAndNewlines();
+                if (position >= tokens.size()) {
+                    Debugger.out("意外到达文件末尾");
+                    return dsl;
+                }
+                
+                Token offsetValueToken = currentToken();
+                Debugger.out("offsetValueToken类型: " + offsetValueToken.type + "，值: " + offsetValueToken.value);
+                if (offsetValueToken.type != TokenType.NUMBER_LITERAL) {
+                    Debugger.out("期望数字字面量但未找到，实际类型: " + offsetValueToken.type);
+                    return dsl;
+                }
+                
+                try {
+                    int offset = Integer.parseInt(offsetValueToken.value);
+                    dsl.setOffset(offset);
+                    Debugger.out("解析到偏移量: " + offset);
+                } catch (NumberFormatException e) {
+                    Debugger.out("无法解析偏移量为数字: " + offsetValueToken.value);
+                    return dsl;
+                }
+                
+                position++; // 跳过数字字面量
+                skipWhitespaceAndNewlines();
+                
+                if (position >= tokens.size() || currentToken().type != TokenType.RIGHT_PAREN) {
+                    Debugger.out("期望')'但未找到，当前位置: " + position + "，当前token类型: " + (position < tokens.size() ? currentToken().type : "EOF"));
+                    return dsl;
+                }
+                position++; // 跳过右括号
+                Debugger.out("offset方法解析完成");
+            } else {
+                // 不是offset方法，回退位置
+                Debugger.out("不是offset方法，回退位置");
+                position--;
+            }
+        } else {
+            Debugger.out("未找到DOT或已到达文件末尾");
+        }
+
         // 解析.inject(...)
         Debugger.out("开始解析.inject方法，当前位置: " + position);
         // 跳过可能存在的换行符

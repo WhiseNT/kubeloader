@@ -1,11 +1,9 @@
 package com.whisent.kubeloader;
 
-import com.caoccao.javet.interop.V8Host;
-import com.caoccao.javet.interop.V8Runtime;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import com.whisent.javetjs.babel.BabelWrapper;
-import com.whisent.kubeloader.compat.JavetJSCompat;
+
+import com.whisent.kubeloader.compat.GraalJSCompat;
 import com.whisent.kubeloader.event.KubeLoaderClientEventHandler;
 import com.whisent.kubeloader.impl.ContentPackProviders;
 import com.whisent.kubeloader.impl.dummy.DummyContentPack;
@@ -63,8 +61,11 @@ public class Kubeloader
 
     public Kubeloader() throws IOException {
         IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
+        GraalJSCompat.init();
+        ConfigManager.init();
 
-        JavetJSCompat.init();
+
+
         //LOGGER.info(ResourcePath.toString());
         //LOGGER.info(PackPath.toString());
         //将resource写入,先清理资源文件再进行写入

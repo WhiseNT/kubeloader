@@ -1,9 +1,12 @@
 package com.whisent.kubeloader.mixin;
 
+import com.whisent.kubeloader.ConfigManager;
 import com.whisent.kubeloader.Kubeloader;
+import com.whisent.kubeloader.compat.GraalJSCompat;
 import com.whisent.kubeloader.definition.ContentPack;
 import com.whisent.kubeloader.definition.PackLoadingContext;
 import com.whisent.kubeloader.definition.inject.SortablePacksHolder;
+import com.whisent.kubeloader.graal.GraalScriptManager;
 import com.whisent.kubeloader.impl.CommonScriptsLoader;
 import com.whisent.kubeloader.impl.ContentPackProviders;
 import com.whisent.kubeloader.impl.depends.DependencyReport;
@@ -41,12 +44,19 @@ import java.util.stream.Collectors;
 public abstract class ScriptManagerMixin implements SortablePacksHolder, ScriptManagerInterface,AccessScriptManager {
 
     @Shadow @Final public Map<String, ScriptPack> packs;
+
+    @Shadow @Final public ScriptType scriptType;
     @Unique
     private Map<String, SortableContentPack> kubeLoader$sortablePacks;
 
     @Unique
     private Map<String, List<MixinDSL>> kubeLoader$mixinDSLs = new HashMap<>();
 
+    @Unique
+    public Map<String, Object> kubeLoader$scriptContexts = new HashMap<>();
+
+    @Unique
+    public Map<String,Object> kubeLoader$bindings = new HashMap<>();
     @Redirect(method = "load", at = @At(value = "INVOKE", target = "Ljava/util/Map;values()Ljava/util/Collection;"))
     private Collection<ScriptPack> injectPacks(Map<String, ScriptPack> original) {
 
@@ -63,35 +73,52 @@ public abstract class ScriptManagerMixin implements SortablePacksHolder, ScriptM
         }
 
         var indexed = packs.stream().collect(Collectors.toMap(
-            ContentPack::id,
-            Function.identity()
+                ContentPack::id,
+                Function.identity()
         ));
 
-        var sortablePacks = new HashMap<String, SortableContentPack>();
 
+
+        var sortablePacks = new HashMap<String, SortableContentPack>();
+        thiz().scriptType.console.log("[KubeLoader] JS Engine: "+ ConfigManager.getConfig().getEngine());
         for (var contentPack : packs) {
             Kubeloader.LOGGER.debug("寻找到contentPack: {}", contentPack);
             var scriptPack = contentPack.getPack(context);
+
             var namespace = contentPack.id();
+            if (GraalJSCompat.canUseGraalJS()) {
+                GraalScriptManager.loadContentPack(this, scriptType, scriptPack, namespace);
+            }
 
             List<ScriptPack> scriptPacks;
             if (KubeJS.MOD_ID.equals(namespace)) {
-                scriptPacks = original
-                    .values()
-                    .stream()
+                System.out.println("[KubeLoader] Detected KubeJS's own content pack. Loading all script packs from original map.");
+                if (GraalJSCompat.canUseGraalJS()) {
+                    System.out.println("[KubeLoader] Setting context for all original script packs.");
+                    for (ScriptPack pack : original.values()) {
+                        String packNamespace = pack.info.namespace;
+                        GraalScriptManager.loadScriptPack(this, packNamespace);
+                    }
+                }
+                scriptPacks = original.values().stream()
                     .filter(p -> !indexed.containsKey(p.info.namespace))
                     .toList();
+                if (GraalJSCompat.canUseGraalJS()) {
+                    for (ScriptPack pack : scriptPacks) {
+                        System.out.println("[KubeLoader] Setting context for all original script packs.");
+                        GraalScriptManager.setContextForPack(this, pack);
+                    }
+                }
             } else if (scriptPack != null) {
                 scriptPacks = List.of(contentPack.postProcessPack(context, scriptPack));
             } else {
-                // 空的，可以被诸如没有xxxx_scirpts文件夹之类的情况出发，此时仍然参与排序
                 scriptPacks = List.of();
             }
 
             var sortable = new SortableContentPack(
-                namespace,
-                contentPack,
-                scriptPacks
+                    namespace,
+                    contentPack,
+                    scriptPacks
             );
             sortablePacks.put(namespace, sortable);
         }
@@ -103,10 +130,10 @@ public abstract class ScriptManagerMixin implements SortablePacksHolder, ScriptM
 
         try {
             return TopoSort.sort(sortablePacks.values())
-                .stream()
-                .map(SortableContentPack::scriptPacks)
-                .flatMap(Collection::stream)
-                .toList();
+                    .stream()
+                    .map(SortableContentPack::scriptPacks)
+                    .flatMap(Collection::stream)
+                    .toList();
         } catch (TopoNotSolved | TopoPreconditionFailed e) {
             context.console().error(e);
             // TODO: 决定是否要在有错误发生的时候 不 加载 ContentPack
@@ -120,7 +147,7 @@ public abstract class ScriptManagerMixin implements SortablePacksHolder, ScriptM
     private void kubeLoader$loadFile(ScriptPack pack, ScriptFileInfo fileInfo, ScriptSource source, CallbackInfo ci) {
         String side = thiz().scriptType.name;
         Set<String> sides = ((ScriptFileInfoInterface)fileInfo).kubeLoader$getSides();
-        
+
         // 如果没有定义side，则不跳过
         if (sides.isEmpty()) {
             return;
@@ -205,7 +232,20 @@ public abstract class ScriptManagerMixin implements SortablePacksHolder, ScriptM
     public Map<String, List<MixinDSL>> getKubeLoader$mixinDSLs() {
         return kubeLoader$mixinDSLs;
     }
+
+    public Map<String, Object> getKubeLoader$scriptContexts() {
+        return this.kubeLoader$scriptContexts;
+    }
+
+
+    public Map<String,Object> getKubeLoader$bindings() {
+        return this.kubeLoader$bindings;
+    }
+
     public ScriptManager thiz() {
         return (ScriptManager) (Object) this;
     }
 }
+
+
+

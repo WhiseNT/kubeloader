@@ -1,12 +1,13 @@
 package com.whisent.kubeloader.klm.dsl;
 
 import dev.latvian.mods.kubejs.script.ScriptFile;
+import dev.latvian.mods.kubejs.typings.Info;
 
 public class MixinDSL {
     private ScriptFile file;
 
     private String sourcePath;
-    //目标的文件
+    //目标文件路径
     private String targetFile;
     //具体的位置（如多个事件订阅,用数字来定位第几个事件)
     private int targetLocation = 0;
@@ -16,8 +17,12 @@ public class MixinDSL {
     private String at;
     //注入的代码
     private String actionCode;
-    //注入对象的名称,如函数名
+    //注入目标的名称,如函数名
     private String target;
+    //定位表达式（新版: function:myFunc, call:console.log）
+    private String locatorExpression;
+    //行偏移量（在函数体内第几行注入，从0开始）
+    private int offset = -1;
     //优先级，优先级越高的MixinDSL越先应用
     private int priority = 0;
 
@@ -74,6 +79,7 @@ public class MixinDSL {
 
     public void setTarget(String target) {
         this.target = target;
+        this.locatorExpression = target;
     }
 
     public void setSourcePath(String sourcePath) {
@@ -89,6 +95,36 @@ public class MixinDSL {
         this.file = file;
     }
 
+    /**
+     * 设置定位表达式（新版 API）
+     * @param expression 如 function:myFunc, call:console.log
+     */
+    public void setLocatorExpression(String expression) {
+        this.locatorExpression = expression;
+    }
+
+    /**
+     * 获取定位表达式字符串
+     */
+    public String getLocatorExpression() {
+        return locatorExpression != null ? locatorExpression : target;
+    }
+
+    /**
+     * 获取行偏移量（-1表示未设置，使用head/tail）
+     */
+    public int getOffset() {
+        return offset;
+    }
+
+    /**
+     * 设置行偏移量
+     * @param offset 在函数体内第几行注入（从0开始）
+     */
+    public void setOffset(int offset) {
+        this.offset = offset;
+    }
+
     @Override
     public String toString() {
         return "MixinDSL{" +
@@ -99,6 +135,8 @@ public class MixinDSL {
                 ", at='" + at + '\'' +
                 ", actionCode='" + actionCode + '\'' +
                 ", target='" + target + '\'' +
+                ", locatorExpression='" + locatorExpression + '\'' +
+                ", offset=" + offset +
                 ", priority='" + priority + '\'' +
                 '}';
     }
