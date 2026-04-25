@@ -35,6 +35,7 @@ public class KLUtil {
         return "double:" +  String.valueOf(number);
     }
     public static String testString(Integer integer) {
+
         return "int:" + String.valueOf(integer) ;
     }
 

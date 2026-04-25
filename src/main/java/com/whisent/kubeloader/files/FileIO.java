@@ -10,6 +10,7 @@ import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.security.MessageDigest;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -250,5 +251,27 @@ public class FileIO {
     }
     public static BufferedReader file2reader(File file) throws FileNotFoundException {
         return new BufferedReader(new FileReader(file));
+    }
+
+    public static String getFileMD5(File file) throws IOException {
+        try (FileInputStream fis = new FileInputStream(file)) {
+            MessageDigest md = MessageDigest.getInstance("MD5");
+            byte[] buffer = new byte[8192];
+            int read;
+            while ((read = fis.read(buffer)) != -1) {
+                md.update(buffer, 0, read);
+            }
+            return bytesToHex(md.digest());
+        } catch (Exception e) {
+            throw new IOException("Failed to calculate MD5 for file: " + file.getName(), e);
+        }
+    }
+
+    private static String bytesToHex(byte[] bytes) {
+        StringBuilder sb = new StringBuilder();
+        for (byte b : bytes) {
+            sb.append(String.format("%02x", b));
+        }
+        return sb.toString();
     }
 }

@@ -4,6 +4,7 @@ import com.whisent.kubeloader.Kubeloader;
 import com.whisent.kubeloader.compat.GraalJSCompat;
 import com.whisent.kubeloader.graal.event.GraalEventGroupProxy;
 import com.whisent.kubeloader.graal.event.GraalEventHandlerProxy;
+import com.whisent.kubeloader.graal.event.GraalEventSignal;
 import com.whisent.kubeloader.graal.wrapper.GraalTypeWrappers;
 
 import com.whisent.kubeloader.impl.mixin.GraalPack;
@@ -302,10 +303,42 @@ public class GraalApi {
                     return null;
                 }
             } catch (Exception e) {
+                EventExit eventExit = extractEventExit(e);
+                if (eventExit != null) {
+                    throw eventExit;
+                }
                 type.console.error("Error in GraalJS event handler", e);
             }
             return null;
         };
+    }
+
+    private static EventExit extractEventExit(Throwable throwable) {
+        Throwable current = throwable;
+
+        while (current != null) {
+            if (current instanceof EventExit exit) {
+                return exit;
+            }
+            if (current instanceof GraalEventSignal signal) {
+                return signal.toEventExit();
+            }
+            if (current instanceof PolyglotException polyglot && polyglot.isHostException()) {
+                Throwable hostException = polyglot.asHostException();
+                if (hostException != null && hostException != current) {
+                    current = hostException;
+                    continue;
+                }
+            }
+
+            Throwable cause = current.getCause();
+            if (cause == null || cause == current) {
+                break;
+            }
+            current = cause;
+        }
+
+        return null;
     }
 
     public static void throwException(Throwable ex, EventExceptionHandler exh, EventJS event, EventHandlerContainer itr) throws EventExit {

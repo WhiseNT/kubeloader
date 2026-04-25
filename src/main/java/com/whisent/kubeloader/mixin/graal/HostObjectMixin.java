@@ -1,5 +1,7 @@
 package com.whisent.kubeloader.mixin.graal;
 
+import dev.latvian.mods.kubejs.event.EventExit;
+import dev.latvian.mods.kubejs.event.EventJS;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
@@ -8,7 +10,10 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import com.oracle.truffle.api.nodes.Node;
 import com.oracle.truffle.api.profiles.InlinedBranchProfile;
+import com.whisent.kubeloader.graal.event.GraalEventSignal;
 import com.whisent.kubeloader.graal.KJSNameRemapper;
+import org.graalvm.polyglot.Value;
+import org.graalvm.polyglot.proxy.ProxyExecutable;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -35,6 +40,23 @@ public class HostObjectMixin {
             CallbackInfoReturnable<Object> cir) {
 
         if (obj == null) return;
+        if (obj instanceof EventJS event && "cancel".equals(identifier)) {
+            cir.setReturnValue((ProxyExecutable) arguments -> {
+                if (arguments.length > 1) {
+                    throw new IllegalArgumentException("cancel() accepts at most one argument");
+                }
+
+                try {
+                    if (arguments.length == 0) {
+                        return event.cancel();
+                    }
+                    return event.cancel(convertGraalValueToJava(arguments[0]));
+                } catch (EventExit exit) {
+                    throw new GraalEventSignal(exit.result);
+                }
+            });
+            return;
+        }
         final Class<?> clazz = obj.getClass();
         if (KJSNameRemapper.hasDirectMember(clazz, identifier)) return;
         if (KJSNameRemapper.resolveAnnotationRemap(clazz, identifier) != null) return;
@@ -50,5 +72,24 @@ public class HostObjectMixin {
             if (cause instanceof RuntimeException) throw (RuntimeException) cause;
             throw new RuntimeException("Getter " + getterName + " on " + clazz.getName() + " threw", cause);
         } catch (NoSuchMethodException | IllegalAccessException ignored) {}
+    }
+
+    private static Object convertGraalValueToJava(Value value) {
+        if (value == null || value.isNull()) return null;
+        if (value.isHostObject()) return value.asHostObject();
+        if (value.isString()) return value.asString();
+        if (value.isNumber()) {
+            if (value.fitsInInt()) return value.asInt();
+            if (value.fitsInLong()) return value.asLong();
+            return value.asDouble();
+        }
+        if (value.isBoolean()) return value.asBoolean();
+        if (value.hasArrayElements()) {
+            long size = value.getArraySize();
+            Object[] array = new Object[(int) size];
+            for (int i = 0; i < size; i++) array[i] = convertGraalValueToJava(value.getArrayElement(i));
+            return array;
+        }
+        return value;
     }
 }

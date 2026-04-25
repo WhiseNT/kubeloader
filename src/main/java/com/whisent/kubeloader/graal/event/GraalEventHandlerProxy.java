@@ -1,10 +1,12 @@
 package com.whisent.kubeloader.graal.event;
 
 import dev.latvian.mods.kubejs.event.EventHandler;
+import dev.latvian.mods.kubejs.event.EventExit;
 import dev.latvian.mods.kubejs.event.IEventHandler;
 import dev.latvian.mods.kubejs.script.ScriptType;
 import dev.latvian.mods.kubejs.util.ListJS;
 import org.graalvm.polyglot.Context;
+import org.graalvm.polyglot.PolyglotException;
 import org.graalvm.polyglot.Value;
 import org.graalvm.polyglot.proxy.ProxyExecutable;
 
@@ -88,10 +90,42 @@ public class GraalEventHandlerProxy implements ProxyExecutable {
                     capturedContext.leave();
                 }
             } catch (Exception e) {
+                EventExit eventExit = extractEventExit(e);
+                if (eventExit != null) {
+                    throw eventExit;
+                }
                 type.console.error("Exception in GraalJS event handler: " + e.getClass().getName() + ": " + e.getMessage());
                 return null;
             }
         };
+    }
+
+    private static EventExit extractEventExit(Throwable throwable) {
+        Throwable current = throwable;
+
+        while (current != null) {
+            if (current instanceof EventExit exit) {
+                return exit;
+            }
+            if (current instanceof GraalEventSignal signal) {
+                return signal.toEventExit();
+            }
+            if (current instanceof PolyglotException polyglot && polyglot.isHostException()) {
+                Throwable hostException = polyglot.asHostException();
+                if (hostException != null && hostException != current) {
+                    current = hostException;
+                    continue;
+                }
+            }
+
+            Throwable cause = current.getCause();
+            if (cause == null || cause == current) {
+                break;
+            }
+            current = cause;
+        }
+
+        return null;
     }
 
     private static Object convertGraalValueToJava(Value value) {
