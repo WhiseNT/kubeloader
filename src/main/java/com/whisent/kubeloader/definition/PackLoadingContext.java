@@ -2,7 +2,6 @@ package com.whisent.kubeloader.definition;
 
 import com.whisent.kubeloader.mixin.AccessScriptManager;
 import dev.latvian.mods.kubejs.script.*;
-import dev.latvian.mods.kubejs.util.ConsoleJS;
 
 /**
  * @author ZZZank
@@ -36,8 +35,8 @@ public class PackLoadingContext {
         return type().console;
     }
 
-    public void loadFile(ScriptPack pack, ScriptFileInfo fileInfo, ScriptSource source) {
+    public void loadFile(ScriptPack pack, ScriptFileInfo fileInfo) {
         var access = (AccessScriptManager) manager;
-        access.kubeLoader$loadFile(pack, fileInfo, source);
+        access.kubeLoader$loadFile(pack, fileInfo);
     }
 }

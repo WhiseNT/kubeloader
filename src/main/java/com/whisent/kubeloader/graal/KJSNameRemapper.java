@@ -1,10 +1,7 @@
 package com.whisent.kubeloader.graal;
 
-import dev.latvian.mods.rhino.mod.util.RemappingHelper;
 import dev.latvian.mods.rhino.util.RemapForJS;
 import dev.latvian.mods.rhino.util.RemapPrefixForJS;
-import dev.latvian.mods.rhino.util.Remapper;
-import com.whisent.kubeloader.Kubeloader;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -17,18 +14,6 @@ public final class KJSNameRemapper {
     private static final ConcurrentHashMap<Class<?>, Map<String, String>> GETTER_CACHE = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<Class<?>, Set<String>> DIRECT_MEMBER_CACHE = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<Class<?>, Map<String, String>> FIELD_REMAP_CACHE = new ConcurrentHashMap<>();
-    
-    private static final Remapper MC_REMAPPER;
-
-    static {
-        Remapper r = null;
-        try {
-            r = RemappingHelper.getMinecraftRemapper();
-        } catch (Throwable t) {
-            Kubeloader.LOGGER.info("无法获取Remapper: " + t);
-        }
-        MC_REMAPPER = r;
-    }
 
     private static volatile java.lang.reflect.Method HOST_CLASS_DESC_FOR_CLASS;
     private static volatile java.lang.reflect.Method HOST_CLASS_DESC_LOOKUP_METHOD;
@@ -49,8 +34,7 @@ public final class KJSNameRemapper {
 
             HOST_CLASS_DESC_LOOKUP_FIELD = descClass.getDeclaredMethod("lookupField", String.class, boolean.class);
             HOST_CLASS_DESC_LOOKUP_FIELD.setAccessible(true);
-        } catch (Throwable t) {
-            Kubeloader.LOGGER.info("HostClassDesc 反射初始化失败: " + t);
+        } catch (Throwable ignored) {
         }
     }
     
@@ -115,14 +99,6 @@ public final class KJSNameRemapper {
                     map.putIfAbsent(javaName.substring(prefix.length()), javaName);
                 }
             }
-            if (MC_REMAPPER != null) {
-                try {
-                    String readable = MC_REMAPPER.getMappedMethod(clazz, method);
-                    if (readable != null && !readable.isEmpty() && !readable.equals(javaName)) {
-                        map.putIfAbsent(readable, javaName);
-                    }
-                } catch (Throwable ignored) {}
-            }
         }
         processHierarchyAnnotations(clazz, map, prefixes);
         return Collections.unmodifiableMap(map);
@@ -163,14 +139,6 @@ public final class KJSNameRemapper {
                 String fieldName = field.getName();
                 RemapForJS remap = field.getAnnotation(RemapForJS.class);
                 if (remap != null) map.putIfAbsent(remap.value(), fieldName);
-                if (MC_REMAPPER != null) {
-                    try {
-                        String mapped = MC_REMAPPER.getMappedField(current, field);
-                        if (mapped != null && !mapped.isEmpty() && !mapped.equals(fieldName)) {
-                            map.putIfAbsent(mapped, fieldName);
-                        }
-                    } catch (Throwable ignored) {}
-                }
                 map.putIfAbsent(fieldName, fieldName);
             }
             if (current.getSuperclass() != null) queue.add(current.getSuperclass());

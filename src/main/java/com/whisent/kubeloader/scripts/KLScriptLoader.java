@@ -10,6 +10,7 @@ import com.whisent.kubeloader.klm.ast.JSInjector;
 import com.whisent.kubeloader.klm.dsl.EventProbe;
 import com.whisent.kubeloader.klm.dsl.MixinDSL;
 import com.whisent.kubeloader.utils.Debugger;
+import dev.latvian.mods.kubejs.script.KubeJSContext;
 import dev.latvian.mods.kubejs.script.ScriptFileInfo;
 import dev.latvian.mods.kubejs.script.ScriptPack;
 import dev.latvian.mods.rhino.Parser;
@@ -24,9 +25,9 @@ import java.util.concurrent.atomic.AtomicReference;
 
 public class KLScriptLoader {
 
-    public static void load(ScriptPack pack, ScriptFileInfo info,
-                            Map<String, List<MixinDSL>> mixinMap, CallbackInfo ci)  {
-        String sourceCode = String.join("\n", info.lines);
+    public static void load(ScriptPack pack, ScriptFileInfo info, String[] lines,
+                            Map<String, List<MixinDSL>> mixinMap, KubeJSContext cx, CallbackInfo ci)  {
+        String sourceCode = String.join("\n", lines);
 
         //根据文件后缀进行处理
         if (isTsFile(info.file)) {
@@ -49,15 +50,15 @@ public class KLScriptLoader {
         }
         //先处理KLM
         if (mixinMap.getOrDefault(info.location,null)  != null ) {
-            sourceCode = applyMixin(pack,info,mixinMap,sourceCode);
+            sourceCode = applyMixin(cx, pack, info, mixinMap, sourceCode);
         }
-        evalString(pack,info,sourceCode);
+        evalString(cx, pack, info, sourceCode);
         ci.cancel();
     }
 
-    public static String applyMixin(ScriptPack pack,ScriptFileInfo info,
+    public static String applyMixin(KubeJSContext cx, ScriptPack pack,ScriptFileInfo info,
                                     Map<String, List<MixinDSL>> mixinMap,String sourceCode) {
-        Parser parser = new Parser(pack.manager.context);
+        Parser parser = new Parser(cx);
         AstRoot root = parser.parse(sourceCode, info.file, 0);
         AstToSourceConverter converter = new AstToSourceConverter(sourceCode);
         AtomicReference<String> modifiedSourceCode = new AtomicReference<>(sourceCode);
@@ -84,7 +85,7 @@ public class KLScriptLoader {
     public static boolean isJsFile(String file) {
         return file.endsWith(".js");
     }
-    public static void evalString(ScriptPack pack,ScriptFileInfo info,String code) {
+    public static void evalString(KubeJSContext cx, ScriptPack pack,ScriptFileInfo info,String code) {
         // 获取脚本指定的引擎
         Engine scriptEngine = getScriptEngine(info);
         
@@ -108,8 +109,8 @@ public class KLScriptLoader {
             // 再用 Rhino 加载
             try {
                 System.out.println("[KubeLoader] Evaluating with Rhino: " + info.location);
-                pack.manager.context.evaluateString(
-                        pack.scope,
+                cx.evaluateString(
+                    cx.topLevelScope,
                         code,
                         info.location,
                         1,
@@ -123,8 +124,8 @@ public class KLScriptLoader {
             graalEvalString(pack, info, code);
         } else if (scriptEngine == Engine.rhino) {
             System.out.println("[KubeLoader] Evaluating script with Rhino: " + info.location);
-            pack.manager.context.evaluateString(
-                    pack.scope,
+            cx.evaluateString(
+                cx.topLevelScope,
                     code,
                     info.location,
                     1,
@@ -137,8 +138,8 @@ public class KLScriptLoader {
                 graalEvalString(pack, info, code);
             } else {
                 System.out.println("[KubeLoader] Evaluating script with Rhino (DEFAULT): " + info.location);
-                pack.manager.context.evaluateString(
-                        pack.scope,
+                cx.evaluateString(
+                        cx.topLevelScope,
                         code,
                         info.location,
                         1,
@@ -163,8 +164,9 @@ public class KLScriptLoader {
     
     public static void graalEvalString(ScriptPack pack,ScriptFileInfo info, String code) {
         if (!GraalJSCompat.canUseGraalJS) {
-            pack.manager.context.evaluateString(
-                    pack.scope,
+            var cx = (KubeJSContext) pack.manager.contextFactory.enter();
+            cx.evaluateString(
+                    cx.topLevelScope,
                     code,
                     info.location,
                     1,

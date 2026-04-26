@@ -1,7 +1,6 @@
 package com.whisent.kubeloader.mixin;
 
 import com.whisent.kubeloader.ConfigManager;
-import net.minecraftforge.fml.ModList;
 import org.objectweb.asm.tree.ClassNode;
 import org.spongepowered.asm.mixin.extensibility.IMixinConfigPlugin;
 import org.spongepowered.asm.mixin.extensibility.IMixinInfo;

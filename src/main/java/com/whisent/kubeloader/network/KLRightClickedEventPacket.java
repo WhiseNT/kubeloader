@@ -1,58 +1,44 @@
 package com.whisent.kubeloader.network;
 
-import com.google.common.collect.HashMultimap;
-import com.whisent.kubeloader.event.kjs.ItemHurtEventJS;
 import com.whisent.kubeloader.event.kjs.KLRightclickedEventJS;
 import com.whisent.kubeloader.event.kjs.KubeLoaderEvents;
 import dev.latvian.mods.kubejs.event.EventResult;
 import dev.latvian.mods.kubejs.script.ScriptType;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.network.FriendlyByteBuf;
+import io.netty.buffer.ByteBuf;
+import net.minecraft.network.codec.ByteBufCodecs;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
-import net.minecraftforge.network.NetworkEvent;
+import net.neoforged.neoforge.network.handling.IPayloadContext;
 
-import java.util.function.Supplier;
+public record KLRightClickedEventPacket(int hand) implements CustomPacketPayload {
+    public static final StreamCodec<ByteBuf, KLRightClickedEventPacket> STREAM_CODEC = ByteBufCodecs.VAR_INT.map(KLRightClickedEventPacket::new, KLRightClickedEventPacket::hand);
 
-public class KLRightClickedEventPacket {
-    private final int hand;
-    public KLRightClickedEventPacket(int hand) {
-        this.hand = hand;
+    @Override
+    public Type<?> type() {
+        return NetworkHandler.RIGHT_CLICKED;
     }
 
-    public void encode(FriendlyByteBuf buf) {
-        buf.writeInt(hand);
-    }
+    public void handle(IPayloadContext ctx) {
+        if (ctx.player() instanceof ServerPlayer player) {
+            ctx.enqueueWork(() -> {
+                InteractionHand interactionHand = hand == 0 ? InteractionHand.MAIN_HAND : InteractionHand.OFF_HAND;
+                ItemStack item = player.getItemInHand(interactionHand);
 
-    public static KLRightClickedEventPacket decode(FriendlyByteBuf buf) {
-        return new KLRightClickedEventPacket(buf.readInt());
-    }
-    public void handle(Supplier<NetworkEvent.Context> contextSupplier) {
-        contextSupplier.get().enqueueWork(()->{
-            contextSupplier.get().enqueueWork(() -> {
-                if (contextSupplier.get().getDirection().getReceptionSide().isServer()) {
-                    ServerPlayer player = contextSupplier.get().getSender();
-                    InteractionHand interactionHand = hand == 0 ? InteractionHand.MAIN_HAND : InteractionHand.OFF_HAND;
-                    ItemStack item = null;
-                    if (player != null) {
-                        item = player.getItemInHand(interactionHand);
+                if (!item.isEmpty() && KubeLoaderEvents.RIGHT_CLICKED.hasListeners()) {
+                    EventResult result = KubeLoaderEvents.RIGHT_CLICKED.post(
+                            ScriptType.SERVER,
+                            item.getItem().asItem(),
+                            new KLRightclickedEventJS(player, interactionHand, item)
+                    );
 
+                    if (result.interruptFalse()) {
+                        result.pass();
                     }
-                    if (item != null) {
-                        if (KubeLoaderEvents.RIGHT_CLICKED.hasListeners()) {
-                            EventResult result = KubeLoaderEvents.RIGHT_CLICKED.post(
-                                    ScriptType.SERVER,
-                                    item.getItem().asItem(),
-                                    new KLRightclickedEventJS(player, interactionHand, item));
-                            if (result.interruptFalse()) {
-                                result.pass();
-                            }
-                        }
-                    }
-
                 }
             });
-        });
+        }
     }
 }

@@ -1,11 +1,11 @@
 package com.whisent.kubeloader.event.kjs;
 
-import dev.latvian.mods.kubejs.event.EventJS;
+import dev.latvian.mods.kubejs.event.KubeEvent;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.item.ItemStack;
 
 
-public class ItemHurtEventJS extends EventJS {
+public class ItemHurtEventJS implements KubeEvent {
     public final ItemStack item;
     public final Entity entity;
     public final int damage;

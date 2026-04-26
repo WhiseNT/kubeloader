@@ -1,16 +1,19 @@
 package com.whisent.kubeloader.impl.zip;
 
+import net.minecraft.SharedConstants;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.packs.AbstractPackResources;
+import net.minecraft.server.packs.PackLocationInfo;
 import net.minecraft.server.packs.PackResources;
 import net.minecraft.server.packs.PackType;
 import net.minecraft.server.packs.metadata.MetadataSectionSerializer;
-import net.minecraft.server.packs.metadata.pack.PackMetadataSection;
-import net.minecraft.server.packs.metadata.pack.PackMetadataSectionSerializer;
 import net.minecraft.server.packs.resources.IoSupplier;
 import org.jetbrains.annotations.Nullable;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.HashSet;
 import java.util.Set;
@@ -18,15 +21,14 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 @Deprecated
 public class ZipContentPackResources implements PackResources {
-    private final String name;
+    private final PackLocationInfo location;
     private final ZipContentPack contentPack;
     private final Path path;
     private final String resourcePrefix;
     private final String dataPrefix;
-    private PackMetadataSection packMeta;
 
-    public ZipContentPackResources(String name, ZipContentPack contentPack) {
-        this.name = name;
+    public ZipContentPackResources(PackLocationInfo location, ZipContentPack contentPack) {
+        this.location = location;
         this.contentPack = contentPack;
         this.path = contentPack.getPath();
         this.resourcePrefix = "pack_resources/assets/";
@@ -35,18 +37,26 @@ public class ZipContentPackResources implements PackResources {
 
     @Override
     public String packId() {
-        return name;
+        return location.id();
     }
 
     @Override
     public String toString() {
-        return "ZipContentPackResources[" + this.name + "]";
+        return "ZipContentPackResources[" + this.location.id() + "]";
     }
 
     @Override
     @Nullable
     public IoSupplier<InputStream> getRootResource(String... strings) {
-        // 不支持根资源
+        if (strings.length == 1 && "pack.mcmeta".equals(strings[0])) {
+            var meta = "{" +
+                    "\"pack\":{" +
+                    "\"description\":\"Content Pack: " + location.id() + "\"," +
+                    "\"pack_format\":" + SharedConstants.getCurrentVersion().getPackVersion(PackType.SERVER_DATA) +
+                    "}}";
+            var bytes = meta.getBytes(StandardCharsets.UTF_8);
+            return () -> new ByteArrayInputStream(bytes);
+        }
         return null;
     }
 
@@ -118,26 +128,25 @@ public class ZipContentPackResources implements PackResources {
 
     @Override
     @Nullable
-    public <T> T getMetadataSection(MetadataSectionSerializer<T> metadataSectionSerializer) {
-        if (metadataSectionSerializer instanceof PackMetadataSectionSerializer) {
-            if (packMeta == null) {
-                packMeta = createDefaultPackMeta();
-            }
-            return (T) packMeta;
-        }
-        return null;
-    }
+    public <T> T getMetadataSection(MetadataSectionSerializer<T> metadataSectionSerializer) throws IOException {
+        var inputSupplier = getRootResource("pack.mcmeta");
 
-    private PackMetadataSection createDefaultPackMeta() {
-        // 创建默认的pack metadata
-        return new PackMetadataSection(
-            net.minecraft.network.chat.Component.literal("Content Pack: " + name),
-            15 // 默认使用1.20.1的pack format版本
-        );
+        if (inputSupplier != null) {
+            try (var input = inputSupplier.get()) {
+                return AbstractPackResources.getMetadataFromStream(metadataSectionSerializer, input);
+            }
+        }
+
+        return null;
     }
 
     @Override
     public void close() {
         // 不需要关闭任何资源
+    }
+
+    @Override
+    public PackLocationInfo location() {
+        return location;
     }
 }

@@ -12,11 +12,12 @@ import com.whisent.kubeloader.impl.mixin.ScriptManagerInterface;
 import com.whisent.kubeloader.scripts.KLScriptLoader;
 import com.whisent.kubeloader.utils.Debugger;
 import dev.latvian.mods.kubejs.event.*;
+import dev.latvian.mods.kubejs.event.KubeEvent;
+import dev.latvian.mods.kubejs.script.ConsoleJS;
 import dev.latvian.mods.kubejs.script.ScriptFileInfo;
 import dev.latvian.mods.kubejs.script.ScriptManager;
 import dev.latvian.mods.kubejs.script.ScriptPack;
 import dev.latvian.mods.kubejs.script.ScriptType;
-import dev.latvian.mods.kubejs.util.ConsoleJS;
 
 import graal.graalvm.polyglot.*;
 import org.apache.logging.log4j.Logger;
@@ -340,7 +341,7 @@ public class GraalApi {
         return null;
     }
 
-    public static void throwException(Throwable ex, EventExceptionHandler exh, EventJS event, EventHandlerContainer itr) throws EventExit {
+    public static void throwException(Throwable ex, EventExceptionHandler exh, KubeEvent event, EventHandlerContainer itr) throws EventExit {
         var throwable = ex;
 
         while (throwable instanceof PolyglotException e) {
@@ -357,7 +358,7 @@ public class GraalApi {
         }
 
         if (exh == null || (throwable = exh.handle(event, itr, throwable)) != null) {
-            throw EventResult.Type.ERROR.exit(throwable);
+            throw EventResult.Type.ERROR.exit(null, throwable);
         }
     }
 

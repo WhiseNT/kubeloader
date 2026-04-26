@@ -9,15 +9,14 @@ import com.whisent.kubeloader.Kubeloader;
 import com.whisent.kubeloader.definition.ContentPackUtils;
 import com.whisent.kubeloader.definition.meta.PackMetaData;
 import com.whisent.kubeloader.impl.mod.ModContentPackProvider;
-import com.whisent.kubeloader.network.KLClientScriptsReloadPacket;
-import com.whisent.kubeloader.network.NetworkHandler;
 import com.whisent.kubeloader.utils.Debugger;
 import com.whisent.kubeloader.utils.modgen.ContentPackGenerator;
 import com.whisent.kubeloader.utils.modgen.ContentPackModInfo;
 import com.whisent.kubeloader.utils.modgen.PackModGenerator;
 import dev.latvian.mods.kubejs.KubeJS;
-import dev.latvian.mods.kubejs.core.MinecraftServerKJS;
-import dev.latvian.mods.kubejs.net.ReloadStartupScriptsMessage;
+import dev.latvian.mods.kubejs.core.ReloadableServerResourcesKJS;
+import dev.latvian.mods.kubejs.net.KubeJSNet;
+import dev.latvian.mods.kubejs.net.ReloadStartupScriptsPayload;
 import dev.latvian.mods.kubejs.server.ServerScriptManager;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
@@ -25,12 +24,11 @@ import net.minecraft.commands.Commands;
 import net.minecraft.commands.SharedSuggestionProvider;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.Style;
-import net.minecraftforge.common.ForgeHooks;
-import net.minecraftforge.event.CommandEvent;
-import net.minecraftforge.event.RegisterCommandsEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.ModList;
-import net.minecraftforge.fml.common.Mod;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.ModList;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.event.CommandEvent;
+import net.neoforged.neoforge.event.RegisterCommandsEvent;
 
 import java.io.IOException;
 import java.util.Map;
@@ -38,7 +36,7 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
-@Mod.EventBusSubscriber(modid = Kubeloader.MODID, bus = Mod.EventBusSubscriber.Bus.FORGE)
+@EventBusSubscriber(modid = Kubeloader.MODID)
 public class KubeLoaderServerEventHandler {
     private static final Map<String, PackMetaData> packMetaDataMap = new ConcurrentHashMap<>();
     private static final Map<String, ContentPackModInfo> contentPackModInfoMap = new ConcurrentHashMap<>();
@@ -102,16 +100,12 @@ public class KubeLoaderServerEventHandler {
                 })));
         klCmd.then(Commands.literal("reload")
                 .then(Commands.literal("all").executes(ctx -> {
-                    ServerScriptManager.instance.reload(
-                            ((MinecraftServerKJS)ctx.getSource().getServer())
-                                    .kjs$getReloadableResources()
-                                    .resourceManager());
+                    ((ReloadableServerResourcesKJS) ctx.getSource().getServer().getServerResources().managers()).kjs$getServerScriptManager().reload();
                     ctx.getSource().sendSystemMessage(Component.literal("Reloaded server scripts"));
-                    KubeJS.getStartupScriptManager().reload(null);
+                    KubeJS.getStartupScriptManager().reload();
                     ctx.getSource().sendSystemMessage(Component.literal("Reloaded startup scripts"));
-                    new ReloadStartupScriptsMessage(ctx.getSource().getServer().isDedicatedServer()).sendToAll(ctx.getSource().getServer());
-                    NetworkHandler.sendToAllClient(new KLClientScriptsReloadPacket());
-                    ctx.getSource().sendSystemMessage(Component.literal("Reloaded client scripts"));
+                    KubeJSNet.sendToAllPlayers(new ReloadStartupScriptsPayload(ctx.getSource().getServer().isDedicatedServer()));
+                    ctx.getSource().sendSystemMessage(Component.literal("Sent startup reload to clients"));
                     ctx.getSource().sendSystemMessage(Component.literal("Done!"));
                     return 0;
                 }))

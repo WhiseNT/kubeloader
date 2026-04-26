@@ -36,7 +36,7 @@ public class GraalEventHandlerProxy implements ProxyExecutable {
                 Value handlerFunc = arguments[0];
                 if (handlerFunc.canExecute()) {
                     IEventHandler adapted = createGraalHandler(handlerFunc, type);
-                    handler.listen(type, null, adapted);
+                    handler.listenJava(type, null, adapted);
                 }
             } else if (arguments.length == 2) {
                 Object extraIdArg = convertGraalValueToJava(arguments[0]);
@@ -44,7 +44,7 @@ public class GraalEventHandlerProxy implements ProxyExecutable {
                 if (handlerFunc.canExecute()) {
                     IEventHandler adapted = createGraalHandler(handlerFunc, type);
                     for (Object extraId : ListJS.orSelf(extraIdArg)) {
-                        handler.listen(type, extraId, adapted);
+                        handler.listenJava(type, extraId, adapted);
                     }
                 }
             } else {

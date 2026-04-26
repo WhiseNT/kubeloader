@@ -1,5 +1,6 @@
 package com.whisent.kubeloader.event;
 
+import com.whisent.kubeloader.Kubeloader;
 import com.whisent.kubeloader.event.kjs.KLRightclickedEventJS;
 import com.whisent.kubeloader.event.kjs.KubeLoaderEvents;
 import com.whisent.kubeloader.network.KLRightClickedEventPacket;
@@ -9,16 +10,16 @@ import dev.latvian.mods.kubejs.script.ScriptType;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.world.InteractionHand;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.event.TickEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.client.event.ClientTickEvent;
 
-@Mod.EventBusSubscriber(modid = "kubeloader", bus = Mod.EventBusSubscriber.Bus.FORGE,value = Dist.CLIENT)
+@EventBusSubscriber(modid = Kubeloader.MODID, value = Dist.CLIENT)
 public class ClientForgeEventHandler {
     private static long lastClickedTime = 0;
     @SubscribeEvent
-    public  static void onPlayerRightClick(TickEvent.ClientTickEvent  event) {
+    public  static void onPlayerRightClick(ClientTickEvent.Pre event) {
         if (Minecraft.getInstance().screen == null && Minecraft.getInstance().player != null) {
             long time = 0;
             if (Minecraft.getInstance().level != null) {

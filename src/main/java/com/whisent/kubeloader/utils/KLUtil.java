@@ -2,7 +2,6 @@ package com.whisent.kubeloader.utils;
 
 import com.whisent.kubeloader.scripts.TsEraser;
 import dev.latvian.mods.kubejs.typings.Info;
-import dev.latvian.mods.kubejs.util.UtilsJS;
 import dev.latvian.mods.rhino.util.HideFromJS;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.sounds.SoundEvent;
@@ -16,6 +15,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
+import net.neoforged.neoforge.server.ServerLifecycleHooks;
 
 import java.util.UUID;
 
@@ -77,7 +77,8 @@ public class KLUtil {
         return clientRegistryAccess;
     }
     public static RegistryAccess getServerRegistryAccess() {
-        return UtilsJS.staticRegistryAccess;
+        var server = ServerLifecycleHooks.getCurrentServer();
+        return server == null ? RegistryAccess.EMPTY : server.registryAccess();
     }
     public static SimpleContainer newSimpleContainer(int size) {
         return new SimpleContainer(size);
@@ -94,7 +95,11 @@ public class KLUtil {
         f2 *= f5 / f4;
         f3 *= f5 / f4;
         player.push((double)f1, (double)f2, (double)f3);
-        player.startAutoSpinAttack(20);
+        ItemStack itemStack = player.getUseItem();
+        if (itemStack.isEmpty()) {
+            itemStack = player.getMainHandItem();
+        }
+        player.startAutoSpinAttack(20, 8.0F, itemStack);
         if (player.onGround()) {
             float f6 = 1.1999999F;
             player.move(MoverType.SELF, new Vec3(0.0D, (double)1.1999999F, 0.0D));
@@ -102,11 +107,11 @@ public class KLUtil {
 
         SoundEvent soundevent;
         if (riptideLevel >= 3) {
-            soundevent = SoundEvents.TRIDENT_RIPTIDE_3;
+            soundevent = SoundEvents.TRIDENT_RIPTIDE_3.value();
         } else if (riptideLevel == 2) {
-            soundevent = SoundEvents.TRIDENT_RIPTIDE_2;
+            soundevent = SoundEvents.TRIDENT_RIPTIDE_2.value();
         } else {
-            soundevent = SoundEvents.TRIDENT_RIPTIDE_1;
+            soundevent = SoundEvents.TRIDENT_RIPTIDE_1.value();
         }
 
         level.playSound((Player)null, player, soundevent, SoundSource.PLAYERS, 1.0F, 1.0F);

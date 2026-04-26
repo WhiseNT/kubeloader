@@ -14,7 +14,7 @@ import com.whisent.kubeloader.impl.depends.ImmutableMetaData;
 import dev.latvian.mods.kubejs.KubeJSPaths;
 import dev.latvian.mods.kubejs.script.ScriptPack;
 import dev.latvian.mods.kubejs.script.ScriptPackInfo;
-import net.minecraftforge.forgespi.language.IModInfo;
+import net.neoforged.neoforgespi.language.IModInfo;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -80,7 +80,7 @@ public class ContentPackUtils {
 
     public static PackDependency dependencyFromMod(IModInfo.ModVersion modDep) {
         return new ImmutableDependency(
-            modDep.isMandatory() ? DependencyType.REQUIRED : DependencyType.OPTIONAL,
+            modDep.getType() == IModInfo.DependencyType.REQUIRED ? DependencyType.REQUIRED : DependencyType.OPTIONAL,
             DependencySource.MOD,
             modDep.getModId(),
             Optional.of(modDep.getVersionRange()),

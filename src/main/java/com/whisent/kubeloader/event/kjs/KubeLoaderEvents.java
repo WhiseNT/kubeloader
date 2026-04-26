@@ -1,17 +1,17 @@
 package com.whisent.kubeloader.event.kjs;
 
-import dev.latvian.mods.kubejs.bindings.event.ItemEvents;
 import dev.latvian.mods.kubejs.event.EventGroup;
-import dev.latvian.mods.kubejs.event.EventHandler;
+import dev.latvian.mods.kubejs.event.TargetedEventHandler;
+import dev.latvian.mods.kubejs.plugin.builtin.event.ItemEvents;
 
 public interface KubeLoaderEvents {
     EventGroup GROUP = EventGroup.of("KubeLoaderEvents");
-    EventHandler ITEM_HURT = GROUP.server("itemHurt",() -> ItemHurtEventJS.class)
-            .extra(ItemEvents.SUPPORTS_ITEM).hasResult();
-    EventHandler RIGHT_CLICKED = GROUP.common("rightClicked",() -> KLRightclickedEventJS.class)
-            .extra(ItemEvents.SUPPORTS_ITEM).hasResult();
+    TargetedEventHandler ITEM_HURT = GROUP.server("itemHurt", () -> ItemHurtEventJS.class)
+            .supportsTarget(ItemEvents.TARGET).hasResult();
+    TargetedEventHandler RIGHT_CLICKED = GROUP.common("rightClicked", () -> KLRightclickedEventJS.class)
+            .supportsTarget(ItemEvents.TARGET).hasResult();
 
-    EventHandler TRIDENT_RELEASE_USING = GROUP.common("tridentReleased",() -> TridentReleased.class)
-            .extra(ItemEvents.SUPPORTS_ITEM).hasResult();
+    TargetedEventHandler TRIDENT_RELEASE_USING = GROUP.common("tridentReleased", () -> TridentReleased.class)
+            .supportsTarget(ItemEvents.TARGET).hasResult();
 
 }

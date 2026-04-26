@@ -1,6 +1,6 @@
 package com.whisent.kubeloader.graal;
 
-import dev.latvian.mods.kubejs.util.ConsoleJS;
+import dev.latvian.mods.kubejs.script.ConsoleJS;
 //import com.whisent.kubeloader.graal.wrapper.WrapperHelper;
 import graal.graalvm.polyglot.Value;
 import graal.graalvm.polyglot.proxy.ProxyExecutable;

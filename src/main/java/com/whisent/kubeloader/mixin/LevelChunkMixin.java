@@ -11,7 +11,7 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.chunk.LevelChunkSection;
-import net.minecraftforge.common.MinecraftForge;
+import net.neoforged.neoforge.common.NeoForge;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -35,7 +35,7 @@ public class LevelChunkMixin {
         if (blockentity != null && blockentity.getLevel() == null) {
             Level level = ((LevelChunk)((Object)this)).getLevel();
             if (level.isClientSide) return;
-            MinecraftForge.EVENT_BUS.post(new BlockEntityAddedEvent(blockentity,
+            NeoForge.EVENT_BUS.post(new BlockEntityAddedEvent(blockentity,
                     level, p_62865_));
             BlockEntityEvents.BLOCK_ENTITY_ADDED.post(new BlockEntityEventJS(block,blockentity,level, p_62865_),block);
         }
@@ -61,7 +61,7 @@ public class LevelChunkMixin {
             Level level = ((LevelChunk)((Object)this)).getLevel();
             BlockEntity be = level.getBlockEntity(pos);
             if (be != null) {
-                MinecraftForge.EVENT_BUS.post(new BlockEntityRemovedEvent(be, level, pos));
+                NeoForge.EVENT_BUS.post(new BlockEntityRemovedEvent(be, level, pos));
                 BlockEntityEvents.BLOCK_ENTITY_REMOVED.post(new BlockEntityEventJS(block,be, level, pos),block);
             }
         }

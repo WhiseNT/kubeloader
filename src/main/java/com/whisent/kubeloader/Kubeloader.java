@@ -13,22 +13,20 @@ import com.whisent.kubeloader.impl.path.PathContentPackProvider;
 import com.whisent.kubeloader.impl.path.PathContentPackRepositorySource;
 import com.whisent.kubeloader.impl.zip.ZipContentPackRepositorySource;
 import com.whisent.kubeloader.network.NetworkHandler;
-import dev.architectury.platform.Platform;
 import dev.latvian.mods.kubejs.KubeJS;
 import dev.latvian.mods.kubejs.KubeJSPaths;
 import net.minecraft.server.packs.PackType;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.event.AddPackFindersEvent;
-import net.minecraftforge.event.server.ServerStartingEvent;
-import net.minecraftforge.eventbus.api.IEventBus;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.ModList;
-import net.minecraftforge.fml.ModLoadingContext;
-import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.config.ModConfig;
-import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
-import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
-import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.bus.api.IEventBus;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.ModContainer;
+import net.neoforged.fml.ModList;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.fml.common.Mod;
+import net.neoforged.fml.config.ModConfig;
+import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
+import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
+import net.neoforged.neoforge.event.AddPackFindersEvent;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -59,8 +57,7 @@ public class Kubeloader
     public static Path MixinPath = KubeJSPaths.DIRECTORY.resolve(MIXIN_FOLDER);
     public static Path CommonPath = KubeJSPaths.DIRECTORY.resolve(COMMON_SCRIPTS);
 
-    public Kubeloader() throws IOException {
-        IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
+    public Kubeloader(IEventBus modEventBus, ModContainer modContainer) throws IOException {
         GraalJSCompat.init();
         ConfigManager.init();
 
@@ -84,10 +81,10 @@ public class Kubeloader
 
         
         // Register config
-        ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, Config.SPEC);
+        modContainer.registerConfig(ModConfig.Type.COMMON, Config.SPEC);
         
-        modEventBus.addListener(this::ModLoading);
-        FMLJavaModLoadingContext.get().getModEventBus().addListener(this::injectPacks);
+        modEventBus.addListener(this::onCommonSetup);
+        modEventBus.addListener(this::injectPacks);
 
 
 
@@ -113,8 +110,7 @@ public class Kubeloader
         ContentPackProviders.register(providers);
     }
 
-    private void ModLoading(FMLCommonSetupEvent event) {
-        event.enqueueWork(NetworkHandler::register);
+    private void onCommonSetup(FMLCommonSetupEvent event) {
         LOGGER.info("Setup启动事件");
     }
 
@@ -192,11 +188,7 @@ public class Kubeloader
 
      */
 
-    @SubscribeEvent
-    public void onServerStarting(ServerStartingEvent event) {
-    }
-
-    @Mod.EventBusSubscriber(modid = MODID, bus = Mod.EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
+    @EventBusSubscriber(modid = MODID, bus = EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
     public static class ClientModEvents {
 
         @SubscribeEvent

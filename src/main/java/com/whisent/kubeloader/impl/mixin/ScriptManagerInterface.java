@@ -1,8 +1,6 @@
 package com.whisent.kubeloader.impl.mixin;
 
 import com.whisent.kubeloader.klm.dsl.MixinDSL;
-import dev.latvian.mods.kubejs.util.ClassFilter;
-import graal.graalvm.polyglot.Context;
 
 import java.util.List;
 import java.util.Map;

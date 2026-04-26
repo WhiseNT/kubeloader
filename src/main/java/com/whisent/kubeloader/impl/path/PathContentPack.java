@@ -9,13 +9,11 @@ import com.whisent.kubeloader.definition.PackLoadingContext;
 import com.whisent.kubeloader.definition.meta.PackMetaData;
 import com.whisent.kubeloader.impl.CommonScriptsLoader;
 import com.whisent.kubeloader.klm.MixinManager;
-import dev.latvian.mods.kubejs.KubeJS;
 import dev.latvian.mods.kubejs.script.ScriptPack;
-import dev.latvian.mods.kubejs.script.ScriptSource;
-import dev.latvian.mods.kubejs.util.UtilsJS;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.PackType;
 import net.minecraft.server.packs.resources.IoSupplier;
+import net.neoforged.neoforge.server.ServerLifecycleHooks;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
@@ -74,7 +72,7 @@ public class PathContentPack implements ContentPack {
 
     @Override
     public @Nullable ScriptPack getPack(PackLoadingContext context) {
-        if (context.manager().scriptType.isStartup() || UtilsJS.staticServer != null) {
+        if (context.manager().scriptType.isStartup() || ServerLifecycleHooks.getCurrentServer() != null) {
             MixinManager.loadMixins(base.resolve(Kubeloader.MIXIN_FOLDER), id() + ":");
         }
         var scriptPath = base.resolve(context.folderName());
@@ -83,11 +81,10 @@ public class PathContentPack implements ContentPack {
         }
         var pack = ContentPackUtils.createEmptyPack(context, id());
 
-        KubeJS.loadScripts(pack, scriptPath, "");
+        context.manager().collectScripts(pack, scriptPath, "");
 
         for (var fileInfo : pack.info.scripts) {
-            var scriptSource = (ScriptSource.FromPath) (info) -> scriptPath.resolve(info.file);
-            context.loadFile(pack, fileInfo, scriptSource);
+            context.loadFile(pack, fileInfo);
         }
         CommonScriptsLoader.loadCommonScripts(context.manager(),pack,scriptPath.getParent(),id()+"-common");
         return pack;

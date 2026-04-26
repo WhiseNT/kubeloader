@@ -1,10 +1,12 @@
 package com.whisent.kubeloader.graal.wrapper;
 
 import com.oracle.truffle.api.strings.TruffleString;
+import dev.latvian.mods.kubejs.plugin.KubeJSPlugin;
+import dev.latvian.mods.kubejs.plugin.KubeJSPlugins;
 import dev.latvian.mods.kubejs.script.ScriptType;
-import dev.latvian.mods.kubejs.KubeJSPlugin;
-import dev.latvian.mods.kubejs.util.KubeJSPlugins;
+import dev.latvian.mods.kubejs.script.TypeWrapperRegistry;
 import dev.latvian.mods.rhino.util.wrap.TypeWrappers;
+import dev.latvian.mods.rhino.type.TypeInfo;
 import graal.graalvm.polyglot.HostAccess;
 import graal.graalvm.polyglot.Value;
 import com.whisent.kubeloader.Kubeloader;
@@ -25,7 +27,7 @@ public class GraalTypeWrappers {
                     try {
                         for (KubeJSPlugin plugin : KubeJSPlugins.getAll()) {
                             try {
-                                plugin.registerTypeWrappers(ScriptType.STARTUP, tw);
+                                plugin.registerTypeWrappers(new TypeWrapperRegistry(ScriptType.STARTUP, tw));
                             } catch (Exception e) {
                                 Kubeloader.LOGGER.info("无法从Plugin注册Wrapper" + plugin.getClass().getName() + ":" + e.getMessage());
                             }
@@ -61,10 +63,10 @@ public class GraalTypeWrappers {
         }
         if (targetType.isInstance(javaObj)) return javaObj;
         TypeWrappers wrappers = getInstance();
-        var factory = wrappers.getWrapperFactory(targetType, javaObj);
+        var factory = wrappers.getWrapperFactory(javaObj, TypeInfo.of(targetType));
         if (factory != null) {
             try {
-                Object result = factory.wrap(null, javaObj);
+                Object result = factory.wrap(null, javaObj, TypeInfo.of(targetType));
                 if (result != null) return result;
             } catch (Exception e) {
                 Kubeloader.LOGGER.info("TypeWrapper转换失败 " + targetType.getName() + ": " + e.getMessage());
@@ -109,17 +111,17 @@ public class GraalTypeWrappers {
             (obj) -> {
                 if (obj == null) return false;
                 if (targetType.isInstance(obj)) return false;
-                var factory = wrappers.getWrapperFactory(targetType, obj);
+                var factory = wrappers.getWrapperFactory(obj, TypeInfo.of(targetType));
                 return factory != null;
             },
             (obj) -> {
-                var factory = wrappers.getWrapperFactory(targetType, obj);
+                var factory = wrappers.getWrapperFactory(obj, TypeInfo.of(targetType));
                 if (factory != null) {
                     try {
-                        Object result = factory.wrap(null, obj);
+                        Object result = factory.wrap(null, obj, TypeInfo.of(targetType));
                         if (result != null) return targetType.cast(result);
                     } catch (ClassCastException cce) {
-                        Object result2 = factory.wrap(null, obj);
+                        Object result2 = factory.wrap(null, obj, TypeInfo.of(targetType));
                         if (targetType.isInstance(result2)) return targetType.cast(result2);
                     } catch (Exception e) {
                         Kubeloader.LOGGER.info("TypeWrapper转换错误" + obj.getClass().getName() + " → " + targetType.getName() + ": " + e.getMessage());

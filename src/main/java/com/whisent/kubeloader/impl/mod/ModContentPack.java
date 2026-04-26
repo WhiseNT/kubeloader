@@ -5,6 +5,7 @@ import com.whisent.kubeloader.definition.ContentPackUtils;
 import com.whisent.kubeloader.definition.PackLoadingContext;
 import com.whisent.kubeloader.definition.meta.PackMetaData;
 import com.whisent.kubeloader.files.FileIO;
+import com.whisent.kubeloader.impl.CommonScriptsLoader;
 import com.whisent.kubeloader.impl.ContentPackBase;
 import com.whisent.kubeloader.klm.MixinManager;
 import com.whisent.kubeloader.klm.dsl.MixinDSL;
@@ -12,12 +13,12 @@ import com.whisent.kubeloader.klm.dsl.MixinDSLParser;
 import dev.latvian.mods.kubejs.KubeJSPaths;
 import dev.latvian.mods.kubejs.script.ScriptFileInfo;
 import dev.latvian.mods.kubejs.script.ScriptPack;
-import dev.latvian.mods.kubejs.script.ScriptSource;
-import dev.latvian.mods.kubejs.util.UtilsJS;
-import net.minecraftforge.forgespi.language.IModInfo;
+import net.neoforged.neoforge.server.ServerLifecycleHooks;
+import net.neoforged.neoforgespi.language.IModInfo;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.*;
+import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -43,26 +44,19 @@ public class ModContentPack extends ContentPackBase {
     protected ScriptPack createPack(PackLoadingContext context) {
         loadMixins(context);
         var pack = ContentPackUtils.createEmptyPack(context, id());
-        var prefix = Kubeloader.FOLDER_NAME + '/' + context.folderName() + '/';
-        String commonPrefix = Kubeloader.FOLDER_NAME + "/common_scripts/";
-        try (var file = new JarFile(mod.getOwningFile().getFile().getFilePath().toFile())) {
-            var parent = file.getEntry(Kubeloader.FOLDER_NAME + '/' + context.folderName());
-            if (parent == null || !parent.isDirectory()) {
+        try (var fs = FileSystems.newFileSystem(mod.getOwningFile().getFile().getFilePath(), (ClassLoader) null)) {
+            var scriptsDir = fs.getPath("/", Kubeloader.FOLDER_NAME, context.folderName());
+            if (!Files.isDirectory(scriptsDir)) {
                 return null;
             }
 
-            file.stream()
-                .filter(e -> !e.isDirectory())
-                .filter(e -> e.getName().endsWith(".js"))
-                .filter(e -> e.getName().startsWith(prefix) || e.getName().startsWith(commonPrefix))
-                .forEach(jarEntry -> {
-                    var fileInfo = new ScriptFileInfo(pack.info, jarEntry.getName());
-                    var scriptSource = (ScriptSource) info -> {
-                        var reader = new BufferedReader(new InputStreamReader(file.getInputStream(jarEntry)));
-                        return reader.lines().toList();
-                    };
-                    context.loadFile(pack, fileInfo, scriptSource);
-                });
+            context.manager().collectScripts(pack, scriptsDir, "");
+
+            for (ScriptFileInfo fileInfo : pack.info.scripts) {
+                context.loadFile(pack, fileInfo);
+            }
+
+            CommonScriptsLoader.loadCommonScripts(context.manager(), pack, scriptsDir.getParent(), id() + "-common");
             return pack;
         } catch (IOException e) {
             return null;
@@ -70,7 +64,7 @@ public class ModContentPack extends ContentPackBase {
     }
 
     public void loadMixins(PackLoadingContext  context) {
-        if (context.manager().scriptType.isStartup() || UtilsJS.staticServer != null) {
+        if (context.manager().scriptType.isStartup() || ServerLifecycleHooks.getCurrentServer() != null) {
             String mixinFolder = Kubeloader.MIXIN_FOLDER + "/";
             try (var file = new JarFile(mod.getOwningFile().getFile().getFilePath().toFile())) {
                 file.stream()

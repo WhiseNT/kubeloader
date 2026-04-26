@@ -2,6 +2,7 @@ package com.whisent.kubeloader.klm.ast;
 
 import com.whisent.kubeloader.klm.dsl.MixinDSL;
 import dev.latvian.mods.rhino.Context;
+import dev.latvian.mods.rhino.ContextFactory;
 import dev.latvian.mods.rhino.Node;
 import dev.latvian.mods.rhino.Parser;
 import dev.latvian.mods.rhino.ast.*;
@@ -15,6 +16,7 @@ import java.util.Objects;
 public class JSInjector {
     private static final String PLACEHOLDER_PREFIX = "var __KubeLoaderInject_";
     private static final String PLACEHOLDER_SUFFIX = " = KubeLoader;";
+    private static final ContextFactory PARSER_CONTEXT_FACTORY = new ContextFactory();
 
     // 存储每个 DSL 的唯一占位符
     private static final Map<MixinDSL, String> placeholderMap = new HashMap<>();
@@ -390,7 +392,7 @@ public class JSInjector {
         }
         if (code.trim().startsWith("{")) {
             try {
-                Context context = Context.enter();
+                Context context = PARSER_CONTEXT_FACTORY.enter();
                 Parser parser = new Parser(context);
                 AstRoot root = parser.parse(code, "<inject>", 1);
                 for (Node node : root) {
@@ -405,7 +407,7 @@ public class JSInjector {
         }
         if ("const InjectCode = KubeLoader".equals(code.trim())) {
             try {
-                Context context = Context.enter();
+                Context context = PARSER_CONTEXT_FACTORY.enter();
                 Parser parser = new Parser(context);
                 AstRoot root = parser.parse("const InjectCode = KubeLoader;", "<inject>", 1);
                 for (Node node : root) {
@@ -420,7 +422,7 @@ public class JSInjector {
         }
         Context context = null;
         try {
-            context = Context.enter();
+            context = PARSER_CONTEXT_FACTORY.enter();
             Parser parser = new Parser(context);
             AstRoot root = parser.parse(code, "<inject>", 1);
             for (Node node : root) {
@@ -430,7 +432,7 @@ public class JSInjector {
         } catch (Exception e) {
             System.err.println("直接解析代码失败: " + e.getMessage());
             try {
-                if (context == null) context = Context.enter();
+                if (context == null) context = PARSER_CONTEXT_FACTORY.enter();
                 Parser parser = new Parser(context);
                 String wrappedCode = "(function() { " + code + " })";
                 AstRoot root = parser.parse(wrappedCode, "<inject>", 1);

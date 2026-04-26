@@ -1,12 +1,12 @@
 package com.whisent.kubeloader.event.kjs;
 
-import dev.latvian.mods.kubejs.event.EventJS;
+import dev.latvian.mods.kubejs.event.KubeEvent;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
 
-public class BlockEntityEventJS extends EventJS {
+public class BlockEntityEventJS implements KubeEvent {
     public final Block block;
     public final BlockEntity blockEntity;
     public final Level level;

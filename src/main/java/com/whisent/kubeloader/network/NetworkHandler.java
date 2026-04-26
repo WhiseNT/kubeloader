@@ -2,37 +2,30 @@ package com.whisent.kubeloader.network;
 
 import com.whisent.kubeloader.Kubeloader;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraftforge.network.NetworkRegistry;
-import net.minecraftforge.network.PacketDistributor;
-import net.minecraftforge.network.simple.SimpleChannel;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.network.PacketDistributor;
+import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 
+@EventBusSubscriber(modid = Kubeloader.MODID)
 public class NetworkHandler {
     private static final String PROTOCOL_VERSION = "1";
-    public static final SimpleChannel CHANNEL = NetworkRegistry.ChannelBuilder.named(
-                    new ResourceLocation(Kubeloader.MODID,"main"))
-            .serverAcceptedVersions((version) -> true)
-            .clientAcceptedVersions((version) -> true)
-            .networkProtocolVersion(() -> PROTOCOL_VERSION)
-            .simpleChannel();
+    static final CustomPacketPayload.Type<KLRightClickedEventPacket> RIGHT_CLICKED = new CustomPacketPayload.Type<>(
+            ResourceLocation.fromNamespaceAndPath(Kubeloader.MODID, "right_clicked")
+    );
 
-    public static void register() {
-        int id = 0;
-        CHANNEL.messageBuilder(KLRightClickedEventPacket.class,id)
-                .encoder(KLRightClickedEventPacket::encode)
-                .decoder(KLRightClickedEventPacket::decode)
-                .consumerMainThread(KLRightClickedEventPacket::handle)
-                .add();
-        CHANNEL.messageBuilder(KLClientScriptsReloadPacket.class,id+1)
-                .encoder(KLClientScriptsReloadPacket::encode)
-                .decoder(KLClientScriptsReloadPacket::decode)
-                .consumerMainThread(KLClientScriptsReloadPacket::handle)
-                .add();
+    @SubscribeEvent
+    public static void register(RegisterPayloadHandlersEvent event) {
+        var reg = event.registrar(PROTOCOL_VERSION).optional();
+        reg.playToServer(RIGHT_CLICKED, KLRightClickedEventPacket.STREAM_CODEC, KLRightClickedEventPacket::handle);
+    }
 
+    public static void sendToServer(CustomPacketPayload msg) {
+        PacketDistributor.sendToServer(msg);
     }
-    public static void sendToServer(Object msg) {
-        CHANNEL.send(PacketDistributor.SERVER.noArg(),msg);
-    }
-    public static void sendToAllClient(Object msg) {
-        CHANNEL.send(PacketDistributor.ALL.noArg(),msg);
+
+    public static void sendToAllClient(CustomPacketPayload msg, CustomPacketPayload... extra) {
+        PacketDistributor.sendToAllPlayers(msg, extra);
     }
 }

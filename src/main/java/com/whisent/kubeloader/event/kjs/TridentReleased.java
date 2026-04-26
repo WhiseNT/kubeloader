@@ -1,11 +1,11 @@
 package com.whisent.kubeloader.event.kjs;
 
-import dev.latvian.mods.kubejs.event.EventJS;
+import dev.latvian.mods.kubejs.event.KubeEvent;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 
-public class TridentReleased extends EventJS {
+public class TridentReleased implements KubeEvent {
     public final ItemStack item;
     public final Entity entity;
     public final Level level;

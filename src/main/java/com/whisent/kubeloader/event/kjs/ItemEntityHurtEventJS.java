@@ -1,7 +1,5 @@
 package com.whisent.kubeloader.event.kjs;
 
-import dev.latvian.mods.kubejs.event.EventExit;
-import dev.latvian.mods.kubejs.event.EventResult;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.level.Level;
@@ -15,10 +13,5 @@ public class ItemEntityHurtEventJS extends ItemEntityEventJS {
         super(itemEntity, level, pos);
         this.damageSource = damageSource;
         this.amount = amount;
-    }
-
-    @Override
-    public Object cancel() throws EventExit {
-        return super.cancel();
     }
 }

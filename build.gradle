@@ -1,21 +1,9 @@
-buildscript {
-    repositories {
-        // These repositories are only for Gradle plugins, put any other repositories in the repository block further below
-        maven { url = 'https://repo.spongepowered.org/repository/maven-public/' }
-        mavenCentral()
-    }
-    dependencies {
-        classpath 'org.spongepowered:mixingradle:0.7-SNAPSHOT'
-    }
-}
-
 plugins {
     id 'eclipse'
     id 'idea'
-    id 'net.minecraftforge.gradle' version '[6.0.16,6.2)'
+    id 'java'
+    id 'net.neoforged.moddev' version '2.0.137'
 }
-
-apply plugin: 'org.spongepowered.mixin'
 
 group = mod_group_id
 version = mod_version
@@ -25,142 +13,123 @@ base {
 }
 
 java {
-    toolchain.languageVersion = JavaLanguageVersion.of(17)
-}
-
-
-
-minecraft {
-
-    mappings channel: mapping_channel, version: mapping_version
-
-    copyIdeResources = true
-
-    runs {
-        configureEach {
-            workingDirectory project.file('run')
-            property 'forge.logging.markers', 'REGISTRIES'
-            property 'forge.logging.console.level', 'debug'
-            mods {
-                "${mod_id}" {
-                    source sourceSets.main
-                }
-            }
-        }
-
-        client {
-            property 'forge.enabledGameTestNamespaces', mod_id
-            property 'mixin.env.remapRefMap', 'true'
-            property 'mixin.env.refMapRemappingFile', "${projectDir}/build/createSrgToMcp/output.srg"
-        }
-
-        server {
-            property 'forge.enabledGameTestNamespaces', mod_id
-            args '--nogui'
-        }
-
-        // This run config launches GameTestServer and runs all registered gametests, then exits.
-        // By default, the server will crash when no gametests are provided.
-        // The gametest system is also enabled by default for other run configs under the /test command.
-        gameTestServer {
-            property 'forge.enabledGameTestNamespaces', mod_id
-        }
-
-        data {
-            // example of overriding the workingDirectory set in configureEach above
-            workingDirectory project.file('run-data')
-
-            // Specify the modid for data generation, where to output the resulting resource, and where to look for existing resources.
-            args '--mod', mod_id, '--all', '--output', file('src/generated/resources/'), '--existing', file('src/main/resources/')
-        }
-    }
-}
-
-mixin {
-    add sourceSets.main, "${mod_id}.refmap.json"
-
-    config "${mod_id}.mixins.json"
-    config "${mod_id}.graal.mixins.json"
+    toolchain.languageVersion = JavaLanguageVersion.of(21)
+    withSourcesJar()
 }
 
 sourceSets.main.resources { srcDir 'src/generated/resources' }
 
+neoForge {
+    enable {
+        version = project.neoforge_version
+
+        runs {
+            configureEach {
+                logLevel = org.slf4j.event.Level.DEBUG
+            }
+
+            client {
+                client()
+                gameDirectory = file('run')
+                systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+                systemProperty 'forge.logging.markers', 'REGISTRIES'
+                systemProperty 'forge.logging.console.level', 'debug'
+                systemProperty 'mixin.env.remapRefMap', 'true'
+            }
+
+            server {
+                server()
+                gameDirectory = file('run')
+                programArgument '--nogui'
+                systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+                systemProperty 'forge.logging.markers', 'REGISTRIES'
+                systemProperty 'forge.logging.console.level', 'debug'
+            }
+
+            data {
+                data()
+                gameDirectory = file('run-data')
+                programArguments.addAll(
+                        '--mod', project.mod_id,
+                        '--all',
+                        '--output', file('src/generated/resources').getAbsolutePath(),
+                        '--existing', file('src/main/resources').getAbsolutePath(),
+                        '--existing-mod', 'kubejs'
+                )
+            }
+        }
+
+        mods {
+            "${mod_id}" {
+                sourceSet sourceSets.main
+            }
+        }
+    }
+}
+
 repositories {
+    mavenLocal()
+    mavenCentral()
 
     maven {
-        // Shedaniel's maven (Architectury API)
-        url = "https://maven.architectury.dev"
+        url = 'https://maven.neoforged.net/releases'
+    }
+
+    maven {
+        url = 'https://maven.architectury.dev'
         content {
-            includeGroup "dev.architectury"
+            includeGroup 'dev.architectury'
         }
     }
 
     maven {
-        // saps.dev Maven (KubeJS and Rhino)
-        url = "https://maven.saps.dev/minecraft"
-        content {
-            includeGroup "dev.latvian.mods"
-        }
+        url = 'https://cursemaven.com/'
     }
-    maven {
-        url "https://cursemaven.com/"
-    }
+
     flatDir {
-        dir 'libs'
+        dirs 'libs'
     }
 }
 
 dependencies {
-
-    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
-    implementation fg.deobf("curse.maven:kubejs-238086:5853326")
-    implementation fg.deobf("curse.maven:rhino-416294:6186971")
-    implementation fg.deobf("curse.maven:architectury-api-419699:5137938")
-    implementation fg.deobf("curse.maven:probejs-585406:5227399")
-    //compileOnly fg.deobf("curse.maven:graaljs-1284543:6642435")
-//    implementation fg.deobf("curse.maven:graaljs-1284543:6642435")
-    implementation fg.deobf("curse.maven:graal-1504336:7983194")
-
-    
-    annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
-
+    implementation "curse.maven:kubejs-238086:${project.kubejs_curse_file}"
+    implementation "curse.maven:rhino-416294:${project.rhino_curse_file}"
+    implementation "dev.architectury:architectury-neoforge:${project.architectury_version}"
+    implementation "curse.maven:graal-1504336:${project.graal_curse_file}"
 }
 
 tasks.named('processResources', ProcessResources).configure {
-    var replaceProperties = [minecraft_version   : minecraft_version, minecraft_version_range: minecraft_version_range,
-                             forge_version       : forge_version, forge_version_range: forge_version_range,
-                             loader_version_range: loader_version_range,
-                             mod_id              : mod_id, mod_name: mod_name, mod_license: mod_license, mod_version: mod_version,
-                             mod_authors         : mod_authors, mod_description: mod_description,]
+    var replaceProperties = [minecraft_version      : minecraft_version,
+                             minecraft_version_range: minecraft_version_range,
+                             neoforge_version       : neoforge_version,
+                             mod_id                 : mod_id,
+                             mod_name               : mod_name,
+                             mod_license            : mod_license,
+                             mod_version            : mod_version,
+                             mod_authors            : mod_authors,
+                             mod_description        : mod_description]
 
     inputs.properties replaceProperties
 
-    filesMatching(['META-INF/mods.toml', 'pack.mcmeta']) {
+    filesMatching(['META-INF/neoforge.mods.toml']) {
         expand replaceProperties + [project: project]
     }
 }
 
-// Example for how to get properties into the manifest for reading at runtime.
 tasks.named('jar', Jar).configure {
     manifest {
         attributes(["Specification-Title"     : mod_id,
                     "Specification-Vendor"    : mod_authors,
-                    "Specification-Version"   : "1", // We are version 1 of ourselves
+                    "Specification-Version"   : '1',
                     "Implementation-Title"    : project.name,
-                    "Implementation-Version"  : project.jar.archiveVersion,
+                    "Implementation-Version"  : project.version,
                     "Implementation-Vendor"   : mod_authors,
                     "Implementation-Timestamp": new Date().format("yyyy-MM-dd'T'HH:mm:ssZ")])
     }
-
-    // This is the preferred method to reobfuscate your jar file
-    finalizedBy 'reobfJar'
 }
 
 tasks.withType(JavaCompile).configureEach {
-    options.encoding = 'UTF-8' // Use the UTF-8 charset for Java compilation
+    options.encoding = 'UTF-8'
+    options.release.set(21)
+    options.compilerArgs << '-parameters'
 }
-
-reobf {
-    jarJar {}
-}
-jar.finalizedBy 'jarJar'

@@ -1,5 +1,6 @@
 package com.whisent.kubeloader.event;
 
+import com.whisent.kubeloader.Kubeloader;
 import com.whisent.kubeloader.event.kjs.BlockEntityEventJS;
 import com.whisent.kubeloader.event.kjs.BlockEntityEvents;
 import com.whisent.kubeloader.event.kjs.KLRightclickedEventJS;
@@ -18,14 +19,13 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.chunk.ChunkAccess;
 import net.minecraft.world.level.chunk.LevelChunk;
-import net.minecraftforge.client.event.InputEvent;
-import net.minecraftforge.event.TickEvent;
-import net.minecraftforge.event.entity.player.PlayerInteractEvent;
-import net.minecraftforge.event.level.ChunkEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.client.event.InputEvent;
+import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
+import net.neoforged.neoforge.event.level.ChunkEvent;
 
-@Mod.EventBusSubscriber(modid = "kubeloader", bus = Mod.EventBusSubscriber.Bus.FORGE)
+@EventBusSubscriber(modid = Kubeloader.MODID)
 public class ChunkEventHandler {
     @SubscribeEvent
     public static void onBlockEntityLoaded(ChunkEvent.Load event) {
@@ -52,7 +52,7 @@ public class ChunkEventHandler {
         //event.getEntity().sendSystemMessage(Component.literal(String.valueOf(event.getLevel().getGameTime())));
     }
     @SubscribeEvent
-    public static void onPlayerInput(InputEvent.MouseButton event) {
+    public static void onPlayerInput(InputEvent.MouseButton.Pre event) {
         if (Minecraft.getInstance().screen == null) {
 
         }

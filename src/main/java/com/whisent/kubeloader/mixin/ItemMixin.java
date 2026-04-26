@@ -5,9 +5,11 @@ import dev.latvian.mods.kubejs.core.ItemKJS;
 import dev.latvian.mods.kubejs.item.ItemBuilder;
 import dev.latvian.mods.rhino.util.RemapForJS;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.component.CustomData;
 import net.minecraft.world.level.Level;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
@@ -20,18 +22,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public abstract class ItemMixin implements ItemKJS {
     private ItemBuilder kjs$itemBuilder;
 
-    @Inject(method = "getDefaultInstance", at = @At("RETURN"), cancellable = true)
-    private void getDefaultInstanceMixin(CallbackInfoReturnable<ItemStack> cir) {
-        if (kjs$itemBuilder != null && ((NbtBuilder)kjs$itemBuilder).kubeLoader$getDefaultNbt() != null) {
-            ItemStack itemStack = cir.getReturnValue();
-            itemStack.setTag(((NbtBuilder)kjs$itemBuilder).kubeLoader$getDefaultNbt());
-            cir.setReturnValue(itemStack);
-        } else if (defaultNbt != null) {
-            ItemStack itemStack = cir.getReturnValue();
-            itemStack.setTag(defaultNbt);
-            cir.setReturnValue(itemStack);
-        }
-    }
+    
     @Unique
     public ItemBuilder.ReleaseUsingCallback kubeLoader$releaseUsing;
     @Unique
@@ -56,12 +47,7 @@ public abstract class ItemMixin implements ItemKJS {
     @Unique
     public CompoundTag defaultNbt;
 
-    @Unique
-    private void setDefaultNbt(CompoundTag nbt) {
-        if (kjs$itemBuilder != null) {
-            ((NbtBuilder)kjs$itemBuilder).kubeLoader$setDefaultNbt(nbt);
-        }
-    }
+
     @Override
     public void kjs$setItemBuilder(ItemBuilder b) {
         kjs$itemBuilder = b;

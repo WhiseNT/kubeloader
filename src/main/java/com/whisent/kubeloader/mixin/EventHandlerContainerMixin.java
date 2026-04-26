@@ -30,7 +30,7 @@ public class EventHandlerContainerMixin {
         ),
         cancellable = true
     )
-    private void handleGraalJSEventWithResult(EventJS event, EventExceptionHandler exh, CallbackInfoReturnable<EventResult> cir) throws EventExit {
+    private void handleGraalJSEventWithResult(KubeEvent event, EventExceptionHandler exh, CallbackInfoReturnable<EventResult> cir) throws EventExit {
         if (!GraalJSCompat.canUseGraalJS()) {
             return; // Let original method handle Rhino handlers
         }
@@ -92,7 +92,7 @@ public class EventHandlerContainerMixin {
                     }
 
                     if (exh == null || (throwable = exh.handle(event, itr, throwable)) != null) {
-                        throw EventResult.Type.ERROR.exit(throwable);
+                        throw EventResult.Type.ERROR.exit(null, throwable);
                     }
                 }
             }

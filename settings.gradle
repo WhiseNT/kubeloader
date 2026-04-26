@@ -1,15 +1,19 @@
 pluginManagement {
     repositories {
+        mavenLocal()
         gradlePluginPortal()
+        mavenCentral()
         maven {
-            name = 'MinecraftForge'
-            url = 'https://maven.minecraftforge.net/'
+            url = 'https://maven.neoforged.net/releases'
+        }
+        maven {
+            url = 'https://maven.creeperhost.net/'
         }
     }
 }
 
 plugins {
-    id 'org.gradle.toolchains.foojay-resolver-convention' version '0.7.0'
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '1.0.0'
 }
 
 rootProject.name = 'kubeloader'

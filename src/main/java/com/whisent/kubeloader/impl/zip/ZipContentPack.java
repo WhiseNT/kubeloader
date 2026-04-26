@@ -8,11 +8,10 @@ import com.whisent.kubeloader.impl.ContentPackBase;
 import com.whisent.kubeloader.klm.MixinManager;
 import dev.latvian.mods.kubejs.script.ScriptFileInfo;
 import dev.latvian.mods.kubejs.script.ScriptPack;
-import dev.latvian.mods.kubejs.script.ScriptSource;
-import dev.latvian.mods.kubejs.util.UtilsJS;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.PackType;
 import net.minecraft.server.packs.resources.IoSupplier;
+import net.neoforged.neoforge.server.ServerLifecycleHooks;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.BufferedReader;
@@ -21,6 +20,8 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileSystems;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashSet;
 import java.util.Set;
@@ -54,22 +55,17 @@ public class ZipContentPack extends ContentPackBase {
         loadMixins(context);
         
         var pack = ContentPackUtils.createEmptyPack(context, id());
-        //loadCommonScripts(pack, context);
-        var prefix = context.folderName() + '/';
-        try (var zipFile = new ZipFile(path.toFile())) {
-            zipFile.stream()
-                .filter(e -> !e.isDirectory())
-                .filter(e -> e.getName().endsWith(".js"))
-                .filter(e -> e.getName().startsWith(prefix))
-                .forEach(zipEntry -> {
-                    var zipFileInfo = new ScriptFileInfo(pack.info, zipEntry.getName());
-                    var scriptSource = (ScriptSource) info -> {
-                                var reader = new BufferedReader(new InputStreamReader(
-                                        zipFile.getInputStream(zipEntry), StandardCharsets.UTF_8));
-                        return reader.lines().toList();
-                    };
-                    context.loadFile(pack, zipFileInfo, scriptSource);
-                });
+        try (var fs = FileSystems.newFileSystem(path, (ClassLoader) null)) {
+            var scriptsDir = fs.getPath("/", context.folderName());
+            if (!Files.isDirectory(scriptsDir)) {
+                return null;
+            }
+
+            context.manager().collectScripts(pack, scriptsDir, "");
+
+            for (ScriptFileInfo fileInfo : pack.info.scripts) {
+                context.loadFile(pack, fileInfo);
+            }
 
             return pack;
         } catch (IOException e) {
@@ -83,7 +79,7 @@ public class ZipContentPack extends ContentPackBase {
      * @param context 加载上下文
      */
     public void loadMixins(PackLoadingContext context) {
-        if (!context.manager().scriptType.isStartup() || UtilsJS.staticServer != null) {
+        if (!context.manager().scriptType.isStartup() || ServerLifecycleHooks.getCurrentServer() != null) {
             return;
         }
         String mixinFolder = Kubeloader.MIXIN_FOLDER + "/";

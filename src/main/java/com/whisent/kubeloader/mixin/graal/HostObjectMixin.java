@@ -1,7 +1,7 @@
 package com.whisent.kubeloader.mixin.graal;
 
 import dev.latvian.mods.kubejs.event.EventExit;
-import dev.latvian.mods.kubejs.event.EventJS;
+import dev.latvian.mods.kubejs.event.KubeEvent;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
@@ -40,7 +40,7 @@ public class HostObjectMixin {
             CallbackInfoReturnable<Object> cir) {
 
         if (obj == null) return;
-        if (obj instanceof EventJS event && "cancel".equals(identifier)) {
+        if (obj instanceof KubeEvent event && "cancel".equals(identifier)) {
             cir.setReturnValue((ProxyExecutable) arguments -> {
                 if (arguments.length > 1) {
                     throw new IllegalArgumentException("cancel() accepts at most one argument");
@@ -48,9 +48,9 @@ public class HostObjectMixin {
 
                 try {
                     if (arguments.length == 0) {
-                        return event.cancel();
+                        return event.cancel(null);
                     }
-                    return event.cancel(convertGraalValueToJava(arguments[0]));
+                    return event.cancel(null, convertGraalValueToJava(arguments[0]));
                 } catch (EventExit exit) {
                     throw new GraalEventSignal(exit.result);
                 }

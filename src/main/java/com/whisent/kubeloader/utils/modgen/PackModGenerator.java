@@ -27,7 +27,7 @@ public class PackModGenerator {
     @Info("You should use /kl mod <modid> command to generate it, rather than calling this method directly.")
     public static void generateMod(ContentPackModInfo packInfo) throws IOException {
         String modId = packInfo.id;
-        Path outputDir = KubeJSPaths.LOCAL_CACHE.resolve(modId+"-generated");
+        Path outputDir = KubeJSPaths.LOCAL.resolve(modId+"-generated");
 
         // 1. 创建目录结构
         createDirectoryStructure(outputDir, modId);
@@ -51,7 +51,7 @@ public class PackModGenerator {
     @Info("You should use /kl mod <modid> command to generate it, rather than calling this method directly.")
     public static void generateMod(ContentPackModInfo packInfo, ServerPlayer player) throws IOException {
         String modId = packInfo.id;
-        Path outputDir = KubeJSPaths.LOCAL_CACHE.resolve(modId + "-generated");
+        Path outputDir = KubeJSPaths.LOCAL.resolve(modId + "-generated");
 
         // ✅ 使用 translatable 发送消息
         sendPlayerMessage(player, Component.translatable("chat.kubeloader.mod.start", modId).withStyle(ChatFormatting.GOLD));

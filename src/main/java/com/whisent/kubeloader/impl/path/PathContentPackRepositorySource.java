@@ -3,12 +3,15 @@ package com.whisent.kubeloader.impl.path;
 import com.whisent.kubeloader.definition.ContentPack;
 import com.whisent.kubeloader.impl.ContentPackProviders;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.packs.PackLocationInfo;
+import net.minecraft.server.packs.PackSelectionConfig;
 import net.minecraft.server.packs.PackType;
 import net.minecraft.server.packs.repository.Pack;
 import net.minecraft.server.packs.repository.PackSource;
 import net.minecraft.server.packs.repository.RepositorySource;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.Optional;
 import java.util.function.Consumer;
 
 public class PathContentPackRepositorySource implements RepositorySource {
@@ -30,12 +33,23 @@ public class PathContentPackRepositorySource implements RepositorySource {
             if (contentPack instanceof PathContentPack pathContentPack) {
                 String packId = "kubeloader/" + pathContentPack.id();
                 Component displayName = Component.literal(pathContentPack.id());
+                PackLocationInfo location = new PackLocationInfo(packId, displayName, this.sourceInfo, Optional.empty());
                 
                 Pack pack = Pack.readMetaAndCreate(
-                    packId, displayName,
-                    true, 
-                    name -> new PathContentPackResources(name, pathContentPack),
-                    this.packType, Pack.Position.TOP, this.sourceInfo
+                    location,
+                    new Pack.ResourcesSupplier() {
+                        @Override
+                        public PathContentPackResources openPrimary(PackLocationInfo name) {
+                            return new PathContentPackResources(name, pathContentPack);
+                        }
+
+                        @Override
+                        public PathContentPackResources openFull(PackLocationInfo name, Pack.Metadata metadata) {
+                            return new PathContentPackResources(name, pathContentPack);
+                        }
+                    },
+                    this.packType,
+                    new PackSelectionConfig(true, Pack.Position.TOP, false)
                 );
                 
                 if (pack != null) {

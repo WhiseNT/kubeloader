@@ -4,6 +4,7 @@ import com.whisent.kubeloader.compat.GraalJSCompat;
 import com.whisent.kubeloader.graal.GraalApi;
 import dev.latvian.mods.kubejs.event.EventHandler;
 import dev.latvian.mods.kubejs.event.IEventHandler;
+import dev.latvian.mods.kubejs.script.KubeJSContext;
 import dev.latvian.mods.kubejs.script.ScriptType;
 import dev.latvian.mods.kubejs.util.ListJS;
 import dev.latvian.mods.rhino.Context;
@@ -30,7 +31,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public abstract class EventHandlerMixin {
     
     @Shadow
-    public abstract void listen(ScriptType type, Object extraId, IEventHandler handler);
+    public abstract void listen(Context cx, ScriptType type, Object extraId, IEventHandler handler);
     
     /**
      * Intercept EventHandler.call() to adapt GraalJS Value to IEventHandler.
@@ -47,7 +48,7 @@ public abstract class EventHandlerMixin {
         method = "call",
         at = @At(
             value = "INVOKE",
-            target = "Ldev/latvian/mods/kubejs/event/EventHandler;listen(Ldev/latvian/mods/kubejs/script/ScriptType;Ljava/lang/Object;Ldev/latvian/mods/kubejs/event/IEventHandler;)V"
+            target = "Ldev/latvian/mods/kubejs/event/EventHandler;listen(Ldev/latvian/mods/rhino/Context;Ldev/latvian/mods/kubejs/script/ScriptType;Ljava/lang/Object;Ldev/latvian/mods/kubejs/event/IEventHandler;)V"
         ),
         cancellable = true
     )
@@ -61,7 +62,7 @@ public abstract class EventHandlerMixin {
         if (!GraalJSCompat.canUseGraalJS()) {
             return;
         }
-        ScriptType type = cx.getProperty("Type", null);
+        ScriptType type = cx instanceof KubeJSContext kjsContext ? kjsContext.getType() : null;
         
         if (type == null) {
             return;  // Let original handle the error
@@ -75,7 +76,7 @@ public abstract class EventHandlerMixin {
                 if (GraalJSCompat.canUseGraalJS()) {
                     // GraalJS handler without extraId
                     IEventHandler adapted = GraalApi.createGraalHandler(handler, type);
-                    listen(type, null, adapted);
+                    listen(cx, type, null, adapted);
                     cir.setReturnValue(null);
                     return;
                 }
@@ -88,7 +89,7 @@ public abstract class EventHandlerMixin {
 
                     // Support multiple extraIds (ListJS.orSelf)
                     for (Object extraId : ListJS.orSelf(extraIdArg)) {
-                        listen(type, extraId, adapted);
+                        listen(cx, type, extraId, adapted);
                     }
 
                     cir.setReturnValue(null);
