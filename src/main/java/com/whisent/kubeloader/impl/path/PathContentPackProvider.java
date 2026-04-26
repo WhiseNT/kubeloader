@@ -10,6 +10,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * @author ZZZank
@@ -26,11 +27,21 @@ public class PathContentPackProvider implements ContentPackProvider {
         try {
             return Files.list(base)
                 .filter(Files::isDirectory)
-                .map(PathContentPack::new)
+                .map(this::safelyScanSingle)
+                .filter(Objects::nonNull)
                 .toList();
         } catch (IOException e) {
             Kubeloader.LOGGER.error("Error when collecting ContentPack information from path", e);
             return List.of();
+        }
+    }
+
+    private ContentPack safelyScanSingle(Path path) {
+        try {
+            return new PathContentPack(path);
+        } catch (Exception e) {
+            Kubeloader.LOGGER.error("Error when scanning path: {}", path.getFileName(), e);
+            return null;
         }
     }
 }

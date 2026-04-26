@@ -1,10 +1,12 @@
 package com.whisent.kubeloader.graal.wrapper;
 
 import com.oracle.truffle.api.strings.TruffleString;
+import dev.latvian.mods.kubejs.script.ScriptManager;
 import dev.latvian.mods.kubejs.script.ScriptType;
 import dev.latvian.mods.kubejs.KubeJSPlugin;
 import dev.latvian.mods.kubejs.util.KubeJSPlugins;
 import dev.latvian.mods.rhino.util.wrap.TypeWrappers;
+import dev.latvian.mods.rhino.Context;
 import graal.graalvm.polyglot.HostAccess;
 import graal.graalvm.polyglot.Value;
 import com.whisent.kubeloader.Kubeloader;
@@ -49,7 +51,11 @@ public class GraalTypeWrappers {
             INSTANCE = null;
         }
     }
-    
+
+    private static Context tryGetContext() {
+        return ScriptManager.getCurrentContext();
+    }
+
     public static Object convertAny(Object arg, Class<?> targetType) {
         if (arg == null) return null;
         if (targetType.isInstance(arg)) return arg;
@@ -64,7 +70,7 @@ public class GraalTypeWrappers {
         var factory = wrappers.getWrapperFactory(targetType, javaObj);
         if (factory != null) {
             try {
-                Object result = factory.wrap(null, javaObj);
+                Object result = factory.wrap(tryGetContext(), javaObj);
                 if (result != null) return result;
             } catch (Exception e) {
                 Kubeloader.LOGGER.info("TypeWrapper转换失败 " + targetType.getName() + ": " + e.getMessage());
@@ -116,10 +122,10 @@ public class GraalTypeWrappers {
                 var factory = wrappers.getWrapperFactory(targetType, obj);
                 if (factory != null) {
                     try {
-                        Object result = factory.wrap(null, obj);
+                        Object result = factory.wrap(tryGetContext(), obj);
                         if (result != null) return targetType.cast(result);
                     } catch (ClassCastException cce) {
-                        Object result2 = factory.wrap(null, obj);
+                        Object result2 = factory.wrap(tryGetContext(), obj);
                         if (targetType.isInstance(result2)) return targetType.cast(result2);
                     } catch (Exception e) {
                         Kubeloader.LOGGER.info("TypeWrapper转换错误" + obj.getClass().getName() + " → " + targetType.getName() + ": " + e.getMessage());
