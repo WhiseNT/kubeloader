@@ -1,17 +1,18 @@
 package com.whisent.kubeloader.event;
 
 import com.whisent.kubeloader.utils.KLUtil;
-import dev.architectury.event.events.client.ClientLifecycleEvent;
-
-import net.minecraft.world.level.Level;
+import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.event.level.LevelEvent;
 
 public class KubeLoaderClientEventHandler {
     public static void init() {
-        ClientLifecycleEvent.CLIENT_LEVEL_LOAD.register(KubeLoaderClientEventHandler::onClientLevelLoad);
+        NeoForge.EVENT_BUS.addListener(KubeLoaderClientEventHandler::onLevelLoad);
     }
-    
-    public static void onClientLevelLoad(Level level) {
-        KLUtil.setClientRegistryAccess(level.registryAccess());
+
+    public static void onLevelLoad(LevelEvent.Load event) {
+        if (event.getLevel().isClientSide()) {
+            KLUtil.setClientRegistryAccess(event.getLevel().registryAccess());
+        }
     }
 
 }

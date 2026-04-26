@@ -163,7 +163,7 @@ public class KLScriptLoader {
     }
     
     public static void graalEvalString(ScriptPack pack,ScriptFileInfo info, String code) {
-        if (!GraalJSCompat.canUseGraalJS) {
+        if (!GraalJSCompat.canUseGraalJS()) {
             var cx = (KubeJSContext) pack.manager.contextFactory.enter();
             cx.evaluateString(
                     cx.topLevelScope,

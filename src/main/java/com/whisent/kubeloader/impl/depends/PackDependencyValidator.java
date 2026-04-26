@@ -4,8 +4,8 @@ import com.whisent.kubeloader.Kubeloader;
 import com.whisent.kubeloader.definition.ContentPack;
 import com.whisent.kubeloader.definition.meta.dependency.DependencyType;
 import com.whisent.kubeloader.definition.meta.dependency.PackDependency;
-import dev.architectury.platform.Platform;
 import net.minecraft.network.chat.Component;
+import net.neoforged.fml.ModList;
 import org.apache.maven.artifact.versioning.ArtifactVersion;
 import org.apache.maven.artifact.versioning.DefaultArtifactVersion;
 
@@ -53,11 +53,11 @@ public class PackDependencyValidator {
                     : null;
             }
             case MOD -> {
-                var target = Platform.getMod(dependency.id());
-                targetPresent = target != null;
-                targetVersion = targetPresent
-                    ? new DefaultArtifactVersion(target.getVersion())
-                    : null;
+                var target = ModList.get().getModContainerById(dependency.id());
+                targetPresent = target.isPresent();
+                targetVersion = target.map(mod ->
+                    new DefaultArtifactVersion(mod.getModInfo().getVersion().toString())
+                ).orElse(null);
             }
             default -> throw new IllegalStateException("Unexpected dependency source: " + dependency.source());
         }

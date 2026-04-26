@@ -8,7 +8,6 @@
     "AccessBoundTickingBlockEntity",
     "AccessEventHandlerContainer",
     "AccessItemEntity",
-    "AccessScriptFileInfo",
     "AccessScriptManager",
     "BindingsEventMixin",
     "BoundTickingBlockEntityMixin",

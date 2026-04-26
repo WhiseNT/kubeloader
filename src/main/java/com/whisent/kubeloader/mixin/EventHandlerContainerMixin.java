@@ -4,6 +4,7 @@ import com.machinezoo.noexception.WrappedException;
 import com.whisent.kubeloader.compat.GraalJSCompat;
 import com.whisent.kubeloader.graal.GraalApi;
 import dev.latvian.mods.kubejs.event.*;
+import dev.latvian.mods.kubejs.script.ConsoleJS;
 
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -30,7 +31,7 @@ public class EventHandlerContainerMixin {
         ),
         cancellable = true
     )
-    private void handleGraalJSEventWithResult(KubeEvent event, EventExceptionHandler exh, CallbackInfoReturnable<EventResult> cir) throws EventExit {
+    private void handleGraalJSEventWithResult(ConsoleJS console, EventHandler handler, KubeEvent event, CallbackInfoReturnable<EventResult> cir) throws EventExit {
         if (!GraalJSCompat.canUseGraalJS()) {
             return; // Let original method handle Rhino handlers
         }
@@ -78,7 +79,7 @@ public class EventHandlerContainerMixin {
                 throw exit;
             } catch (Throwable ex) {
                 if (GraalJSCompat.canUseGraalJS()) {
-                    GraalApi.throwException(ex, exh, event, itr);
+                    GraalApi.throwException(ex, handler.exceptionHandler, event, itr);
                 } else {
                     // Original exception handling logic
                     Throwable throwable;
@@ -91,7 +92,7 @@ public class EventHandlerContainerMixin {
                         throw exit;
                     }
 
-                    if (exh == null || (throwable = exh.handle(event, itr, throwable)) != null) {
+                    if (handler.exceptionHandler == null || (throwable = handler.exceptionHandler.handle(event, itr, throwable)) != null) {
                         throw EventResult.Type.ERROR.exit(null, throwable);
                     }
                 }

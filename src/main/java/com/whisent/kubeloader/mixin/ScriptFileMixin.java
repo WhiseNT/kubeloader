@@ -84,7 +84,7 @@ public class ScriptFileMixin {
         }
 
         var sides = ((ScriptFileInfoInterface) info).kubeLoader$getSides();
-        if (sides.isEmpty()) {
+        if (sides == null || sides.isEmpty()) {
             return;
         }
 

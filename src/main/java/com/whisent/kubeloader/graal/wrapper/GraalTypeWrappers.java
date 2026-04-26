@@ -5,12 +5,15 @@ import dev.latvian.mods.kubejs.plugin.KubeJSPlugin;
 import dev.latvian.mods.kubejs.plugin.KubeJSPlugins;
 import dev.latvian.mods.kubejs.script.ScriptType;
 import dev.latvian.mods.kubejs.script.TypeWrapperRegistry;
+import dev.latvian.mods.rhino.Context;
+import dev.latvian.mods.rhino.ContextFactory;
 import dev.latvian.mods.rhino.util.wrap.TypeWrappers;
 import dev.latvian.mods.rhino.type.TypeInfo;
 import graal.graalvm.polyglot.HostAccess;
 import graal.graalvm.polyglot.Value;
 import com.whisent.kubeloader.Kubeloader;
 
+import java.lang.ref.WeakReference;
 import java.lang.reflect.Field;
 import java.util.*;
 
@@ -52,6 +55,23 @@ public class GraalTypeWrappers {
         }
     }
     
+    /**
+     * Try to get a Rhino Context from any ScriptType's console contextFactory.
+     * Returns null if no Context is available (not inside a KubeJS environment).
+     */
+    private static Context tryGetContext() {
+        for (ScriptType type : ScriptType.VALUES) {
+            WeakReference<ContextFactory> ref = type.console.contextFactory;
+            if (ref != null) {
+                ContextFactory factory = ref.get();
+                if (factory != null) {
+                    return factory.enter();
+                }
+            }
+        }
+        return null;
+    }
+
     public static Object convertAny(Object arg, Class<?> targetType) {
         if (arg == null) return null;
         if (targetType.isInstance(arg)) return arg;
@@ -65,8 +85,9 @@ public class GraalTypeWrappers {
         TypeWrappers wrappers = getInstance();
         var factory = wrappers.getWrapperFactory(javaObj, TypeInfo.of(targetType));
         if (factory != null) {
+            Context cx = tryGetContext();
             try {
-                Object result = factory.wrap(null, javaObj, TypeInfo.of(targetType));
+                Object result = factory.wrap(cx, javaObj, TypeInfo.of(targetType));
                 if (result != null) return result;
             } catch (Exception e) {
                 Kubeloader.LOGGER.info("TypeWrapper转换失败 " + targetType.getName() + ": " + e.getMessage());
@@ -117,11 +138,12 @@ public class GraalTypeWrappers {
             (obj) -> {
                 var factory = wrappers.getWrapperFactory(obj, TypeInfo.of(targetType));
                 if (factory != null) {
+                    Context cx = tryGetContext();
                     try {
-                        Object result = factory.wrap(null, obj, TypeInfo.of(targetType));
+                        Object result = factory.wrap(cx, obj, TypeInfo.of(targetType));
                         if (result != null) return targetType.cast(result);
                     } catch (ClassCastException cce) {
-                        Object result2 = factory.wrap(null, obj, TypeInfo.of(targetType));
+                        Object result2 = factory.wrap(cx, obj, TypeInfo.of(targetType));
                         if (targetType.isInstance(result2)) return targetType.cast(result2);
                     } catch (Exception e) {
                         Kubeloader.LOGGER.info("TypeWrapper转换错误" + obj.getClass().getName() + " → " + targetType.getName() + ": " + e.getMessage());

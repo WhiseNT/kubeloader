@@ -46,10 +46,7 @@ public abstract class EventHandlerMixin {
      */
     @Inject(
         method = "call",
-        at = @At(
-            value = "INVOKE",
-            target = "Ldev/latvian/mods/kubejs/event/EventHandler;listen(Ldev/latvian/mods/rhino/Context;Ldev/latvian/mods/kubejs/script/ScriptType;Ljava/lang/Object;Ldev/latvian/mods/kubejs/event/IEventHandler;)V"
-        ),
+        at = @At("HEAD"),
         cancellable = true
     )
     private void adaptGraalJSHandler(

@@ -76,13 +76,6 @@ repositories {
     }
 
     maven {
-        url = 'https://maven.architectury.dev'
-        content {
-            includeGroup 'dev.architectury'
-        }
-    }
-
-    maven {
         url = 'https://cursemaven.com/'
     }
 
@@ -94,7 +87,7 @@ repositories {
 dependencies {
     implementation "curse.maven:kubejs-238086:${project.kubejs_curse_file}"
     implementation "curse.maven:rhino-416294:${project.rhino_curse_file}"
-    implementation "dev.architectury:architectury-neoforge:${project.architectury_version}"
+    // implementation "curse.maven:probejs-585406:7105159"
     implementation "curse.maven:graal-1504336:${project.graal_curse_file}"
 }
 
