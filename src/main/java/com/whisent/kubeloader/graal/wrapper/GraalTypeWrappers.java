@@ -41,11 +41,11 @@ public class GraalTypeWrappers {
         }
         return INSTANCE;
     }
-    
+
     public static TypeWrappers get() {
         return getInstance();
     }
-    
+
     public static void reload() {
         synchronized (LOCK) {
             INSTANCE = null;
@@ -78,7 +78,7 @@ public class GraalTypeWrappers {
         }
         return javaObj;
     }
-    
+
     @SuppressWarnings("unchecked")
     public static HostAccess.Builder registerTargetTypeMappings(HostAccess.Builder builder) {
         TypeWrappers wrappers = getInstance();
@@ -87,7 +87,7 @@ public class GraalTypeWrappers {
             Kubeloader.LOGGER.info("WARNING: 未找到可向GraalJS注册的TypeWrapper！");
             return builder;
         }
-        
+
         int registered = 0;
         for (Map.Entry<Class<?>, ?> entry : wrappersMap.entrySet()) {
             Class<?> targetType = entry.getKey();
@@ -110,33 +110,33 @@ public class GraalTypeWrappers {
     @SuppressWarnings("unchecked")
     private static <T> void registerSingleMapping(HostAccess.Builder builder, TypeWrappers wrappers, Class<T> targetType) {
         builder.targetTypeMapping(
-            Object.class,
-            targetType,
-            (obj) -> {
-                if (obj == null) return false;
-                if (targetType.isInstance(obj)) return false;
-                var factory = wrappers.getWrapperFactory(targetType, obj);
-                return factory != null;
-            },
-            (obj) -> {
-                var factory = wrappers.getWrapperFactory(targetType, obj);
-                if (factory != null) {
-                    try {
-                        Object result = factory.wrap(tryGetContext(), obj);
-                        if (result != null) return targetType.cast(result);
-                    } catch (ClassCastException cce) {
-                        Object result2 = factory.wrap(tryGetContext(), obj);
-                        if (targetType.isInstance(result2)) return targetType.cast(result2);
-                    } catch (Exception e) {
-                        Kubeloader.LOGGER.info("TypeWrapper转换错误" + obj.getClass().getName() + " → " + targetType.getName() + ": " + e.getMessage());
+                Object.class,
+                targetType,
+                (obj) -> {
+                    if (obj == null) return false;
+                    if (targetType.isInstance(obj)) return false;
+                    var factory = wrappers.getWrapperFactory(targetType, obj);
+                    return factory != null;
+                },
+                (obj) -> {
+                    var factory = wrappers.getWrapperFactory(targetType, obj);
+                    if (factory != null) {
+                        try {
+                            Object result = factory.wrap(tryGetContext(), obj);
+                            if (result != null) return targetType.cast(result);
+                        } catch (ClassCastException cce) {
+                            Object result2 = factory.wrap(tryGetContext(), obj);
+                            if (targetType.isInstance(result2)) return targetType.cast(result2);
+                        } catch (Exception e) {
+                            Kubeloader.LOGGER.info("TypeWrapper转换错误" + obj.getClass().getName() + " → " + targetType.getName() + ": " + e.getMessage());
+                        }
                     }
-                }
-                return null;
-            },
-            HostAccess.TargetMappingPrecedence.LOW
+                    return null;
+                },
+                HostAccess.TargetMappingPrecedence.LOW
         );
     }
-    
+
     @SuppressWarnings("unchecked")
     private static Map<Class<?>, ?> getWrappersMap(TypeWrappers wrappers) {
         try {
