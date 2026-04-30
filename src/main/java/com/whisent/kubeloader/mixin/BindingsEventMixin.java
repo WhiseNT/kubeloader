@@ -3,10 +3,12 @@ package com.whisent.kubeloader.mixin;
 
 import com.whisent.kubeloader.compat.GraalJSCompat;
 import com.whisent.kubeloader.definition.inject.SortablePacksHolder;
+import com.whisent.kubeloader.graal.event.GraalForgeEventWrapper;
 import com.whisent.kubeloader.impl.mixin.ScriptManagerInterface;
 import com.whisent.kubeloader.plugin.ContentPacksBinding;
 import dev.latvian.mods.kubejs.script.BindingsEvent;
 
+import net.minecraftforge.common.MinecraftForge;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -29,7 +31,13 @@ public class BindingsEventMixin {
                 var packsHolder = (SortablePacksHolder) thiz().manager;
                 bindings.put(name,new ContentPacksBinding(thiz().getType(), packsHolder));
                 return;
-            }else {
+            }
+            else if ("ForgeEvents".equals(name)) {
+                bindings.remove(name);
+                bindings.put(name, new GraalForgeEventWrapper(MinecraftForge.EVENT_BUS));
+                return;
+            }
+            else {
                 // 移除旧绑定并添加新绑定
                 bindings.remove(name);
                 bindings.put(name, value);
