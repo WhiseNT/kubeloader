@@ -28,8 +28,7 @@ public class GraalForgeEventWrapper {
         }
 
         if (clazz != null) {
-            MinecraftForge.EVENT_BUS.addListener(EventPriority.NORMAL,false,clazz,consumer);
-            MinecraftForge.EVENT_BUS.start();
+            bus.addListener(EventPriority.NORMAL,false,clazz,consumer);
             System.out.println("Registered event handler for " + clazz.getName());
             System.out.println(consumer.toString());
         } else {

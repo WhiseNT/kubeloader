@@ -19,6 +19,8 @@ import dev.latvian.mods.kubejs.script.ScriptType;
 import dev.latvian.mods.rhino.util.wrap.TypeWrappers;
 import net.minecraft.core.registries.Registries;
 
+import java.util.UUID;
+
 public class KubeLoaderPlugin extends KubeJSPlugin {
 
 
@@ -54,7 +56,7 @@ public class KubeLoaderPlugin extends KubeJSPlugin {
     @Override
     public void registerTypeWrappers(ScriptType type, TypeWrappers typeWrappers) {
         super.registerTypeWrappers(type, typeWrappers);
-        
+
         // Example: Register custom type wrappers for Rhino (similar to other mods)
         // typeWrappers.registerSimple(YourCustomClass.class, o -> {
         //     if (o instanceof YourCustomClass custom) return custom;

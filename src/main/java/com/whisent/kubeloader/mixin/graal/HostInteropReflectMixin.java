@@ -1,11 +1,14 @@
 package com.whisent.kubeloader.mixin.graal;
 
+import dev.latvian.mods.rhino.BaseFunction;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Coerce;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import com.whisent.kubeloader.graal.KJSNameRemapper;
+
+import java.lang.reflect.Field;
 
 @Mixin(targets = "com.oracle.truffle.host.HostInteropReflect", remap = false)
 public class HostInteropReflectMixin {
@@ -38,6 +41,15 @@ public class HostInteropReflectMixin {
             Object result = KJSNameRemapper.lookupHostMethod(context, clazz, getter, onlyStatic);
             if (result != null) {
                 cir.setReturnValue(result);
+                return;
+            }
+        }
+
+        for (String candidate : KJSNameRemapper.resolveMethodCandidates(clazz, name)) {
+            Object result = KJSNameRemapper.lookupHostMethod(context, clazz, candidate, onlyStatic);
+            if (result != null) {
+                cir.setReturnValue(result);
+                return;
             }
         }
     }
@@ -87,6 +99,24 @@ public class HostInteropReflectMixin {
         }
         if (KJSNameRemapper.resolveToGetter(clazz, name) != null) {
             cir.setReturnValue(true);
+            return;
+        }
+
+        if (KJSNameRemapper.hasDirectMember(clazz, name) ||
+            KJSNameRemapper.resolveMethodCandidates(clazz, name).size() > 1) {
+            cir.setReturnValue(true);
+            return;
+        }
+
+        for (Field field : clazz.getFields()) {
+            if (!field.getName().equals(name)) {
+                continue;
+            }
+
+            if (BaseFunction.class.isAssignableFrom(field.getType())) {
+                cir.setReturnValue(true);
+            }
+            return;
         }
     }
     
@@ -112,6 +142,24 @@ public class HostInteropReflectMixin {
         }
         if (KJSNameRemapper.resolveToGetter(clazz, name) != null) {
             cir.setReturnValue(true);
+            return;
+        }
+
+        if (KJSNameRemapper.hasDirectMember(clazz, name) ||
+            KJSNameRemapper.resolveMethodCandidates(clazz, name).size() > 1) {
+            cir.setReturnValue(true);
+            return;
+        }
+
+        for (Field field : clazz.getFields()) {
+            if (!field.getName().equals(name)) {
+                continue;
+            }
+
+            if (BaseFunction.class.isAssignableFrom(field.getType())) {
+                cir.setReturnValue(true);
+            }
+            return;
         }
     }
     

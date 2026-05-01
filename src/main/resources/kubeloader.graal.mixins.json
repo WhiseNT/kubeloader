@@ -7,7 +7,13 @@
   "plugin": "com.whisent.kubeloader.mixin.ConditionalMixinPlugin",
   "mixins": [
     "graal.HostInteropReflectMixin",
-    "graal.HostObjectMixin"
+    "graal.HostObjectMixin",
+    "graal.CommandRegistryEventJSMixin",
+    "graal.ArgumentTypeWrappersMixin",
+    "graal.ClassWrapperMixin",
+    "graal.RecipesEventJSMixin",
+    "graal.NamespaceFunctionMixin",
+    "graal.RecipeTypeFunctionMixin"
   ],
   "client": [
   ],

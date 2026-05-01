@@ -5,6 +5,7 @@ import com.oracle.truffle.api.strings.TruffleString;
 
 import dev.latvian.mods.kubejs.event.EventExit;
 import dev.latvian.mods.kubejs.event.EventJS;
+import net.minecraft.resources.ResourceLocation;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
@@ -15,13 +16,12 @@ import com.oracle.truffle.api.nodes.Node;
 import com.oracle.truffle.api.profiles.InlinedBranchProfile;
 import com.whisent.kubeloader.graal.event.GraalEventSignal;
 import com.whisent.kubeloader.graal.KJSNameRemapper;
+import dev.latvian.mods.kubejs.registry.RegistryInfo;
 import graal.graalvm.polyglot.Value;
 import graal.graalvm.polyglot.proxy.ProxyExecutable;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.ArrayList;
-import java.util.List;
 
 @Mixin(targets = "com.oracle.truffle.host.HostObject", remap = false)
 public class HostObjectMixin {
@@ -64,13 +64,7 @@ public class HostObjectMixin {
             return;
         }
 
-        final Class<?> clazz = obj.getClass();
-
-        List<Method> enumMethods = findMethodsWithEnumParam(clazz, identifier);
-        if (!enumMethods.isEmpty()) {
-            cir.setReturnValue(createEnumProxy(obj, enumMethods));
-            return;
-        }
+        final Class<?> clazz = getMemberTargetClass();
 
         if (KJSNameRemapper.hasDirectMember(clazz, identifier)) return;
         if (KJSNameRemapper.resolveAnnotationRemap(clazz, identifier) != null) return;
@@ -79,7 +73,7 @@ public class HostObjectMixin {
 
         try {
             Method getter = clazz.getMethod(getterName);
-            Object result = getter.invoke(obj);
+            Object result = unwrapJavaToJsValue(getter.invoke(obj));
             cir.setReturnValue(result);
         } catch (InvocationTargetException e) {
             Throwable cause = e.getCause() != null ? e.getCause() : e;
@@ -88,7 +82,7 @@ public class HostObjectMixin {
         } catch (NoSuchMethodException | IllegalAccessException ignored) {}
     }
 
-    // ===== 2. invokeMember：只预转换 Enum 参数，让原生逻辑继续 =====
+    // ===== 2. invokeMember：预转换 Enum / Registry 参数，让原生逻辑继续 =====
     @Inject(
             method = "invokeMember",
             at = @At("HEAD"),
@@ -107,106 +101,19 @@ public class HostObjectMixin {
                                 CallbackInfoReturnable<Object> cir) {
         if (obj == null || args == null) return;
 
-        final Class<?> clazz = obj.getClass();
+        final Class<?> clazz = getMemberTargetClass();
 
         for (Method m : clazz.getMethods()) {
             if (m.getDeclaringClass() == Object.class) continue;
-            if (!m.getName().equals(name)) continue;
+            java.util.Set<String> methodNames = KJSNameRemapper.resolveMethodCandidates(clazz, name);
+            if (!methodNames.contains(m.getName())) continue;
             if (m.getParameterCount() != args.length) continue;
 
             Class<?>[] paramTypes = m.getParameterTypes();
-
-            boolean hasEnum = false;
-            boolean canConvert = false;
-            for (int i = 0; i < paramTypes.length; i++) {
-                if (paramTypes[i].isEnum()) {
-                    hasEnum = true;
-                    Object arg = args[i];
-                    if (arg instanceof String || arg instanceof TruffleString) {
-                        canConvert = true;
-                    }
-                }
-            }
-
-            if (!hasEnum || !canConvert) continue;
-
-            // 只修改 args 数组中的 Enum 参数，其他不动
-            // 原生 invokeMember 会继续执行，用修改后的 args 匹配重载并调用
-            for (int i = 0; i < args.length; i++) {
-                if (paramTypes[i].isEnum()) {
-                    Object converted = convertEnumArg(args[i], paramTypes[i]);
-                    if (converted != args[i]) {
-                        args[i] = converted;
-                    }
-                }
-            }
-
-            // 不设置返回值，不取消，让原生逻辑继续
-            return;
-        }
-    }
-
-    // ========== 以下辅助方法完全保留 ==========
-
-    private static List<Method> findMethodsWithEnumParam(Class<?> clazz, String name) {
-        List<Method> list = new ArrayList<>();
-        for (Method m : clazz.getMethods()) {
-            if (m.getDeclaringClass() == Object.class) continue;
-            if (!m.getName().equals(name)) continue;
-            for (Class<?> p : m.getParameterTypes()) {
-                if (p.isEnum()) {
-                    list.add(m);
-                    break;
-                }
+            if (convertArguments(args, paramTypes)) {
+                return;
             }
         }
-        return list;
-    }
-
-    private static ProxyExecutable createEnumProxy(Object target, List<Method> candidates) {
-        return arguments -> {
-            int n = arguments.length;
-            Method method = null;
-            for (Method m : candidates) {
-                if (m.getParameterCount() == n) {
-                    method = m;
-                    break;
-                }
-            }
-            if (method == null) {
-                throw new IllegalArgumentException(
-                        "No overload of '" + candidates.get(0).getName() + "' accepts " + n + " arguments"
-                );
-            }
-            Class<?>[] types = method.getParameterTypes();
-            Object[] args = new Object[n];
-            for (int i = 0; i < n; i++) {
-                if (types[i].isEnum() && arguments[i].isString()) {
-                    String enumName = arguments[i].asString().toUpperCase();
-                    try {
-                        @SuppressWarnings({"unchecked", "rawtypes"})
-                        Enum<?> e = Enum.valueOf((Class) types[i], enumName);
-                        args[i] = e;
-                    } catch (IllegalArgumentException ex) {
-                        throw new IllegalArgumentException(
-                                "Cannot convert '" + arguments[i].asString() + "' to enum " + types[i].getName()
-                        );
-                    }
-                } else {
-                    args[i] = convertGraalValueToJava(arguments[i]);
-                }
-            }
-            try {
-                return method.invoke(target, args);
-            } catch (InvocationTargetException e) {
-                Throwable c = e.getCause() != null ? e.getCause() : e;
-                if (c instanceof EventExit ex) throw new GraalEventSignal(ex.result);
-                if (c instanceof RuntimeException) throw (RuntimeException) c;
-                throw new RuntimeException(c);
-            } catch (IllegalAccessException e) {
-                throw new RuntimeException(e);
-            }
-        };
     }
 
     private static Object convertGraalValueToJava(Value value) {
@@ -248,5 +155,121 @@ public class HostObjectMixin {
             }
         }
         return arg;
+    }
+
+    private static Object convertArgument(Object arg, Class<?> targetType) {
+        Object rawArg = arg instanceof Value value ? convertGraalValueToJava(value) : arg;
+
+        Object converted = convertEnumArg(rawArg, targetType);
+        if (converted != rawArg) {
+            return converted;
+        }
+
+        converted = convertRegistryArg(rawArg, targetType);
+        if (converted != rawArg) {
+            return converted;
+        }
+
+        if (targetType == ResourceLocation.class) {
+            ResourceLocation id = toResourceLocation(rawArg);
+            if (id != null) {
+                return id;
+            }
+        }
+
+        return rawArg;
+    }
+
+    private static Object convertRegistryArg(Object arg, Class<?> targetType) {
+        if (arg == null) {
+            return null;
+        }
+
+        ResourceLocation id = toResourceLocation(arg);
+        if (id == null) {
+            return arg;
+        }
+
+        Object resolved = resolveRegistryValueFromRegistryInfo(id, targetType);
+        return resolved != null ? resolved : arg;
+    }
+
+    private static Object resolveRegistryValueFromRegistryInfo(ResourceLocation id, Class<?> targetType) {
+        RegistryInfo<?> exactMatch = null;
+        RegistryInfo<?> assignableMatch = null;
+
+        for (RegistryInfo<?> info : RegistryInfo.MAP.values()) {
+            Class<?> objectBaseClass = info.objectBaseClass;
+
+            if (objectBaseClass == targetType) {
+                exactMatch = info;
+                break;
+            }
+
+            if (assignableMatch == null
+                    && targetType != Object.class
+                    && targetType.isAssignableFrom(objectBaseClass)) {
+                assignableMatch = info;
+            }
+        }
+
+        RegistryInfo<?> info = exactMatch != null ? exactMatch : assignableMatch;
+        if (info == null) {
+            return null;
+        }
+
+        Object value = info.getValue(id);
+        return value != null && targetType.isInstance(value) ? value : null;
+    }
+
+    private static boolean convertArguments(Object[] args, Class<?>[] paramTypes) {
+        Object[] convertedArgs = null;
+
+        for (int i = 0; i < args.length; i++) {
+            Object converted = convertArgument(args[i], paramTypes[i]);
+            if (converted != args[i]) {
+                if (convertedArgs == null) {
+                    convertedArgs = args.clone();
+                }
+                convertedArgs[i] = converted;
+            }
+        }
+
+        if (convertedArgs == null) {
+            return false;
+        }
+
+        System.arraycopy(convertedArgs, 0, args, 0, args.length);
+        return true;
+    }
+
+    private static ResourceLocation toResourceLocation(Object arg) {
+        if (arg instanceof ResourceLocation id) {
+            return id;
+        }
+        if (arg instanceof String str) {
+            ResourceLocation id = ResourceLocation.tryParse(str);
+            if (id != null) {
+                return id;
+            }
+
+            if (str.indexOf(':') == -1) {
+                return ResourceLocation.tryParse("minecraft:" + str);
+            }
+
+            return null;
+        }
+        if (arg instanceof TruffleString ts) {
+            return toResourceLocation(ts.toJavaStringUncached());
+        }
+        return null;
+    }
+
+    private static Object unwrapJavaToJsValue(Object value) {
+        return value;
+    }
+
+    private Class<?> getMemberTargetClass() {
+        return obj.getClass();
     }
 }

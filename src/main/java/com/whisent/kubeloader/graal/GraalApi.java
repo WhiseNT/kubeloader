@@ -22,6 +22,7 @@ import graal.graalvm.polyglot.*;
 import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
+import java.util.UUID;
 
 public class GraalApi {
     private static final Logger LOGGER = Kubeloader.LOGGER;
@@ -35,6 +36,9 @@ public class GraalApi {
                     try {
                         HostAccess.Builder builder = HostAccess.newBuilder(HostAccess.ALL);
                         GraalTypeWrappers.registerTargetTypeMappings(builder);
+                        builder.targetTypeMapping(UUID.class,String.class ,(obj) -> true, (obj)->{
+                            return obj.toString();
+                        });
                         CACHED_HOST_ACCESS = builder.build();
                     } catch (Exception e) {
                         LOGGER.error("无法构建自定义HostAccess, 退回HostAccess.ALL", e);

@@ -3,6 +3,7 @@ package com.whisent.kubeloader.graal.wrapper;
 import com.oracle.truffle.api.strings.TruffleString;
 import dev.latvian.mods.kubejs.script.ScriptManager;
 import dev.latvian.mods.kubejs.script.ScriptType;
+import dev.latvian.mods.kubejs.command.CommandRegistryEventJS;
 import dev.latvian.mods.kubejs.KubeJSPlugin;
 import dev.latvian.mods.kubejs.util.KubeJSPlugins;
 import dev.latvian.mods.rhino.util.wrap.TypeWrappers;
@@ -10,6 +11,7 @@ import dev.latvian.mods.rhino.Context;
 import graal.graalvm.polyglot.HostAccess;
 import graal.graalvm.polyglot.Value;
 import com.whisent.kubeloader.Kubeloader;
+import net.minecraft.world.entity.EntityType;
 
 import java.lang.reflect.Field;
 import java.util.*;
@@ -87,6 +89,14 @@ public class GraalTypeWrappers {
             Kubeloader.LOGGER.info("WARNING: 未找到可向GraalJS注册的TypeWrapper！");
             return builder;
         }
+
+        builder.targetTypeMapping(
+                Object.class,
+                CommandRegistryEventJS.class,
+                obj -> obj instanceof CommandRegistryEventJS,
+                obj -> (CommandRegistryEventJS) obj,
+                HostAccess.TargetMappingPrecedence.HIGH
+        );
 
         int registered = 0;
         for (Map.Entry<Class<?>, ?> entry : wrappersMap.entrySet()) {

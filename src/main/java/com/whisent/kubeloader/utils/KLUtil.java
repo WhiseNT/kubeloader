@@ -38,6 +38,9 @@ public class KLUtil {
 
         return "int:" + String.valueOf(integer) ;
     }
+    public static String testUUID(UUID obj) {
+        return "object:" + String.valueOf(obj);
+    }
 
     public static String test() {
         String testTScode = """

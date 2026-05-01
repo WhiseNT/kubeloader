@@ -10,9 +10,10 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.gen.Accessor;
 
 @Mixin(targets = "net.minecraft.world.level.chunk.LevelChunk$BoundTickingBlockEntity")
-public class BoundTickingBlockEntityMixin {
+public abstract class BoundTickingBlockEntityMixin {
     @Inject(
             method = "tick",
             at = @At(
@@ -21,7 +22,7 @@ public class BoundTickingBlockEntityMixin {
             )
     )
     public void tick(CallbackInfo ci) {
-        BlockEntity blockEntity = getAccess().getBlockEntity();
+        BlockEntity blockEntity = getBlockEntity();
         Level level = blockEntity.getLevel();
         Block block = blockEntity.getBlockState().getBlock();
         if (level == null || level.isClientSide) {
@@ -39,7 +40,6 @@ public class BoundTickingBlockEntityMixin {
 
     }
 
-    private AccessBoundTickingBlockEntity getAccess() {
-        return (AccessBoundTickingBlockEntity) (Object) this;
-    }
+    @Accessor("blockEntity")
+    public abstract BlockEntity getBlockEntity();
 }

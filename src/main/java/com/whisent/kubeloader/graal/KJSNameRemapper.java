@@ -15,6 +15,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public final class KJSNameRemapper {
     private static final ConcurrentHashMap<Class<?>, Map<String, String>> ANNOTATION_REMAP_CACHE = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<Class<?>, Map<String, String>> GETTER_CACHE = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<Class<?>, Map<String, Set<String>>> METHOD_CANDIDATE_CACHE = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<Class<?>, Set<String>> DIRECT_MEMBER_CACHE = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<Class<?>, Map<String, String>> FIELD_REMAP_CACHE = new ConcurrentHashMap<>();
     
@@ -93,6 +94,12 @@ public final class KJSNameRemapper {
         return DIRECT_MEMBER_CACHE
                 .computeIfAbsent(clazz, KJSNameRemapper::buildDirectMemberSet)
                 .contains(name);
+    }
+
+    public static Set<String> resolveMethodCandidates(Class<?> clazz, String jsName) {
+        return METHOD_CANDIDATE_CACHE
+                .computeIfAbsent(clazz, KJSNameRemapper::buildMethodCandidateMap)
+                .getOrDefault(jsName, Set.of(jsName));
     }
     
     public static String resolveFieldRemap(Class<?> clazz, String jsName) {
@@ -178,6 +185,41 @@ public final class KJSNameRemapper {
         }
         return Collections.unmodifiableMap(map);
     }
+
+    private static Map<String, Set<String>> buildMethodCandidateMap(Class<?> clazz) {
+        Map<String, Set<String>> map = new LinkedHashMap<>();
+        for (Method method : clazz.getMethods()) {
+            String javaName = method.getName();
+            addMethodCandidate(map, javaName, javaName);
+
+            RemapForJS remapForJS = method.getAnnotation(RemapForJS.class);
+            if (remapForJS != null) {
+                addMethodCandidate(map, remapForJS.value(), javaName);
+            }
+        }
+
+        Set<String> prefixes = collectAllPrefixes(clazz);
+        for (Method method : clazz.getMethods()) {
+            String javaName = method.getName();
+            for (String prefix : prefixes) {
+                if (javaName.startsWith(prefix) && javaName.length() > prefix.length()) {
+                    addMethodCandidate(map, javaName.substring(prefix.length()), javaName);
+                }
+            }
+        }
+
+        processHierarchyMethodCandidates(clazz, map, prefixes);
+
+        Map<String, Set<String>> frozen = new LinkedHashMap<>();
+        for (var entry : map.entrySet()) {
+            frozen.put(entry.getKey(), Collections.unmodifiableSet(entry.getValue()));
+        }
+        return Collections.unmodifiableMap(frozen);
+    }
+
+    private static void addMethodCandidate(Map<String, Set<String>> map, String jsName, String javaName) {
+        map.computeIfAbsent(jsName, k -> new LinkedHashSet<>()).add(javaName);
+    }
     
     private static Set<String> collectAllPrefixes(Class<?> clazz) {
         Set<String> prefixes = new LinkedHashSet<>();
@@ -223,6 +265,40 @@ public final class KJSNameRemapper {
                                 map.put(jsName, javaName);
                             } catch (NoSuchMethodException ignored) {}
                         }
+                    }
+                }
+            }
+            if (current.getSuperclass() != null) queue.add(current.getSuperclass());
+            Collections.addAll(queue, current.getInterfaces());
+        }
+    }
+
+    private static void processHierarchyMethodCandidates(Class<?> clazz, Map<String, Set<String>> map, Set<String> prefixes) {
+        Deque<Class<?>> queue = new ArrayDeque<>();
+        Set<Class<?>> visited = new HashSet<>();
+        if (clazz.getSuperclass() != null) queue.add(clazz.getSuperclass());
+        Collections.addAll(queue, clazz.getInterfaces());
+        while (!queue.isEmpty()) {
+            Class<?> current = queue.poll();
+            if (!visited.add(current)) continue;
+            RemapPrefixForJS currentPrefix = current.getAnnotation(RemapPrefixForJS.class);
+            for (Method method : current.getMethods()) {
+                String javaName = method.getName();
+                RemapForJS remap = method.getAnnotation(RemapForJS.class);
+                if (remap != null) {
+                    try {
+                        Method impl = clazz.getMethod(javaName, method.getParameterTypes());
+                        addMethodCandidate(map, remap.value(), impl.getName());
+                    } catch (NoSuchMethodException ignored) {}
+                }
+                if (currentPrefix != null) {
+                    String prefix = currentPrefix.value();
+                    if (javaName.startsWith(prefix) && javaName.length() > prefix.length()) {
+                        String jsName = javaName.substring(prefix.length());
+                        try {
+                            Method impl = clazz.getMethod(javaName, method.getParameterTypes());
+                            addMethodCandidate(map, jsName, impl.getName());
+                        } catch (NoSuchMethodException ignored) {}
                     }
                 }
             }
