@@ -1,6 +1,6 @@
 package com.whisent.kubeloader.utils;
 
-import com.whisent.kubeloader.scripts.TsEraser;
+import com.whisent.kubeloader.scripts.tserase.TsEraser;
 import dev.latvian.mods.kubejs.typings.Info;
 import dev.latvian.mods.kubejs.util.UtilsJS;
 import dev.latvian.mods.rhino.util.HideFromJS;

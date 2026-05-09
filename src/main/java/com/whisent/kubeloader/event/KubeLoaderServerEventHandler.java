@@ -6,8 +6,11 @@ import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.suggestion.Suggestions;
 import com.mojang.brigadier.suggestion.SuggestionsBuilder;
 import com.whisent.kubeloader.Kubeloader;
+import com.whisent.kubeloader.compat.GraalJSCompat;
 import com.whisent.kubeloader.definition.ContentPackUtils;
 import com.whisent.kubeloader.definition.meta.PackMetaData;
+import com.whisent.kubeloader.graal.probe.LocalContentPackResolver;
+import com.whisent.kubeloader.graal.probe.ProbeDtsGeneratorService;
 import com.whisent.kubeloader.impl.mod.ModContentPackProvider;
 import com.whisent.kubeloader.network.KLClientScriptsReloadPacket;
 import com.whisent.kubeloader.network.NetworkHandler;
@@ -33,6 +36,8 @@ import net.minecraftforge.fml.ModList;
 import net.minecraftforge.fml.common.Mod;
 
 import java.io.IOException;
+import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -87,6 +92,64 @@ public class KubeLoaderServerEventHandler {
                 )
         );
         klCmd.then(Commands.literal("probe")
+                .then(Commands.literal("gen")
+                        .then(Commands.argument("packId", StringArgumentType.string())
+                                .suggests((context, builder) -> suggestEntries(LocalContentPackResolver.listLocalPackIds(), builder))
+                                .executes(ctx -> {
+                                    if (!GraalJSCompat.isRuntimeAvailable()) {
+                                        ctx.getSource().sendFailure(Component.literal(
+                                                "Graal probe generation is unavailable: " + GraalJSCompat.getRuntimeUnavailableReason()
+                                        ));
+                                        return 0;
+                                    }
+
+                                    String packId = ctx.getArgument("packId", String.class);
+                                    LocalContentPackResolver.Resolution resolution = LocalContentPackResolver.resolve(packId);
+
+                                    if (!resolution.success()) {
+                                        ctx.getSource().sendFailure(Component.literal(resolution.message()));
+                                        return 0;
+                                    }
+
+                                    try {
+                                        ProbeDtsGeneratorService.GenerationResult result = ProbeDtsGeneratorService.generate(ctx.getSource(), resolution.pack());
+
+                                        ctx.getSource().sendSuccess(() -> Component.literal(
+                                            "Generated " + result.generatedFiles() + " declaration files for pack '" + packId +
+                                                "' into " + result.outputDirectory()
+                                        ), false);
+
+                                        if (!Objects.equals(result.namespaceToken(), packId)) {
+                                            ctx.getSource().sendSuccess(() -> Component.literal(
+                                                    "Using TypeScript namespace token '" + result.namespaceToken() +
+                                                            "' for pack id '" + packId + "'"
+                                            ), false);
+                                        }
+
+                                        if (result.failedFiles() > 0) {
+                                            ctx.getSource().sendFailure(Component.literal(
+                                                    "Skipped " + result.failedFiles() + " files during declaration generation"
+                                            ));
+                                        }
+
+                                        List<String> warnings = result.warnings();
+                                        for (int index = 0; index < Math.min(3, warnings.size()); index++) {
+                                            String warningMessage = warnings.get(index);
+                                            ctx.getSource().sendSuccess(() -> Component.literal(warningMessage), false);
+                                        }
+
+                                        return result.failedFiles() == 0 ? 1 : 0;
+                                    } catch (Exception e) {
+                                        Kubeloader.LOGGER.error("Failed to generate probe declarations for pack '{}'", packId, e);
+                                        ctx.getSource().sendFailure(Component.literal(
+                                                "Error occurred while generating probe declarations: " +
+                                                        (e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage())
+                                        ));
+                                        return 0;
+                                    }
+                                })
+                        )
+                )
                 .then(Commands.literal("dump")
                 .executes(ctx -> {
                     try {
@@ -125,6 +188,10 @@ public class KubeLoaderServerEventHandler {
 
     }
     private static CompletableFuture<Suggestions> suggestMapKeys(java.util.Set<String> keys, SuggestionsBuilder builder) {
+        return SharedSuggestionProvider.suggest(keys, builder);
+    }
+
+    private static CompletableFuture<Suggestions> suggestEntries(Iterable<String> keys, SuggestionsBuilder builder) {
         return SharedSuggestionProvider.suggest(keys, builder);
     }
 

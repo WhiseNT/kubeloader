@@ -1,8 +1,7 @@
 package com.whisent.kubeloader.compat;
 
 import com.whisent.kubeloader.ConfigManager;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import net.minecraftforge.fml.ModList;
 
 /**
  * GraalJS 兼容性检测工具类
@@ -10,14 +9,56 @@ import org.apache.logging.log4j.Logger;
  */
 public class GraalJSCompat {
     public static boolean canUseGraalJS = false;
+    private static volatile Boolean polyglotAvailable;
     
 
     public static void init() {
-
-        canUseGraalJS = true;
+        canUseGraalJS = isRuntimeAvailable();
     }
+
     public static boolean canUseGraalJS() {
-        canUseGraalJS = ConfigManager.shouldUseGraalJS();
+        canUseGraalJS = isRuntimeAvailable() && ConfigManager.shouldUseGraalJS();
         return canUseGraalJS;
+    }
+
+    public static boolean isRuntimeAvailable() {
+        return isGraalModLoaded() && isPolyglotAvailable();
+    }
+
+    public static boolean isGraalModLoaded() {
+        try {
+            return ModList.get().isLoaded("graalmc");
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
+    public static boolean isPolyglotAvailable() {
+        if (polyglotAvailable == null) {
+            synchronized (GraalJSCompat.class) {
+                if (polyglotAvailable == null) {
+                    try {
+                        Class.forName("graal.graalvm.polyglot.Context", false, GraalJSCompat.class.getClassLoader());
+                        polyglotAvailable = true;
+                    } catch (Throwable ignored) {
+                        polyglotAvailable = false;
+                    }
+                }
+            }
+        }
+
+        return polyglotAvailable;
+    }
+
+    public static String getRuntimeUnavailableReason() {
+        if (!isGraalModLoaded()) {
+            return "Graal mod is not loaded";
+        }
+
+        if (!isPolyglotAvailable()) {
+            return "Graal polyglot classes are not available";
+        }
+
+        return "Graal runtime is not available";
     }
 }

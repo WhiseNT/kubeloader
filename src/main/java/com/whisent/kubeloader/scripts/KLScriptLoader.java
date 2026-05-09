@@ -1,7 +1,9 @@
 package com.whisent.kubeloader.scripts;
 
 import com.whisent.kubeloader.ConfigManager;
+import com.whisent.kubeloader.scripts.tserase.TsEraser;
 import com.whisent.kubeloader.compat.GraalJSCompat;
+import com.whisent.kubeloader.scripts.modernjs.ModernJSParser;
 import com.whisent.kubeloader.definition.meta.Engine;
 import com.whisent.kubeloader.graal.GraalApi;
 import com.whisent.kubeloader.impl.mixin.ScriptFileInfoInterface;
@@ -26,33 +28,34 @@ public class KLScriptLoader {
 
     public static void load(ScriptPack pack, ScriptFileInfo info,
                             Map<String, List<MixinDSL>> mixinMap, CallbackInfo ci)  {
-        String sourceCode = String.join("\n", info.lines);
-
-        //根据文件后缀进行处理
-        if (isTsFile(info.file)) {
-            Debugger.out("正在处理 " + info.location + " 文件");
-            //typescript擦除类型
-
-            sourceCode = TsEraser.eraseTypes(sourceCode);
-            Debugger.out("修改后的源代码(TS→ES6) " + info.location + ":\n" + sourceCode);
-            //根据配置决定是否转换ES6语法
-            if (ConfigManager.shouldUseModernJS()) {
-                sourceCode = ModernJSParser.parse(sourceCode);
-                Debugger.out("修改后的源代码(ES6→ES5) " + info.location + ":\n" + sourceCode);
-            }
-        } else if (isJsFile(info.file)) {
-            //根据配置决定是否进行现代JS转换
-            if (ConfigManager.shouldUseModernJS()) {
-                sourceCode = ModernJSParser.parse(sourceCode);
-                Debugger.out("修改后的源代码(ES5兼容运行) " + info.location + ":\n" + sourceCode);
-            }
-        }
-        //先处理KLM
-        if (mixinMap.getOrDefault(info.location,null)  != null ) {
-            sourceCode = applyMixin(pack,info,mixinMap,sourceCode);
-        }
+        String sourceCode = prepareSourceCode(pack, info, mixinMap, String.join("\n", info.lines));
         evalString(pack,info,sourceCode);
         ci.cancel();
+    }
+
+    public static String prepareSourceCode(ScriptPack pack, ScriptFileInfo info,
+                                           Map<String, List<MixinDSL>> mixinMap, String sourceCode) {
+        String preparedSourceCode = sourceCode;
+
+        if (isTsFile(info.file)) {
+            Debugger.out("正在处理 " + info.location + " 文件");
+            preparedSourceCode = TsEraser.eraseTypes(preparedSourceCode);
+            Debugger.out("修改后的源代码(TS→ES6) " + info.location + ":\n" + preparedSourceCode);
+
+            if (ConfigManager.shouldUseModernJS()) {
+                preparedSourceCode = ModernJSParser.parse(preparedSourceCode);
+                Debugger.out("修改后的源代码(ES6→ES5) " + info.location + ":\n" + preparedSourceCode);
+            }
+        } else if (isJsFile(info.file) && ConfigManager.shouldUseModernJS()) {
+            preparedSourceCode = ModernJSParser.parse(preparedSourceCode);
+            Debugger.out("修改后的源代码(ES5兼容运行) " + info.location + ":\n" + preparedSourceCode);
+        }
+
+        if (mixinMap != null && mixinMap.getOrDefault(info.location, null) != null) {
+            preparedSourceCode = applyMixin(pack, info, mixinMap, preparedSourceCode);
+        }
+
+        return preparedSourceCode;
     }
 
     public static String applyMixin(ScriptPack pack,ScriptFileInfo info,

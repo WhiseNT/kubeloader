@@ -58,7 +58,7 @@ public class GraalApi {
     }
 
     public static void registerBinding(Context context, String name, Object value) {
-        if (!GraalJSCompat.canUseGraalJS) return;
+        if (!GraalJSCompat.isRuntimeAvailable()) return;
         if (value instanceof EventGroupWrapper eventGroupWrapper) {
             try {
                 GraalEventGroupProxy proxy = new GraalEventGroupProxy(eventGroupWrapper);
@@ -219,7 +219,7 @@ public class GraalApi {
         }
     }
     
-    public static Context createContext() {
+    private static Context createBaseContext() {
         Engine sharedEngine = Engine.newBuilder()
             .allowExperimentalOptions(true)
             .option("js.ecmascript-version", "2024")
@@ -227,8 +227,7 @@ public class GraalApi {
             .option("js.foreign-object-prototype", "true")
             .build();
 
-        System.out.println("[KubeLoader] GraalJS检查: canUseGraalJS=" + GraalJSCompat.canUseGraalJS);
-        if (!GraalJSCompat.canUseGraalJS) {
+        if (!GraalJSCompat.isRuntimeAvailable()) {
             LOGGER.error("[KubeLoader] 无法创建 GraalJS Context：依赖不可用");
             return null;
         }
@@ -253,8 +252,17 @@ public class GraalApi {
         return ctx;
     }
 
+    public static Context createContext() {
+        System.out.println("[KubeLoader] GraalJS检查: canUseGraalJS=" + GraalJSCompat.canUseGraalJS);
+        if (!GraalJSCompat.canUseGraalJS()) {
+            LOGGER.error("[KubeLoader] 无法创建 GraalJS Context：当前未启用 GraalJS 引擎");
+            return null;
+        }
+
+        return createBaseContext();
+    }
+
     public static Context createContext(ScriptManager manager) {
-        ScriptManagerInterface thiz = (ScriptManagerInterface) manager;
         Context ctx = createContext();
 
         if (ctx == null) {
@@ -262,17 +270,34 @@ public class GraalApi {
             return null;
         }
 
+        populateBindings(ctx, manager);
+        return ctx;
+    }
+
+    public static Context createProbeContext(ScriptManager manager) {
+        Context ctx = createBaseContext();
+
+        if (ctx == null) {
+            LOGGER.error("[KubeLoader] Failed to create GraalJS context for manager: {}", manager);
+            return null;
+        }
+
+        populateBindings(ctx, manager);
+        return ctx;
+    }
+
+    private static void populateBindings(Context context, ScriptManager manager) {
+        ScriptManagerInterface thiz = (ScriptManagerInterface) manager;
+
         thiz.getKubeLoader$bindings().entrySet().stream()
             .filter(entry -> entry.getKey() != null && entry.getValue() != null)
             .forEach(entry -> {
                 try {
-                    registerBinding(ctx, entry.getKey(), entry.getValue());
+                    registerBinding(context, entry.getKey(), entry.getValue());
                 } catch (Exception e) {
                     LOGGER.error("[KubeLoader] Failed to register binding '{}': {}", entry.getKey(), e.getMessage());
                 }
             });
-
-        return ctx;
     }
     
     public static IEventHandler createGraalHandler(Object handler, ScriptType type) {

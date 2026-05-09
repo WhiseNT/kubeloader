@@ -121,9 +121,15 @@ dependencies {
 //    implementation fg.deobf("curse.maven:graaljs-1284543:6642435")
     implementation fg.deobf("curse.maven:graal-1504336:7983194")
 
-    
+    testImplementation platform('org.junit:junit-bom:5.10.2')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+
     annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
 
+}
+
+tasks.named('test', Test).configure {
+    useJUnitPlatform()
 }
 
 tasks.named('processResources', ProcessResources).configure {
