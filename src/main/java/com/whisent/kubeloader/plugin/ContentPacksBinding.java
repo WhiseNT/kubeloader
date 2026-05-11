@@ -3,7 +3,6 @@ package com.whisent.kubeloader.plugin;
 import com.google.common.collect.Maps;
 import com.whisent.kubeloader.definition.ContentPack;
 import com.whisent.kubeloader.definition.inject.SortablePacksHolder;
-import com.whisent.kubeloader.definition.meta.Engine;
 import com.whisent.kubeloader.definition.meta.PackMetaData;
 import com.whisent.kubeloader.impl.depends.SortableContentPack;
 import dev.latvian.mods.kubejs.script.ScriptType;
@@ -68,6 +67,19 @@ public class ContentPacksBinding {
         @see {@link type} Current script type
         @see {@link getAllSharedFor} View ContentPack shared data for another script type.""")
     public void putShared(String id, Object o) {
+        putShared(type, id, o);
+    }
+
+    @Info("""
+        Put value into ContentPack shared data for the provided script type.
+        
+        Accepts either a ScriptType enum value or a string such as `startup`, `server`, `client`
+        or `startup_scripts`.""")
+    public void putShared(Object type, Object id, Object o) {
+        putShared(resolveScriptType(type), String.valueOf(id), o);
+    }
+
+    public void putShared(ScriptType type, String id, Object o) {
         TYPED_GLOBALS.get(type).put(id, o);
     }
 
@@ -78,6 +90,15 @@ public class ContentPacksBinding {
         @see {@link getAlSharedFor} View ContentPack shared data for another script type.""")
     public Object getShared(String id) {
         return getShared(this.type, id);
+    }
+
+    @Info("""
+        Get ContentPack shared data for the provided script type.
+        
+        Accepts either a ScriptType enum value or a string such as `startup`, `server`, `client`
+        or `startup_scripts`.""")
+    public Object getShared(Object type, Object id) {
+        return getShared(resolveScriptType(type), String.valueOf(id));
     }
 
     @Info("""
@@ -101,6 +122,15 @@ public class ContentPacksBinding {
     }
 
     @Info("""
+        View all ContentPack shared data for the provided script type.
+        
+        Accepts either a ScriptType enum value or a string such as `startup`, `server`, `client`
+        or `startup_scripts`.""")
+    public Map<String, Object> getAllSharedFor(Object type) {
+        return getAllSharedFor(resolveScriptType(type));
+    }
+
+    @Info("""
         View all ContentPack shared data for specified script type.
         
         The return value is **immutable**, which means you can't put value into it
@@ -109,5 +139,28 @@ public class ContentPacksBinding {
         @see {@link putShared} Put value into ContentPack shared data for **current** script type""")
     public Map<String, Object> getAllSharedFor(ScriptType type) {
         return Collections.unmodifiableMap(TYPED_GLOBALS.get(type));
+    }
+
+    private static ScriptType resolveScriptType(Object rawType) {
+        if (rawType instanceof ScriptType scriptType) {
+            return scriptType;
+        }
+
+        String normalized = String.valueOf(rawType).trim().toLowerCase(Locale.ROOT);
+        if (normalized.endsWith("_scripts")) {
+            normalized = normalized.substring(0, normalized.length() - "_scripts".length());
+        }
+
+        for (ScriptType scriptType : ScriptType.values()) {
+            if (normalized.equals(scriptType.name().toLowerCase(Locale.ROOT))) {
+                return scriptType;
+            }
+
+            if (normalized.equals(scriptType.name.toLowerCase(Locale.ROOT))) {
+                return scriptType;
+            }
+        }
+
+        throw new IllegalArgumentException("Unknown script type: " + rawType);
     }
 }

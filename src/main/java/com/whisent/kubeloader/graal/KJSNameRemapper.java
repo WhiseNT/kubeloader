@@ -12,8 +12,31 @@ import java.util.concurrent.ConcurrentHashMap;
 public final class KJSNameRemapper {
     private static final ConcurrentHashMap<Class<?>, Map<String, String>> ANNOTATION_REMAP_CACHE = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<Class<?>, Map<String, String>> GETTER_CACHE = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<Class<?>, Map<String, Set<String>>> METHOD_CANDIDATE_CACHE = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<Class<?>, Set<String>> DIRECT_MEMBER_CACHE = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<Class<?>, Map<String, String>> FIELD_REMAP_CACHE = new ConcurrentHashMap<>();
+    private static final Object MC_REMAPPER;
+    private static final java.lang.reflect.Method MC_REMAPPER_GET_MAPPED_METHOD;
+    private static final java.lang.reflect.Method MC_REMAPPER_GET_MAPPED_FIELD;
+
+    static {
+        Object remapper = null;
+        java.lang.reflect.Method getMappedMethod = null;
+        java.lang.reflect.Method getMappedField = null;
+        try {
+            Class<?> helperClass = Class.forName("dev.latvian.mods.rhino.mod.util.RemappingHelper");
+            remapper = helperClass.getDeclaredMethod("getMinecraftRemapper").invoke(null);
+            if (remapper != null) {
+                Class<?> remapperClass = remapper.getClass();
+                getMappedMethod = remapperClass.getMethod("getMappedMethod", Class.class, Method.class);
+                getMappedField = remapperClass.getMethod("getMappedField", Class.class, Field.class);
+            }
+        } catch (Throwable ignored) {
+        }
+        MC_REMAPPER = remapper;
+        MC_REMAPPER_GET_MAPPED_METHOD = getMappedMethod;
+        MC_REMAPPER_GET_MAPPED_FIELD = getMappedField;
+    }
 
     private static volatile java.lang.reflect.Method HOST_CLASS_DESC_FOR_CLASS;
     private static volatile java.lang.reflect.Method HOST_CLASS_DESC_LOOKUP_METHOD;
@@ -78,6 +101,12 @@ public final class KJSNameRemapper {
                 .computeIfAbsent(clazz, KJSNameRemapper::buildDirectMemberSet)
                 .contains(name);
     }
+
+    public static Set<String> resolveMethodCandidates(Class<?> clazz, String jsName) {
+        return METHOD_CANDIDATE_CACHE
+                .computeIfAbsent(clazz, KJSNameRemapper::buildMethodCandidateMap)
+                .getOrDefault(jsName, Set.of(jsName));
+    }
     
     public static String resolveFieldRemap(Class<?> clazz, String jsName) {
         return FIELD_REMAP_CACHE
@@ -97,6 +126,13 @@ public final class KJSNameRemapper {
             for (String prefix : prefixes) {
                 if (javaName.startsWith(prefix) && javaName.length() > prefix.length()) {
                     map.putIfAbsent(javaName.substring(prefix.length()), javaName);
+                }
+            }
+
+            if (MC_REMAPPER != null) {
+                String mappedName = getMappedMethodName(clazz, method);
+                if (mappedName != null && !mappedName.isEmpty() && !mappedName.equals(javaName)) {
+                    map.putIfAbsent(mappedName, javaName);
                 }
             }
         }
@@ -139,12 +175,56 @@ public final class KJSNameRemapper {
                 String fieldName = field.getName();
                 RemapForJS remap = field.getAnnotation(RemapForJS.class);
                 if (remap != null) map.putIfAbsent(remap.value(), fieldName);
+
+                if (MC_REMAPPER != null) {
+                    String mappedName = getMappedFieldName(current, field);
+                    if (mappedName != null && !mappedName.isEmpty() && !mappedName.equals(fieldName)) {
+                        map.putIfAbsent(mappedName, fieldName);
+                    }
+                }
+
                 map.putIfAbsent(fieldName, fieldName);
             }
             if (current.getSuperclass() != null) queue.add(current.getSuperclass());
             Collections.addAll(queue, current.getInterfaces());
         }
         return Collections.unmodifiableMap(map);
+    }
+
+    private static Map<String, Set<String>> buildMethodCandidateMap(Class<?> clazz) {
+        Map<String, Set<String>> map = new LinkedHashMap<>();
+
+        for (Method method : clazz.getMethods()) {
+            String javaName = method.getName();
+            addMethodCandidate(map, javaName, javaName);
+
+            RemapForJS remapForJS = method.getAnnotation(RemapForJS.class);
+            if (remapForJS != null) {
+                addMethodCandidate(map, remapForJS.value(), javaName);
+            }
+        }
+
+        Set<String> prefixes = collectAllPrefixes(clazz);
+        for (Method method : clazz.getMethods()) {
+            String javaName = method.getName();
+            for (String prefix : prefixes) {
+                if (javaName.startsWith(prefix) && javaName.length() > prefix.length()) {
+                    addMethodCandidate(map, javaName.substring(prefix.length()), javaName);
+                }
+            }
+        }
+
+        processHierarchyMethodCandidates(clazz, map);
+
+        Map<String, Set<String>> frozen = new LinkedHashMap<>();
+        for (var entry : map.entrySet()) {
+            frozen.put(entry.getKey(), Collections.unmodifiableSet(entry.getValue()));
+        }
+        return Collections.unmodifiableMap(frozen);
+    }
+
+    private static void addMethodCandidate(Map<String, Set<String>> map, String jsName, String javaName) {
+        map.computeIfAbsent(jsName, ignored -> new LinkedHashSet<>()).add(javaName);
     }
     
     private static Set<String> collectAllPrefixes(Class<?> clazz) {
@@ -198,10 +278,47 @@ public final class KJSNameRemapper {
             Collections.addAll(queue, current.getInterfaces());
         }
     }
+
+    private static void processHierarchyMethodCandidates(Class<?> clazz, Map<String, Set<String>> map) {
+        Deque<Class<?>> queue = new ArrayDeque<>();
+        Set<Class<?>> visited = new HashSet<>();
+        if (clazz.getSuperclass() != null) queue.add(clazz.getSuperclass());
+        Collections.addAll(queue, clazz.getInterfaces());
+
+        while (!queue.isEmpty()) {
+            Class<?> current = queue.poll();
+            if (!visited.add(current)) continue;
+
+            RemapPrefixForJS currentPrefix = current.getAnnotation(RemapPrefixForJS.class);
+            for (Method method : current.getMethods()) {
+                String javaName = method.getName();
+                RemapForJS remap = method.getAnnotation(RemapForJS.class);
+                if (remap != null) {
+                    try {
+                        Method impl = clazz.getMethod(javaName, method.getParameterTypes());
+                        addMethodCandidate(map, remap.value(), impl.getName());
+                    } catch (NoSuchMethodException ignored) {
+                    }
+                }
+
+                if (currentPrefix != null && javaName.startsWith(currentPrefix.value()) && javaName.length() > currentPrefix.value().length()) {
+                    try {
+                        Method impl = clazz.getMethod(javaName, method.getParameterTypes());
+                        addMethodCandidate(map, javaName.substring(currentPrefix.value().length()), impl.getName());
+                    } catch (NoSuchMethodException ignored) {
+                    }
+                }
+            }
+
+            if (current.getSuperclass() != null) queue.add(current.getSuperclass());
+            Collections.addAll(queue, current.getInterfaces());
+        }
+    }
     
     public static void clearCaches() {
         ANNOTATION_REMAP_CACHE.clear();
         GETTER_CACHE.clear();
+        METHOD_CANDIDATE_CACHE.clear();
         DIRECT_MEMBER_CACHE.clear();
         FIELD_REMAP_CACHE.clear();
     }
@@ -209,7 +326,32 @@ public final class KJSNameRemapper {
     public static void invalidate(Class<?> clazz) {
         ANNOTATION_REMAP_CACHE.remove(clazz);
         GETTER_CACHE.remove(clazz);
+        METHOD_CANDIDATE_CACHE.remove(clazz);
         DIRECT_MEMBER_CACHE.remove(clazz);
         FIELD_REMAP_CACHE.remove(clazz);
+    }
+
+    private static String getMappedMethodName(Class<?> owner, Method method) {
+        if (MC_REMAPPER == null || MC_REMAPPER_GET_MAPPED_METHOD == null) {
+            return null;
+        }
+
+        try {
+            return (String) MC_REMAPPER_GET_MAPPED_METHOD.invoke(MC_REMAPPER, owner, method);
+        } catch (Throwable ignored) {
+            return null;
+        }
+    }
+
+    private static String getMappedFieldName(Class<?> owner, Field field) {
+        if (MC_REMAPPER == null || MC_REMAPPER_GET_MAPPED_FIELD == null) {
+            return null;
+        }
+
+        try {
+            return (String) MC_REMAPPER_GET_MAPPED_FIELD.invoke(MC_REMAPPER, owner, field);
+        } catch (Throwable ignored) {
+            return null;
+        }
     }
 }

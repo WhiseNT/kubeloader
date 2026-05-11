@@ -1,11 +1,10 @@
 package com.whisent.kubeloader.mixin;
 
-
-import com.whisent.kubeloader.compat.JavaWrapperCompat;
 import com.whisent.kubeloader.compat.GraalJSCompat;
 import com.whisent.kubeloader.definition.inject.SortablePacksHolder;
 import com.whisent.kubeloader.impl.mixin.ScriptManagerInterface;
 import com.whisent.kubeloader.plugin.ContentPacksBinding;
+import dev.latvian.mods.kubejs.plugin.builtin.wrapper.JavaWrapper;
 import dev.latvian.mods.kubejs.script.BindingRegistry;
 
 import org.spongepowered.asm.mixin.Mixin;
@@ -17,7 +16,7 @@ public class BindingsEventMixin {
     @Inject(method = "add", at = @org.spongepowered.asm.mixin.injection.At("HEAD"))
     public void kubeLoader$add(String name, Object value, CallbackInfo ci) {
         if ("Java".equals(name)) {
-            thiz().context().addToScope(thiz().scope(), name, JavaWrapperCompat.class);
+            thiz().context().addToScope(thiz().scope(), name, JavaWrapper.class);
             return;
         }
 

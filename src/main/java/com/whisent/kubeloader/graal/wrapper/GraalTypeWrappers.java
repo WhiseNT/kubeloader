@@ -59,7 +59,7 @@ public class GraalTypeWrappers {
      * Try to get a Rhino Context from any ScriptType's console contextFactory.
      * Returns null if no Context is available (not inside a KubeJS environment).
      */
-    private static Context tryGetContext() {
+    public static Context tryGetContext() {
         for (ScriptType type : ScriptType.VALUES) {
             WeakReference<ContextFactory> ref = type.console.contextFactory;
             if (ref != null) {
