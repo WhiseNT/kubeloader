@@ -1,9 +1,12 @@
-package com.whisent.kubeloader.scripts.modernjs;
+package com.whisent.kubeloader.scripts.modernjs.plugin;
+
+import com.whisent.kubeloader.scripts.modernjs.ModernJSParser;
+import com.whisent.kubeloader.scripts.modernjs.plugin.impl.TextPlugin;
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-final class ShorthandReturnObjectPlugin implements TextPlugin {
+public class ShorthandReturnObjectPlugin implements TextPlugin {
     private static final Pattern RETURN_SHORTHAND_PATTERN =
             Pattern.compile("\\breturn\\s*\\{([^{}]*)\\}\\s*(?=;|\\n|\\r|$)");
 

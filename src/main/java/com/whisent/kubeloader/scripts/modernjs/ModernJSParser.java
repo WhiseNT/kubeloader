@@ -1,8 +1,6 @@
 package com.whisent.kubeloader.scripts.modernjs;
 
-import java.util.*;
-import java.util.regex.*;
-import java.util.stream.Collectors;
+import com.whisent.kubeloader.scripts.modernjs.plugin.impl.SourcePlugin;
 
 public class ModernJSParser {
 
@@ -28,14 +26,14 @@ public class ModernJSParser {
         return PLUGINS.applyPostProcessing(result.toString());
     }
 
-    static boolean isValidFieldName(String stmt) {
+    public static boolean isValidFieldName(String stmt) {
         int eq = stmt.indexOf('=');
         if (eq <= 0) return false;
         String name = stmt.substring(0, eq).trim();
         return isValidIdentifier(name);
     }
 
-    static boolean isValidIdentifier(String s) {
+    public static boolean isValidIdentifier(String s) {
         if (s == null || s.isEmpty()) return false;
         char first = s.charAt(0);
         if (first != '_' && first != '$' && !Character.isLetter(first)) return false;

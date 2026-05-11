@@ -1,9 +1,11 @@
-package com.whisent.kubeloader.scripts.modernjs;
+package com.whisent.kubeloader.scripts.modernjs.plugin;
+
+import com.whisent.kubeloader.scripts.modernjs.plugin.impl.TextPlugin;
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-final class DefaultParameterPlugin implements TextPlugin {
+public class DefaultParameterPlugin implements TextPlugin {
     private static final Pattern FUNCTION_WITH_DEFAULTS_PATTERN =
             Pattern.compile("(\\bfunction\\s+\\w+\\s*\\([^)]*\\))(\\s*\\{)");
 

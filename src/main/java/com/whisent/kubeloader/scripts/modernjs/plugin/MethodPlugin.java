@@ -1,6 +1,8 @@
-package com.whisent.kubeloader.scripts.modernjs;
+package com.whisent.kubeloader.scripts.modernjs.plugin;
 
-final class MethodPlugin implements ClassMemberPlugin {
+import com.whisent.kubeloader.scripts.modernjs.plugin.impl.ClassMemberPlugin;
+
+public class MethodPlugin implements ClassMemberPlugin {
     @Override
     public String syntax() {
         return "name(...) { ... }";

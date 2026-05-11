@@ -1,6 +1,9 @@
-package com.whisent.kubeloader.scripts.modernjs;
+package com.whisent.kubeloader.scripts.modernjs.plugin;
 
-final class StaticMemberPlugin implements ClassMemberPlugin {
+
+import com.whisent.kubeloader.scripts.modernjs.plugin.impl.ClassMemberPlugin;
+
+public class StaticMemberPlugin implements ClassMemberPlugin {
     @Override
     public String syntax() {
         return "static x = ... | static f(...) {...}";

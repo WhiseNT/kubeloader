@@ -1,8 +1,8 @@
-package com.whisent.kubeloader.scripts.modernjs;
+package com.whisent.kubeloader.scripts.modernjs.plugin.impl;
 
 import java.util.List;
 
-interface ClassMemberPlugin {
+public interface ClassMemberPlugin {
     String syntax();
 
     boolean matches(String statement);

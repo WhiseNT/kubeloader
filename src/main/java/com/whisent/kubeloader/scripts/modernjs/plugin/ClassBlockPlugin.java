@@ -1,4 +1,9 @@
-package com.whisent.kubeloader.scripts.modernjs;
+package com.whisent.kubeloader.scripts.modernjs.plugin;
+
+import com.whisent.kubeloader.scripts.modernjs.ModernJSPluginManager;
+import com.whisent.kubeloader.scripts.modernjs.SourceTransformResult;
+import com.whisent.kubeloader.scripts.modernjs.plugin.impl.ClassMemberPlugin;
+import com.whisent.kubeloader.scripts.modernjs.plugin.impl.SourcePlugin;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -7,7 +12,7 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-final class ClassBlockPlugin implements SourcePlugin {
+public class ClassBlockPlugin implements SourcePlugin {
     private static final Pattern CLASS_HEADER_PATTERN =
             Pattern.compile("^\\s*class\\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\\s*(?:extends\\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\\s*)?\\{?\\s*$");
 
@@ -238,20 +243,15 @@ final class ClassBlockPlugin implements SourcePlugin {
                 .replaceAll("/\\*[^*]*\\*+(?:[^/*][^*]*\\*+)*/", "");
 
         List<String> statements = splitIntoStatements(clean);
+        ModernJSPluginManager plugins = ModernJSPluginManager.INSTANCE;
 
         for (String stmt : statements) {
             stmt = stmt.trim();
-            if (stmt.isEmpty()) continue;
-            if (stmt.startsWith("static ")) {
-                staticMembers.add(stmt.substring(7).trim());
-            } else if (stmt.startsWith("get ") || stmt.startsWith("set ")) {
-                methods.add(convertGetterSetter(className, stmt));
-            } else if (isValidMethodDecl(stmt)) {
-                methods.add(convertMethod(className, stmt));
-            } else if (stmt.contains("=") && isValidFieldName(stmt)) {
-                instanceFields.add(stmt);
-            } else if (isValidPlainField(stmt)) {
-                instanceFields.add(stmt);
+            if (!stmt.isEmpty()) {
+                ClassMemberPlugin plugin = plugins.findClassMemberPlugin(stmt);
+                if (plugin != null) {
+                    plugin.apply(className, stmt, instanceFields, methods, staticMembers);
+                }
             }
         }
     }

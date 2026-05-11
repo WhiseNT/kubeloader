@@ -1,6 +1,6 @@
-package com.whisent.kubeloader.scripts.modernjs;
+package com.whisent.kubeloader.scripts.modernjs.plugin.impl;
 
-interface TextPlugin {
+public interface TextPlugin {
     String syntax();
 
     boolean matches(String input);

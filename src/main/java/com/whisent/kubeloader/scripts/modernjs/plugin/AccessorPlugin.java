@@ -1,8 +1,10 @@
-package com.whisent.kubeloader.scripts.modernjs;
+package com.whisent.kubeloader.scripts.modernjs.plugin;
+
+import com.whisent.kubeloader.scripts.modernjs.plugin.impl.ClassMemberPlugin;
 
 import java.util.List;
 
-final class AccessorPlugin implements ClassMemberPlugin {
+public class AccessorPlugin implements ClassMemberPlugin {
     @Override
     public String syntax() {
         return "get name() {...} | set name(v) {...}";
