@@ -15,12 +15,15 @@ import com.whisent.kubeloader.impl.mod.ModContentPackProvider;
 import com.whisent.kubeloader.network.KLClientScriptsReloadPacket;
 import com.whisent.kubeloader.network.NetworkHandler;
 import com.whisent.kubeloader.utils.Debugger;
+import com.whisent.kubeloader.utils.KLUtil;
+import com.whisent.kubeloader.utils.PerformanceUtil;
 import com.whisent.kubeloader.utils.modgen.ContentPackGenerator;
 import com.whisent.kubeloader.utils.modgen.ContentPackModInfo;
 import com.whisent.kubeloader.utils.modgen.PackModGenerator;
 import dev.latvian.mods.kubejs.KubeJS;
 import dev.latvian.mods.kubejs.core.MinecraftServerKJS;
 import dev.latvian.mods.kubejs.net.ReloadStartupScriptsMessage;
+import dev.latvian.mods.kubejs.script.ScriptType;
 import dev.latvian.mods.kubejs.server.ServerScriptManager;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
@@ -51,8 +54,19 @@ public class KubeLoaderServerEventHandler {
     public static void onCommandRegister(RegisterCommandsEvent event) {
         Kubeloader.LOGGER.info("Registering commands for KubeLoader");
         CommandDispatcher<CommandSourceStack> dispatcher = event.getDispatcher();
-
+        var perf = new PerformanceUtil(ScriptType.SERVER);
         LiteralArgumentBuilder<CommandSourceStack> klCmd = Commands.literal("kl");
+        klCmd.then(Commands.literal("test")
+                .requires(source -> source.hasPermission(2))
+                .executes(context -> {
+                    perf.start("test");
+                    context.getSource().getPlayer().getInventory().items.forEach(
+                            itemStack ->
+                                    context.getSource().getPlayer()
+                                            .sendSystemMessage(itemStack.getDisplayName()));
+                    perf.log("test");
+                    return 1;
+                }));
         klCmd.then(Commands.literal("mod")
                 .then(Commands.argument("modInfo", StringArgumentType.string())
                         .suggests((context, builder) -> suggestMapKeys(contentPackModInfoMap.keySet(), builder))
