@@ -16,7 +16,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
-import java.util.Arrays;
 import java.util.List;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
@@ -38,7 +37,7 @@ public class PackModGenerator {
 
         generateDefaultResources(outputDir, modId);
         generateDefaultScripts(outputDir, modId);
-        generatePackMcmeta(outputDir, modId, 15);
+        generatePackMcmeta(outputDir, modId);
 
         // 4. 打包为 JAR
         Path jarFile = KubeJSPaths.EXPORT.resolve(modId+"-" + packInfo.version + ".jar");
@@ -72,7 +71,7 @@ public class PackModGenerator {
             generateDefaultScripts(outputDir, modId);
             sendPlayerMessage(player, Component.translatable("chat.kubeloader.mod.scripts_copied").withStyle(ChatFormatting.GREEN));
 
-            generatePackMcmeta(outputDir, modId, 15);
+            generatePackMcmeta(outputDir, modId);
             sendPlayerMessage(player, Component.translatable("chat.kubeloader.mod.mcmeta_done").withStyle(ChatFormatting.GREEN));
 
             // 4. 打包为 JAR
@@ -116,28 +115,47 @@ public class PackModGenerator {
     }
 
     private static void generateModsToml(Path outputDir, ContentPackModInfo info) throws IOException {
-        Path tomlPath = outputDir.resolve("META-INF/mods.toml");
+        Path tomlPath = outputDir.resolve("META-INF/neoforge.mods.toml");
+        Path legacyTomlPath = outputDir.resolve("META-INF/mods.toml");
         if (!Files.exists(outputDir.resolve("META-INF"))) {
             Files.createDirectories(outputDir.resolve("META-INF"));
         }
+        Files.deleteIfExists(legacyTomlPath);
         try (PrintWriter writer = new PrintWriter(Files.newBufferedWriter(tomlPath))) {
             writer.println("modLoader=\"lowcodefml\"");
             writer.println("loaderVersion=\"" + info.forge_version + "\"");
             writer.println("license=\"" + info.license +"\"");
             if (info.issuePage!=null) writer.println("issueTrackerURL=\""+ info.issuePage +"\"");
             if (info.homepage!=null) writer.println("displayURL=\"" + info.homepage+ "\"");
-            if (info.logoFile!=null) writer.println("  logoFile=\"" + info.logoFile + "\"");
+            if (info.logoFile!=null) writer.println("logoFile=\"" + info.logoFile + "\"");
             writer.println();
 
             writer.println("[[mods]]");
             writer.println("  modId=\"" + info.id + "\"");
             writer.println("  version=\"" + info.version + "\"");
             writer.println("  displayName=\"" + info.name + "\"");
-            writer.println("  authors=\"" + Arrays.toString(info.authors) + "\"");
+            writer.println("  authors=\"" + String.join(", ", info.authors) + "\"");
             writer.println("  description='''" + info.description + "'''");
 
             writer.println();
+            writer.println(ModDependency.create("neoforge")
+                    .withMandatory(false)
+                    .withVersionRange(info.neoforge_version)
+                    .withOrdering("NONE")
+                    .withSide("BOTH")
+                    .build()
+                    .toTomlString(info.id));
+            writer.println(ModDependency.create("minecraft")
+                    .withMandatory(true)
+                    .withVersionRange(info.mc_version)
+                    .withOrdering("NONE")
+                    .withSide("BOTH")
+                    .build()
+                    .toTomlString(info.id));
             for (ModDependency dep : info.modDependencies) {
+                if ("neoforge".equals(dep.id) || "minecraft".equals(dep.id)) {
+                    continue;
+                }
                 writer.println(dep.toTomlString(info.id));
             }
         }
@@ -194,39 +212,36 @@ public class PackModGenerator {
         }
     }
     /**
-     * 生成 pack.mcmeta 文件
+     * 生成 1.21.1 使用的 pack.mcmeta 文件。
      *
      * @param outputDir 生成的目标目录（通常是资源根目录）
-     * @param packFormat  pack格式版本（Minecraft版本相关）
      * @throws IOException 如果写入失败
      */
-    public static void generatePackMcmeta(Path outputDir, String modid, int packFormat) throws IOException {
-        // 确保输出目录存在
+    public static void generatePackMcmeta(Path outputDir, String modid) throws IOException {
         Files.createDirectories(outputDir);
 
-        // 构建 pack.mcmeta 文件路径
         Path mcmetaPath = outputDir.resolve("pack.mcmeta");
-
-        // 定义 JSON 内容
         String jsonContent = String.format(
                 "{\n" +
                         "  \"pack\": {\n" +
                         "    \"description\": \"%s\",\n" +
-                        "    \"pack_format\": %d\n" +
+                        "    \"pack_format\": 34,\n" +
+                        "    \"supported_formats\": {\n" +
+                        "      \"min_inclusive\": 34,\n" +
+                        "      \"max_inclusive\": 48\n" +
+                        "    }\n" +
                         "  }\n" +
                         "}",
-                modid+" resources", packFormat
+                modid + " resources"
         );
 
-        // 写入文件，UTF-8 编码
-        Files.write(
+        Files.writeString(
                 mcmetaPath,
-                jsonContent.getBytes(StandardCharsets.UTF_8),
-                StandardOpenOption.CREATE,           // 如果文件不存在则创建
-                StandardOpenOption.TRUNCATE_EXISTING // 如果已存在则覆盖
+                jsonContent,
+                StandardCharsets.UTF_8,
+                StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING
         );
-
-        //System.out.println("✅ pack.mcmeta 生成成功: " + mcmetaPath.toAbsolutePath());
     }
 
 

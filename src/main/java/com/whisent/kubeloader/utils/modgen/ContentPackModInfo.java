@@ -15,8 +15,13 @@ public class ContentPackModInfo {
     public final String description;
     public final String version;
     public final String[] authors;
+    public static final String DEFAULT_MC_VERSION = "[1.21.1,1.22)";
+    public static final String DEFAULT_LOADER_VERSION = "[1,)";
+    public static final String DEFAULT_NEOFORGE_VERSION = "[21,)";
+
     public final String mc_version;
     public final String forge_version;
+    public final String neoforge_version;
     public final String license;
     public final String issuePage;
     public final String homepage;
@@ -32,6 +37,7 @@ public class ContentPackModInfo {
         this.authors = builder.authors.clone(); // 防御性拷贝
         this.mc_version = builder.mc_version;
         this.forge_version = builder.forge_version;
+        this.neoforge_version = builder.neoforge_version;
         this.license = builder.license;
         this.issuePage = builder.issuePage;
         this.homepage = builder.homepage;
@@ -41,7 +47,7 @@ public class ContentPackModInfo {
 
 
     public static ContentPackModInfo.Builder createPackInfo(String packId) {
-        return new Builder();
+        return new Builder().withId(packId);
     }
 
     // 未来可以加：toJson(), toString(), equals/hashCode 等
@@ -55,8 +61,9 @@ public class ContentPackModInfo {
         private String description;
         private String version = "1.0.0";
         private String[] authors = new String[0];
-        private String mc_version = "[1.20.1,1.21)";
-        private String forge_version = "[47,)";
+        private String mc_version = DEFAULT_MC_VERSION;
+        private String forge_version = DEFAULT_LOADER_VERSION;
+        private String neoforge_version = DEFAULT_NEOFORGE_VERSION;
         private String license = "MIT";
         private String issuePage;
         private String homepage;
@@ -96,6 +103,12 @@ public class ContentPackModInfo {
 
         public Builder withForgeVersion(String forge_version) {
             this.forge_version = forge_version;
+            this.neoforge_version = forge_version;
+            return this;
+        }
+
+        public Builder withNeoforgeVersion(String neoforge_version) {
+            this.neoforge_version = neoforge_version;
             return this;
         }
 
@@ -137,17 +150,17 @@ public class ContentPackModInfo {
 
             return this
                     .withId(metaData.id())
-                    .withName(metaData.name().orElse(null))
-                    .withDescription(metaData.description().orElse(null))
-                    .withVersion(metaData.version().orElse(null).toString())
+                    .withName(metaData.name().orElse(metaData.id()))
+                    .withDescription(metaData.description().orElse(""))
+                    .withVersion(metaData.version().map(Object::toString).orElse("1.0.0"))
                     .withAuthors(metaData.authors().toArray(String[]::new));
         }
         public Builder fromMetaData(PackMetaData metaData) {
             return this
                     .withId(metaData.id())
-                    .withName(metaData.name().orElse(null))
-                    .withDescription(metaData.description().orElse(null))
-                    .withVersion(metaData.version().orElse(null).toString())
+                    .withName(metaData.name().orElse(metaData.id()))
+                    .withDescription(metaData.description().orElse(""))
+                    .withVersion(metaData.version().map(Object::toString).orElse("1.0.0"))
                     .withAuthors(metaData.authors().toArray(String[]::new));
         }
 
