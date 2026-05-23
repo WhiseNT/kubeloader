@@ -80,6 +80,10 @@ public abstract class ScriptManagerMixin implements SortablePacksHolder, ScriptM
 
         var sortablePacks = new HashMap<String, SortableContentPack>();
         thiz().scriptType.console.log("[KubeLoader] JS Engine: "+ ConfigManager.getConfig().getEngine());
+        if (ConfigManager.getConfig().getEngine().equals("GraalJS")) {
+            thiz().scriptType.console.warn("[KubeLoader] Now GraalJS engine has a lot of bugs,do not use now." +
+                    "But you can still use ES6 syntax in Rhino");
+        }
         for (var contentPack : packs) {
             Kubeloader.LOGGER.debug("寻找到contentPack: {}", contentPack);
             var scriptPack = contentPack.getPack(context);
