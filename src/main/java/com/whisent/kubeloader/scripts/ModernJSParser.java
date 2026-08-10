@@ -503,7 +503,7 @@ public class ModernJSParser {
             }
 
             if (!shouldExpand) {
-                matcher.appendReplacement(sb, matcher.group(0));
+                matcher.appendReplacement(sb, Matcher.quoteReplacement(matcher.group(0)));
             } else {
                 StringBuilder expanded = new StringBuilder("return {");
                 boolean first = true;
@@ -515,7 +515,7 @@ public class ModernJSParser {
                     first = false;
                 }
                 expanded.append("}");
-                matcher.appendReplacement(sb, expanded.toString());
+                matcher.appendReplacement(sb, Matcher.quoteReplacement(expanded.toString()));
             }
         }
         matcher.appendTail(sb);

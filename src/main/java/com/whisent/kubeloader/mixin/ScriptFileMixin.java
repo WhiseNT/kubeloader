@@ -46,6 +46,8 @@ public class ScriptFileMixin {
     private void kubeLoader$parseDirectives(ScriptPack pack, ScriptFileInfo info, CallbackInfo ci) {
         var scriptInfo = (ScriptFileInfoInterface) info;
 
+        // 注意：不能复用 this.lines —— KubeJS 的 ScriptFile 构造函数会把所有 "//" 注释行清空，
+        // 只有重新读取 info.path 才能拿到 //side: //engine: //mixin: 等指令。
         try {
             for (String rawLine : Files.readAllLines(info.path)) {
                 var line = rawLine.trim();
