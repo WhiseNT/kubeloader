@@ -9,6 +9,11 @@ displayName="${mod_name}"
 authors="${mod_authors}"
 description='''${mod_description}'''
 
+[[dependencies.kubeloader]]
+modId="kubejs"
+type="required"
+versionRange="[2101.7.2-build.374,)"
+
 [[mixins]]
 config="kubeloader.mixins.json"
 

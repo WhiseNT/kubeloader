@@ -81,6 +81,11 @@ repositories {
     }
 
     maven {
+        // KubeJS 374 传递依赖 animated-gif-lib-for-java 发布于此
+        url = 'https://jitpack.io'
+    }
+
+    maven {
         url = 'https://cursemaven.com/'
     }
 
