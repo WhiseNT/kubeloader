@@ -1,58 +1,55 @@
 package com.whisent.kubeloader.mixin;
 
-import com.whisent.kubeloader.impl.mixin.NbtBuilder;
 import dev.latvian.mods.kubejs.core.ItemKJS;
-import dev.latvian.mods.kubejs.item.ItemBuilder;
+import dev.latvian.mods.kubejs.item.ItemBehavior;
 import dev.latvian.mods.rhino.util.RemapForJS;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.core.component.DataComponents;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.component.CustomData;
 import net.minecraft.world.level.Level;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-@Mixin(value = Item.class,priority = 1000)
+/**
+ * KubeJS 2101.7.2-build.374+ 将 {@code ItemBuilder.ReleaseUsingCallback} 重构进了
+ * {@link ItemBehavior}（ItemBuilder 不再持有各回调字段，改为 ItemBehavior 聚合）。
+ * 本 Mixin 通过 ItemKJS 的 kjs$getItemBehavior()/kjs$setItemBehavior() 读写 behavior，
+ * 保持 item.setReleaseUsing(cb) 的 JS API 语义不变。
+ */
+@Mixin(value = Item.class, priority = 1000)
 public abstract class ItemMixin implements ItemKJS {
-    private ItemBuilder kjs$itemBuilder;
 
-    
-    @Unique
-    public ItemBuilder.ReleaseUsingCallback kubeLoader$releaseUsing;
     @Unique
     @RemapForJS("setReleaseUsing")
-    public void kubeLoader$setReleaseUsing(ItemBuilder.ReleaseUsingCallback callback) {
-        this.kubeLoader$releaseUsing = callback;
+    public void kubeLoader$setReleaseUsing(ItemBehavior.ReleaseUsingCallback callback) {
+        var behavior = kjs$getItemBehavior();
+        if (behavior == null) {
+            behavior = new ItemBehavior();
+            kjs$setItemBehavior(behavior);
+        }
+        behavior.releaseUsing = callback;
     }
+
     @Unique
-    public ItemBuilder.ReleaseUsingCallback kubeLoader$getReleaseUsing() {
-        return this.kubeLoader$releaseUsing;
+    public ItemBehavior.ReleaseUsingCallback kubeLoader$getReleaseUsing() {
+        var behavior = kjs$getItemBehavior();
+        return behavior == null ? null : behavior.releaseUsing;
     }
+
     @Inject(method = "releaseUsing", at = @At("HEAD"), cancellable = true)
     public void releaseUsingMixin(ItemStack stack, Level level, LivingEntity entity, int timeLeft, CallbackInfo ci) {
-        System.out.print("releaseUsingMixin");
-        if (this.kubeLoader$releaseUsing != null) {
-            this.kubeLoader$releaseUsing.releaseUsing(stack, level, entity, timeLeft);
+        var behavior = kjs$getItemBehavior();
+        if (behavior != null && behavior.releaseUsing != null) {
+            System.out.print("releaseUsingMixin");
+            behavior.releaseUsing.releaseUsing(stack, level, entity, timeLeft);
             ci.cancel();
         }
     }
 
-
     @Unique
     public CompoundTag defaultNbt;
-
-
-    @Override
-    public void kjs$setItemBuilder(ItemBuilder b) {
-        kjs$itemBuilder = b;
-    }
-
-
-
 }
