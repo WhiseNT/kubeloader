@@ -131,17 +131,27 @@ jobs:
           echo ""
 
       - name: Check CURSEFORGE_TOKEN
-        if: inputs.dry_run != true
+        env:
+          DRY_RUN: ${{ inputs.dry_run }}
         run: |
+          if [ "${DRY_RUN}" = "true" ]; then
+            echo "dry_run=true → 跳过 token 检查与上传"
+            exit 0
+          fi
           if [ -z "${CURSEFORGE_TOKEN}" ]; then
             echo "::error::未配置 Secret CURSEFORGE_TOKEN（Settings → Secrets and variables → Actions → New repository secret）"
             exit 1
           fi
 
       - name: Publish to CurseForge
-        if: inputs.dry_run != true
+        env:
+          DRY_RUN: ${{ inputs.dry_run }}
         run: |
           set -euo pipefail
+          if [ "${DRY_RUN}" = "true" ]; then
+            echo "dry_run=true → 不上传，仅完成构建与元数据检查"
+            exit 0
+          fi
           RESPONSE_FILE="$(mktemp)"
           HTTP_CODE="$(curl -sS -o "$RESPONSE_FILE" -w '%{http_code}' \
             --max-time 300 \
