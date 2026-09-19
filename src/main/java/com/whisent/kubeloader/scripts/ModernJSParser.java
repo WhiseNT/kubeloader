@@ -10,9 +10,6 @@ public class ModernJSParser {
     private static final Pattern CLASS_HEADER_PATTERN =
             Pattern.compile("^\\s*class\\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\\s*(?:extends\\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\\s*)?\\{?\\s*$");
 
-    private static final Pattern SUPER_CALL_PATTERN =
-            Pattern.compile("\\bsuper\\s*\\(([^)]*)\\)");
-
     private static final Pattern THIS_ASSIGN_PATTERN =
             Pattern.compile("\\bthis\\.([a-zA-Z_$][a-zA-Z0-9_$]*)\\s*=");
 
@@ -143,17 +140,17 @@ public class ModernJSParser {
 
         String userCtorBody = ctorInfo.bodyContent;
 
-        // super()
+        // super()（括号配对扫描，正确处理 super(a(b())) 这类嵌套调用）
         if (parentClass != null && !parentClass.trim().isEmpty()) {
-            Matcher superMatcher = SUPER_CALL_PATTERN.matcher(userCtorBody);
-            if (superMatcher.find()) {
-                String args = superMatcher.group(1);
+            SuperCall superCall = findSuperCall(userCtorBody);
+            if (superCall != null) {
                 output.append("  ")
                         .append(parentClass)
                         .append(".call(this")
-                        .append(args.isEmpty() ? "" : ", " + args)
+                        .append(superCall.args.isEmpty() ? "" : ", " + superCall.args)
                         .append(");\n");
-                userCtorBody = superMatcher.replaceFirst("").trim();
+                userCtorBody = (userCtorBody.substring(0, superCall.start)
+                        + userCtorBody.substring(superCall.end)).trim();
             }
         }
 
@@ -435,6 +432,90 @@ public class ModernJSParser {
             }
         }
         return -1;
+    }
+
+    /* ===================== super(...) 扫描 ===================== */
+
+    /** super(...) 调用的扫描结果 */
+    private static final class SuperCall {
+        final int start;   // "super" 起始下标
+        final int end;     // 右括号之后的下标（不含）
+        final String args; // 括号内参数原文（已 trim）
+
+        SuperCall(int start, int end, String args) {
+            this.start = start;
+            this.end = end;
+            this.args = args;
+        }
+    }
+
+    /**
+     * 查找 super(...) 调用位置。使用括号配对扫描而非正则，
+     * 以支持嵌套调用（如 super(a(b()))）以及字符串/注释中的括号。
+     *
+     * @return 扫描结果；未找到或括号不配对时返回 null
+     */
+    private static SuperCall findSuperCall(String code) {
+        for (int i = 0; i + 5 <= code.length(); i++) {
+            if (!code.startsWith("super", i)) continue;
+            // 避免匹配到标识符内部（如 xsuper、superX）
+            if (i > 0 && Character.isJavaIdentifierPart(code.charAt(i - 1))) continue;
+
+            int p = i + 5;
+            while (p < code.length() && Character.isWhitespace(code.charAt(p))) p++;
+            if (p >= code.length() || code.charAt(p) != '(') continue;
+
+            int depth = 0;
+            int argsStart = p + 1;
+            for (int j = p; j < code.length(); j++) {
+                char c = code.charAt(j);
+
+                if (c == '"' || c == '\'' || c == '`') {
+                    j = skipStringLiteral(code, j) - 1;
+                    continue;
+                }
+                if (c == '/' && j + 1 < code.length()) {
+                    char next = code.charAt(j + 1);
+                    if (next == '/') {
+                        int nl = code.indexOf('\n', j);
+                        j = (nl == -1) ? code.length() : nl - 1;
+                        continue;
+                    }
+                    if (next == '*') {
+                        int close = code.indexOf("*/", j + 2);
+                        j = (close == -1) ? code.length() : close + 1;
+                        continue;
+                    }
+                }
+
+                if (c == '(') {
+                    depth++;
+                } else if (c == ')') {
+                    depth--;
+                    if (depth == 0) {
+                        return new SuperCall(i, j + 1, code.substring(argsStart, j).trim());
+                    }
+                }
+            }
+            return null; // 括号不配对
+        }
+        return null;
+    }
+
+    /** 跳过字符串/模板字符串字面量，返回结束引号之后的下标 */
+    private static int skipStringLiteral(String code, int start) {
+        char quote = code.charAt(start);
+        int i = start + 1;
+        while (i < code.length()) {
+            char c = code.charAt(i);
+            if (c == '\\') {
+                i += 2;
+                continue;
+            }
+            if (c == quote) return i + 1;
+            i++;
+        }
+        return code.length();
     }
 
     /* ===================== 后处理 ===================== */
