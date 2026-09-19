@@ -66,34 +66,6 @@ jobs:
           # 显式关闭后本分支也能恢复并保存 Gradle User Home 缓存
           cache-read-only: false
 
-      # ↓↓↓ 临时诊断步骤（查明 CF 版本表端点为何取不到数据），查完即删
-      - name: Diagnose CurseForge API
-        run: |
-          set -uo pipefail
-          echo "===== A) 版本表读取（用真 token）====="
-          for base in https://legacy.curseforge.com https://www.curseforge.com https://minecraft.curseforge.com; do
-            for p in /api/game/versions /api/game/version-types; do
-              URL="$base$p"
-              OUT="$(curl -s -w '\n__C=%{http_code}' --max-time 30 -H "X-Api-Token: ${CURSEFORGE_TOKEN}" -H "User-Agent: CurseForgeGradle/Versions/1.1.28" "$URL" || true)"
-              CODE="$(printf '%s' "$OUT" | tail -1)"
-              BODY="$(printf '%s' "$OUT" | sed '$d')"
-              CNT="$(printf '%s' "$BODY" | grep -c '1\.21\.1' || true)"
-              echo "$URL | $CODE | 1.21.1命中=$CNT | $(printf '%s' "$BODY" | head -c 90)"
-            done
-          done
-          echo "===== B) 上传端点可达性（无效 token + 真实 multipart 体；CF 会先拒绝 token，不会产生文件）====="
-          for base in https://legacy.curseforge.com https://www.curseforge.com https://minecraft.curseforge.com; do
-            URL="$base/api/projects/1205072/upload-file"
-            OUT="$(curl -s -w '\n__C=%{http_code}' --max-time 30 -X POST \
-              -H "X-Api-Token: invalid-probe-token" -H "User-Agent: CurseForgeGradle" \
-              -F 'metadata={"changelogType":"text","changelog":"probe","displayName":"probe","gameVersions":[11779],"releaseType":"alpha"};type=application/json' \
-              -F "file=@/dev/null;filename=probe.jar" \
-              "$URL" || true)"
-            CODE="$(printf '%s' "$OUT" | tail -1)"
-            BODY="$(printf '%s' "$OUT" | sed '$d' | head -c 130)"
-            echo "$URL | $CODE | $BODY"
-          done
-
       - name: Build jar
         run: |
           set -euo pipefail

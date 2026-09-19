@@ -150,8 +150,10 @@ tasks.register('publishCurseForge', net.darkhax.curseforgegradle.TaskPublishCurs
 
     dependsOn tasks.named('build')
     apiToken = System.getenv('CURSEFORGE_TOKEN') ?: ''
-    // 1.1.28 的默认端点是旧域名 minecraft.curseforge.com，显式改用 legacy
-    apiEndpoint = project.findProperty('cfApiEndpoint') ?: 'https://legacy.curseforge.com'
+    // 端点必须是 minecraft.curseforge.com（1.1.28 的默认值）：实测只有它同时满足
+    //   · 读取 /api/game/versions 与 /api/game/version-types（legacy 返回空数组，www 返回另一套数据）
+    //   · 上传 /api/projects/<id>/upload-file（需真实 multipart 体，无 body 的请求会得到 411）
+    apiEndpoint = project.findProperty('cfApiEndpoint') ?: 'https://minecraft.curseforge.com'
 
     // 签名是 upload(projectId, artifact) —— 项目 ID 在前
     upload('1205072', tasks.named('jar').flatMap { it.archiveFile }) {
