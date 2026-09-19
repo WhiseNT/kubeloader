@@ -70,20 +70,24 @@ jobs:
       - name: Diagnose CurseForge API
         run: |
           set -uo pipefail
-          for base in https://legacy.curseforge.com https://www.curseforge.com; do
+          echo "===== A) 版本表读取（用真 token）====="
+          for base in https://legacy.curseforge.com https://www.curseforge.com https://minecraft.curseforge.com; do
             for p in /api/game/versions /api/game/version-types; do
               URL="$base$p"
-              CODE="$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 -H "X-Api-Token: ${CURSEFORGE_TOKEN}" -H "User-Agent: CurseForgeGradle/Versions/1.1.28" "$URL" || echo ERR)"
-              BODY="$(curl -s --max-time 30 -H "X-Api-Token: ${CURSEFORGE_TOKEN}" -H "User-Agent: CurseForgeGradle/Versions/1.1.28" "$URL" | head -c 200 || true)"
+              OUT="$(curl -s -w '\n__C=%{http_code}' --max-time 30 -H "X-Api-Token: ${CURSEFORGE_TOKEN}" -H "User-Agent: CurseForgeGradle/Versions/1.1.28" "$URL" || true)"
+              CODE="$(printf '%s' "$OUT" | tail -1)"
+              BODY="$(printf '%s' "$OUT" | sed '$d')"
               CNT="$(printf '%s' "$BODY" | grep -c '1\.21\.1' || true)"
-              echo "[token] $URL => http=$CODE hits(1.21.1)=$CNT"
-              echo "        body: ${BODY:0:170}"
+              echo "$URL | $CODE | 1.21.1命中=$CNT | $(printf '%s' "$BODY" | head -c 90)"
             done
           done
-          echo "--- 不带 token 对比 ---"
-          for base in https://legacy.curseforge.com https://www.curseforge.com; do
-            CODE="$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 -H "User-Agent: CurseForgeGradle/Versions/1.1.28" "$base/api/game/versions" || echo ERR)"
-            echo "[no-token] $base/api/game/versions => http=$CODE"
+          echo "===== B) 上传端点可达性（无效 token 探测，不会产生文件）====="
+          for base in https://legacy.curseforge.com https://www.curseforge.com https://minecraft.curseforge.com; do
+            URL="$base/api/projects/1205072/upload-file"
+            OUT="$(curl -s -w '\n__C=%{http_code}' --max-time 30 -X POST -H "X-Api-Token: invalid-probe-token" -H "User-Agent: CurseForgeGradle" "$URL" || true)"
+            CODE="$(printf '%s' "$OUT" | tail -1)"
+            BODY="$(printf '%s' "$OUT" | sed '$d' | head -c 110)"
+            echo "$URL | $CODE | $BODY"
           done
 
       - name: Build jar
