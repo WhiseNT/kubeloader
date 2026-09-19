@@ -60,6 +60,14 @@ public final class ModernJSParserRegressionCheck {
         runCase("字符串/注释/正则里的名字不算使用", ModernJSParserRegressionCheck::missingBuiltinsInTextAreIgnored);
         runCase("解析不了的语法会给出改写建议", ModernJSParserRegressionCheck::unsupportedSyntaxGetsAdvice);
 
+        // 止血-5：类体花括号按词法数 + 转换失败也要变成可读错误
+        runCase("类体字符串里的 } 不算类结束", ModernJSParserRegressionCheck::bracesInsideStringDoNotEndClass);
+        runCase("类体注释里的 } 不算类结束", ModernJSParserRegressionCheck::bracesInsideCommentDoNotEndClass);
+        runCase("类体模板串里的 } 不算类结束", ModernJSParserRegressionCheck::bracesInsideTemplateDoNotEndClass);
+        runCase("getter 体里字符串的 } 不截断", ModernJSParserRegressionCheck::getterBodyWithBraceInString);
+        runCase("不支持的 class 写法给出建议", ModernJSParserRegressionCheck::unsupportedClassFormGivesAdvice);
+        runCase("未闭合的 class 给出建议", ModernJSParserRegressionCheck::unclosedClassGivesAdvice);
+
         System.out.println();
         if (!FAILURES.isEmpty()) {
             System.out.println("结果：失败 " + FAILURES.size() + " 个，通过 " + passed + " 个");
@@ -317,6 +325,79 @@ public final class ModernJSParserRegressionCheck {
                 "普通代码不该给出建议");
     }
 
+    // ── 止血-5：类体花括号必须按词法数；转换失败的异常也必须被接住 ────────
+    //
+    // 之前是裸字符循环，"}" 只要出现在字符串/注释/模板里就会被当成类结束，
+    // 类体被截断后粘出非法语句。这类输入很常见（return "}"、/\* } \*/、`}`）。
+
+    private static void bracesInsideStringDoNotEndClass() {
+        String source = lines(
+                "class A {",
+                "    m() {",
+                "        return \"}\";",
+                "    }",
+                "}",
+                "new A().m();");
+        checkEquals("}", evalTransformed(source), "类体里字符串的 \"}\" 不该被当成类结束");
+    }
+
+    private static void bracesInsideCommentDoNotEndClass() {
+        String source = lines(
+                "class A {",
+                "    /* } */",
+                "    m() { return 5 }",
+                "}",
+                "new A().m();");
+        checkEquals("5", evalTransformed(source), "块注释里的 } 不该被算进配对");
+    }
+
+    private static void bracesInsideTemplateDoNotEndClass() {
+        String source = lines(
+                "class A {",
+                "    m() {",
+                "        return `}`;",
+                "    }",
+                "}",
+                "new A().m();");
+        checkEquals("}", evalTransformed(source), "模板串文本里的 } 不该被算进配对");
+    }
+
+    private static void getterBodyWithBraceInString() {
+        String source = lines(
+                "class A {",
+                "    get x() { return \"}\" }",
+                "}",
+                "new A().x;");
+        checkEquals("}", evalTransformed(source), "getter 体里的 \"}\" 不该截断 getter 体");
+    }
+
+    private static void unsupportedClassFormGivesAdvice() {
+        // 单行 class 转换器认不出来。关键是别把原始 RuntimeException 抛出去：
+        // KLScriptLoader 只 catch ModernJSParseException，漏出去会连累同包其它脚本
+        try {
+            ModernJSParser.parse(lines("class A { m() { return 1 } } new A().m();"));
+        } catch (ModernJSParseException e) {
+            checkTrue(e.describe().contains("多行") || e.describe().contains("独占一行"),
+                    "应给出「拆成多行」的建议：" + e.describe());
+            return;
+        } catch (RuntimeException e) {
+            throw new AssertionError("不该抛出非 ModernJSParseException 的异常：" + e);
+        }
+        throw new AssertionError("预期这个 class 写法会被拦下，但通过了");
+    }
+
+    private static void unclosedClassGivesAdvice() {
+        try {
+            ModernJSParser.parse(lines("class A {", "    m() { return 1 }"));
+        } catch (ModernJSParseException e) {
+            checkTrue(e.describe().contains("配对"), "应提示花括号不配对：" + e.describe());
+            return;
+        } catch (RuntimeException e) {
+            throw new AssertionError("不该抛出非 ModernJSParseException 的异常：" + e);
+        }
+        throw new AssertionError("预期未闭合的 class 会被拦下，但通过了");
+    }
+
     // ── 工具 ─────────────────────────────────────────────────────────
 
     private static void runCase(String name, Runnable body) {
@@ -324,9 +405,12 @@ public final class ModernJSParserRegressionCheck {
             body.run();
             passed++;
             System.out.println("[ OK ] " + name);
-        } catch (AssertionError e) {
-            FAILURES.add(name + " -> " + e.getMessage());
-            System.out.println("[FAIL] " + name + " -> " + e.getMessage());
+        } catch (Throwable e) {
+            // 用例里可能直接让 Rhino 跑代码，会抛非 AssertionError 的异常；
+            // 这里一并接住，否则一个用例会把整轮检查打断
+            String detail = e instanceof AssertionError ? String.valueOf(e.getMessage()) : String.valueOf(e);
+            FAILURES.add(name + " -> " + detail);
+            System.out.println("[FAIL] " + name + " -> " + detail);
         }
     }
 

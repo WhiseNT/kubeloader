@@ -33,6 +33,23 @@ public class ModernJSParser {
      */
     public static String parse(String input, boolean rhinoTarget) {
         if (input == null || input.isEmpty()) return input;
+        try {
+            return doParse(input, rhinoTarget);
+        } catch (ModernJSParseException e) {
+            throw e; // 已经是给用户看的错误（带原始行号与建议），原样抛
+        } catch (RuntimeException | Error e) {
+            // 转换器自己没预料到的失败：绝不能把原始异常放出去。
+            // KLScriptLoader 只认 ModernJSParseException，否则这个异常会冒到 KubeJS 的
+            // 脚本加载里，连累同一个包里的其它脚本。
+            throw new ModernJSParseException(
+                    "ModernJS 转换器在这个写法上失败了：" + e,
+                    1, "",
+                    "这多半是转换器的问题，请把这一行连同上下文反馈给作者；"
+                            + "该脚本已被跳过，同包其它脚本不受影响");
+        }
+    }
+
+    private static String doParse(String input, boolean rhinoTarget) {
         // 先过安全网：Rhino 会“静默算错”的语法（如 ??）在这里直接报错，
         // 而不是让它跑出错误结果
         if (rhinoTarget) {
@@ -92,7 +109,11 @@ public class ModernJSParser {
         String header = lines[start];
         Matcher m = CLASS_HEADER_PATTERN.matcher(header);
         if (!m.find()) {
-            throw new RuntimeException("Invalid class declaration at line " + (start + 1) + ": " + header);
+            throw new ModernJSParseException(
+                    "这个 class 写法暂不支持：" + header.trim(),
+                    start + 1, header.trim(),
+                    "class 目前必须让「class 名字 {」独占一行再换行展开类体。"
+                            + "与其它代码挤在同一行（例如函数体内联写的 class）请拆成多行；嵌套 class 同样暂不支持");
         }
 
         String className = m.group(1);
@@ -101,12 +122,15 @@ public class ModernJSParser {
         StringBuilder body = new StringBuilder();
         int braceCount = 0;
         int i = start;
+        // 数花括号必须按词法来（跳过字符串/注释/模板文本），否则类体里一个 "}" 字符串
+        // 就会被当成类结束，把后面的代码粘成非法语句
+        LexState lexState = new LexState();
 
         for (; i < lines.length; i++) {
             String line = lines[i];
 
             if (i == start) {
-                braceCount = updateBraceCount(line, 0);
+                braceCount = updateBraceCount(line, 0, lexState);
                 int openBrace = line.indexOf('{');
                 if (openBrace != -1) {
                     String after = line.substring(openBrace + 1);
@@ -116,7 +140,7 @@ public class ModernJSParser {
                 }
             } else {
                 body.append(line).append("\n");
-                braceCount = updateBraceCount(line, braceCount);
+                braceCount = updateBraceCount(line, braceCount, lexState);
             }
 
             if (braceCount == 0) {
@@ -130,7 +154,11 @@ public class ModernJSParser {
             }
         }
 
-        throw new RuntimeException("Unclosed class starting at line " + (start + 1));
+        throw new ModernJSParseException(
+                "从这个 class 开始找不到配对的 '}'",
+                start + 1, lines[start].trim(),
+                "检查类体的花括号是否配对；若类体里有内容含 '{' 或 '}'（长字符串、正则等），"
+                        + "也欢迎把这一处反馈给作者");
     }
 
     /* ===================== 转换 class ===================== */
@@ -271,20 +299,15 @@ public class ModernJSParser {
                 continue;
             }
 
-            int braceCount = 1;
-            int bodyStart = i + 1;
-            int j = bodyStart;
-            while (j < body.length() && braceCount > 0) {
-                char c = body.charAt(j);
-                if (c == '{') braceCount++;
-                else if (c == '}') braceCount--;
-                j++;
-            }
-            if (braceCount != 0) {
+            // 构造函数体的收尾花括号要按词法找（体里可能有 "}" 字符串）
+            int closeBrace = findMatchingBrace(body, i);
+            if (closeBrace == -1) {
                 searchFrom = ctorIndex + 1;
                 continue;
             }
-            int bodyEnd = j - 1;
+            int bodyStart = i + 1;
+            int bodyEnd = closeBrace;
+            int j = closeBrace + 1;
 
             String params = body.substring(paramStart, paramEnd).trim();
             String ctorBodyInner = body.substring(bodyStart, bodyEnd).trim();
@@ -374,14 +397,14 @@ public class ModernJSParser {
         List<String> result = new ArrayList<>();
         StringBuilder current = new StringBuilder();
         int braceDepth = 0;
+        // 必须按词法数：成员体里出现 "}" 字符串（如 return "}";）时，
+        // 天真的数法会把那一行当成成员结束，后面的代码就变成游离语句
+        LexState lexState = new LexState();
 
         for (String line : code.split("\\r?\\n")) {
             current.append(line).append("\n");
 
-            for (char c : line.toCharArray()) {
-                if (c == '{') braceDepth++;
-                else if (c == '}') braceDepth--;
-            }
+            braceDepth = updateBraceCount(line, braceDepth, lexState);
 
             if (braceDepth == 0) {
                 String stmt = current.toString().trim();
@@ -446,22 +469,166 @@ public class ModernJSParser {
                 .collect(Collectors.joining("\n"));
     }
 
-    private static int updateBraceCount(String s, int current) {
-        for (char c : s.toCharArray()) {
-            if (c == '{') current++;
-            else if (c == '}') current--;
+    /**
+     * 词法扫描状态。字符串、模板串、块注释都可能跨行，所以状态要跨行带下去。
+     *
+     * <p>已知局限：模板串 {@code ${}} 里再嵌模板串（{@code `a${ `b${c}` }d`}）时，
+     * 层数只记一份，内层的 {@code }} 会让状态提前回到文本模式。这种写法很少见，
+     * 暂时接受。</p>
+     */
+    private static final class LexState {
+        /** '\0' 表示不在普通字符串里，否则是 ' 或 " */
+        char stringQuote;
+        /** 在模板串的纯文本部分 */
+        boolean inTemplateText;
+        boolean inBlockComment;
+        /** 模板串 ${} 的嵌套层数；>0 时按代码处理 */
+        int templateExprDepth;
+    }
+
+    /**
+     * 按词法把这一段里的花括号净增量累加进 {@code st.depth}，跳过字符串、注释、
+     * 模板串文本（模板串 {@code ${}} 里面是代码，照常算）。
+     *
+     * <p>为什么必须这么做：{@code class A { m() { return "}"; } }} 里，
+     * 字符串中那个 {@code }} 会让天真的数法提前认定类体结束，把后面的代码粘成非法语句。</p>
+     */
+    private static int updateBraceCount(String line, int current, LexState st) {
+        int n = line.length();
+        for (int i = 0; i < n; i++) {
+            char c = line.charAt(i);
+            char next = i + 1 < n ? line.charAt(i + 1) : '\0';
+
+            if (st.inBlockComment) {
+                if (c == '*' && next == '/') {
+                    st.inBlockComment = false;
+                    i++;
+                }
+                continue;
+            }
+            if (st.stringQuote != '\0') {
+                if (c == '\\') {
+                    i++;
+                    continue;
+                }
+                if (c == st.stringQuote) st.stringQuote = '\0';
+                continue;
+            }
+            if (st.inTemplateText) {
+                if (c == '\\') {
+                    i++;
+                    continue;
+                }
+                if (c == '`') {
+                    st.inTemplateText = false;
+                    continue;
+                }
+                if (c == '$' && next == '{') {
+                    st.inTemplateText = false;
+                    st.templateExprDepth = 1;
+                    i++;
+                    continue;
+                }
+                continue; // 模板文本里的 {} 不算
+            }
+
+            // 以下都是「代码」部分
+            if (c == '/' && next == '/') return current; // 行注释，本行后面都不是代码
+            if (c == '/' && next == '*') {
+                st.inBlockComment = true;
+                i++;
+                continue;
+            }
+            if (c == '\'' || c == '"') {
+                st.stringQuote = c;
+                continue;
+            }
+            if (c == '`') {
+                st.inTemplateText = true;
+                continue;
+            }
+            if (c == '{') {
+                if (st.templateExprDepth > 0) st.templateExprDepth++;
+                else current++;
+            } else if (c == '}') {
+                if (st.templateExprDepth > 0) {
+                    if (--st.templateExprDepth == 0) st.inTemplateText = true; // 回到模板文本
+                } else {
+                    current--;
+                }
+            }
         }
         return current;
     }
 
+    /** 找出与 start 处 '{' 配对的那个 '}' 下标（按词法跳过字符串/注释/模板文本），找不到返回 -1。 */
     private static int findMatchingBrace(String s, int start) {
-        if (s.charAt(start) != '{') return -1;
-        int depth = 1;
-        for (int i = start + 1; i < s.length(); i++) {
-            if (s.charAt(i) == '{') depth++;
-            else if (s.charAt(i) == '}') {
-                depth--;
-                if (depth == 0) return i;
+        if (start >= s.length() || s.charAt(start) != '{') return -1;
+        LexState st = new LexState();
+        boolean started = false;
+        int depth = 0;
+        for (int i = start; i < s.length(); i++) {
+            char c = s.charAt(i);
+            char next = i + 1 < s.length() ? s.charAt(i + 1) : '\0';
+
+            if (st.inBlockComment) {
+                if (c == '*' && next == '/') {
+                    st.inBlockComment = false;
+                    i++;
+                }
+                continue;
+            }
+            if (st.stringQuote != '\0') {
+                if (c == '\\') {
+                    i++;
+                    continue;
+                }
+                if (c == st.stringQuote) st.stringQuote = '\0';
+                continue;
+            }
+            if (st.inTemplateText) {
+                if (c == '\\') {
+                    i++;
+                    continue;
+                }
+                if (c == '`') {
+                    st.inTemplateText = false;
+                    continue;
+                }
+                if (c == '$' && next == '{') {
+                    st.inTemplateText = false;
+                    st.templateExprDepth = 1;
+                    i++;
+                    continue;
+                }
+                continue;
+            }
+            if (c == '/' && next == '/') return -1; // 单行情况，后面没代码了
+            if (c == '/' && next == '*') {
+                st.inBlockComment = true;
+                i++;
+                continue;
+            }
+            if (c == '\'' || c == '"') {
+                st.stringQuote = c;
+                continue;
+            }
+            if (c == '`') {
+                st.inTemplateText = true;
+                continue;
+            }
+            if (c == '{') {
+                if (st.templateExprDepth > 0) st.templateExprDepth++;
+                else {
+                    depth++;
+                    started = true;
+                }
+            } else if (c == '}') {
+                if (st.templateExprDepth > 0) {
+                    if (--st.templateExprDepth == 0) st.inTemplateText = true;
+                } else if (started && --depth == 0) {
+                    return i;
+                }
             }
         }
         return -1;

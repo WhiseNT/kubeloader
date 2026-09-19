@@ -75,6 +75,13 @@ public class KLScriptLoader {
             // 原始代码里若是已知的「Rhino 解析不了」的语法，那才是真正的原因，
             // 比"转换器出问题"更可能，所以先把改写建议摆出来
             String unsupported = ModernJSSyntaxGuard.explainUnsupported(originalSource);
+            // 转换结果里还留着 `class`，说明转换器跳过了它：Rhino 只会说
+            // "identifier is a reserved word: class"，用户看不出原因
+            if (sourceCode.contains("class ")) {
+                String leftover = "结果里仍然有 `class`，说明它没有被转换"
+                        + "（class 必须独占一行行首；嵌套在方法体里、或与其它代码同行的 class 暂不支持）";
+                unsupported = unsupported == null ? leftover : unsupported + "；" + leftover;
+            }
             String hint = unsupported != null
                     ? unsupported + "。若这一行并没有用到它，那多半是 ModernJS 转换器的问题，"
                     + "请把这一行连同原始写法反馈给作者"
