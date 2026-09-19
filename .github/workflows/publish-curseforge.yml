@@ -61,6 +61,10 @@ jobs:
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
+        with:
+          # 非默认分支（如 1211-Dev）下 cache-read-only 默认为 true，缓存只读不写；
+          # 显式关闭后本分支也能恢复并保存 Gradle User Home 缓存
+          cache-read-only: false
 
       - name: Build jar
         run: |
