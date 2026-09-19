@@ -44,7 +44,6 @@ public abstract class ItemMixin implements ItemKJS {
     public void releaseUsingMixin(ItemStack stack, Level level, LivingEntity entity, int timeLeft, CallbackInfo ci) {
         var behavior = kjs$getItemBehavior();
         if (behavior != null && behavior.releaseUsing != null) {
-            System.out.print("releaseUsingMixin");
             behavior.releaseUsing.releaseUsing(stack, level, entity, timeLeft);
             ci.cancel();
         }
