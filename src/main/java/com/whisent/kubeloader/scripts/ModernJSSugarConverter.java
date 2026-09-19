@@ -666,14 +666,44 @@ final class ModernJSSugarConverter {
         for (int i = 0; i < text.length(); i++) {
             char c = text.charAt(i);
             boolean inCode = masked.charAt(i) != ModernJSMask.MASK;
-            if (c == '_' && inCode && i > 0 && i + 1 < text.length()
-                    && Character.isDigit(masked.charAt(i - 1))
-                    && Character.isDigit(masked.charAt(i + 1))) {
+            if (c == '_' && inCode && isNumericSeparator(masked, i)) {
                 continue; // 数字之间：分隔符，去掉
             }
             out.append(c);
         }
         return out.toString();
+    }
+
+    /**
+     * 位置 {@code i} 上的 {@code _} 是不是数字分隔符。
+     *
+     * <p>要同时满足「在数字字面量里」和「两侧都是该字面量的合法数字字符」。
+     * 只看两侧是不是十进制数字会把 {@code 0xFF_FF} 漏掉（{@code F} 不是十进制数字）；
+     * 放宽成「十六进制字母也算」又会误伤 {@code cafe_bar} 这种标识符。
+     * 所以先往回找到 token 开头，确认它是个数字字面量，再按进制判断两侧。</p>
+     */
+    private static boolean isNumericSeparator(String masked, int i) {
+        if (i <= 0 || i + 1 >= masked.length()) {
+            return false;
+        }
+        int start = i - 1;
+        while (start > 0 && isIdentifierChar(masked.charAt(start - 1))) {
+            start--;
+        }
+        // token 必须以数字开头才算数字字面量（cafe_bar 是 'c' 开头，直接否掉）
+        if (!Character.isDigit(masked.charAt(start))) {
+            return false;
+        }
+        boolean hex = masked.startsWith("0x", start) || masked.startsWith("0X", start);
+        return isDigitOfLiteral(masked.charAt(i - 1), hex)
+                && isDigitOfLiteral(masked.charAt(i + 1), hex);
+    }
+
+    private static boolean isDigitOfLiteral(char c, boolean hex) {
+        if (Character.isDigit(c)) {
+            return true;
+        }
+        return hex && ((c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F'));
     }
 
     /* ===================== 可选 catch 绑定 ===================== */

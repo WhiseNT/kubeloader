@@ -186,6 +186,16 @@ final class ModernJSSpreadConverter {
         }
 
         int dot = callee.lastIndexOf('.');
+        if (callee.startsWith(".")) {
+            // callee 只剩 ".方法名"，说明接收者被回扫切掉了：接收者是个括号组或字面量
+            // （`new X().m(...)`、`f().m(...)`、`'x'.m(...)`）。这种情况原先会落到
+            // apply(null, ...)，而非严格模式下 this 会变成全局对象 —— 方法体里读 this.x
+            // 静默拿到 undefined（实测直接算出 NaN），正是最危险的静默算错。
+            //
+            // 要做对必须保证接收者只求值一次（否则 new X() 会被构造两次），得包一层 IIFE；
+            // 这里先按「宁可响亮失败，不可静默算错」处理：不改写，留着 `...` 让 Rhino 报语法错误。
+            return null;
+        }
         if (dot > 0) {
             String receiver = callee.substring(0, dot);
             return new Rewrite(calleeStart, close + 1,

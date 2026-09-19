@@ -123,9 +123,24 @@ tasks.register('polyfillRegressionCheck', JavaExec) {
     mainClass = 'com.whisent.kubeloader.compat.RhinoPolyfillRegressionCheck'
 }
 
+// 示例语料库检查：examples/modernjs 下的每个 .js 都按线上链路（转换 → Rhino 校验 →
+// 执行，并装好内建补丁）真跑一遍，断言脚本里写下的期望值。
+// 加 -PmodernjsVerbose 可打印脚本里的 console 输出。
+tasks.register('modernJSCorpusCheck', JavaExec) {
+    group = 'verification'
+    description = '运行 ModernJS 示例语料库检查（脚本在 examples/modernjs 下）'
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.whisent.kubeloader.scripts.ModernJSScriptCorpusCheck'
+    systemProperty 'modernjs.corpus', file('examples/modernjs').absolutePath
+    if (project.hasProperty('modernjsVerbose')) {
+        systemProperty 'modernjs.verbose', 'true'
+    }
+}
+
 tasks.named('check') {
     dependsOn tasks.named('parserRegressionCheck')
     dependsOn tasks.named('polyfillRegressionCheck')
+    dependsOn tasks.named('modernJSCorpusCheck')
 }
 
 tasks.named('processResources', ProcessResources).configure {

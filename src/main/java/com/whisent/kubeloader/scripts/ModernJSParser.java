@@ -173,7 +173,11 @@ public class ModernJSParser {
                 if (m.lookingAt()) return i;
             }
 
-            if (!Character.isWhitespace(c)) lastMeaningful = i;
+            // 换行也要记成「边界」：KubeJS 脚本普遍不写分号，下一行开头才是 class
+            // 最常见的位置。只记「最后一个非空白字符」的话，紧接着上面一条以 ) 或 ]
+            // 结尾的语句写 class，就会被整段漏掉（isClassNameStart 里判 prev == '\n'
+            // 的那个分支永远走不到），结果是转换结果里留着 class → Rhino 报错 → 整个脚本被跳过。
+            if (c == '\n' || !Character.isWhitespace(c)) lastMeaningful = i;
         }
         return -1;
     }
@@ -632,8 +636,19 @@ public class ModernJSParser {
         }
         body = rewriteSuperMemberAccess(body, parentPrefix(parentClass, false));
 
+        // 形参表要照抄：setter 的形参一旦丢了，方法体里引用它就变成未定义变量
+        // （getter 一般是空表，照抄也无害）。setter 不允许带默认值，所以取第一个 ')' 即可。
+        String params = "";
+        int openParen = decl.indexOf('(');
+        if (openParen != -1) {
+            int closeParen = decl.indexOf(')', openParen);
+            if (closeParen != -1) {
+                params = decl.substring(openParen + 1, closeParen).trim();
+            }
+        }
+
         return "Object.defineProperty(" + className + ".prototype, '" + propName + "', {\n" +
-                "  " + prefix + ": function() {\n" +
+                "  " + prefix + ": function(" + params + ") {\n" +
                 indentLines(body, "    ") +
                 "  },\n" +
                 "  enumerable: true,\n" +
@@ -1010,24 +1025,38 @@ public class ModernJSParser {
         result = expandShorthandReturnObjects(result);
 
         Matcher m2 = FUNCTION_WITH_DEFAULTS_PATTERN.matcher(result);
+        String maskedForDefaults = ModernJSMask.mask(result);
         StringBuffer sb2 = new StringBuffer();
         while (m2.find()) {
+            // 命中在字符串 / 注释 / 正则里时必须跳过。这个正则扫的是原始文本，注释里
+            // 随手写一句 `function f() {` 就会被它改掉：插入的换行会终止行注释，
+            // 注释的后半段随即变成真代码（实测能把注释变成可执行语句）。
+            if (maskedForDefaults.charAt(m2.start()) == ModernJSMask.MASK) {
+                continue;
+            }
             String head = m2.group(1);
             String brace = m2.group(2);
 
             int pStart = head.indexOf('(') + 1;
             int pEnd = head.lastIndexOf(')');
-            String paramsPart = head.substring(pStart, pEnd);
-            String[] params = paramsPart.isEmpty() ? new String[0] : paramsPart.split(",");
+            // 参数表必须按「顶层逗号」切：模式（{ name = 'x', size = 2 }）和字符串默认值
+            // （sep = ","）里的逗号都不是参数分隔符。天真 split(",") 会把模式切成碎片，
+            // 碎片又不以 { 开头，于是碎片被当成普通默认参数切坏 —— 静态方法里的多成员模式
+            // 就是这么被切出 `function({ name = 'inv', size)` 这种残缺签名的。
+            List<int[]> spans = pEnd > pStart
+                    ? ModernJSMask.splitTopLevel(ModernJSMask.mask(head), pStart, pEnd)
+                    : List.of();
 
             StringBuilder dftStmts = new StringBuilder();
             StringBuilder cleanParams = new StringBuilder();
 
-            for (int i = 0; i < params.length; i++) {
-                String p = params[i].trim();
-                if (i > 0) cleanParams.append(", ");
+            boolean firstParam = true;
+            for (int[] span : spans) {
+                String p = head.substring(span[0], span[1]).trim();
+                if (!firstParam) cleanParams.append(", ");
+                firstParam = false;
                 // 解构参数（形如 {n = 3}、[x = 9]）里的 '=' 是「模式默认值」，不是「参数默认值」。
-                // 这里必须原样放过：下面按 '=' 切分会把它切出 `{n === undefined ? 3} : {n` 这种垃圾。
+                // 这里必须整段原样放过：下面按 '=' 切分会把它切出 `{n === undefined ? 3} : {n` 这种垃圾。
                 // 带默认值的模式统一交给 ModernJSSugarConverter 摊平。
                 if (p.startsWith("{") || p.startsWith("[")) {
                     cleanParams.append(p);
@@ -1060,9 +1089,15 @@ public class ModernJSParser {
 
     private static String expandShorthandReturnObjects(String result) {
         Matcher matcher = RETURN_SHORTHAND_PATTERN.matcher(result);
+        // 同默认参数那一步：这个正则也扫原始文本，注释 / 字符串里的 `return {a, b}`
+        // 不该被改写。掩码与原文等长，所以下标可以对齐着用。
+        String maskedResult = ModernJSMask.mask(result);
         StringBuffer sb = new StringBuffer();
 
         while (matcher.find()) {
+            if (maskedResult.charAt(matcher.start()) == ModernJSMask.MASK) {
+                continue;
+            }
             String inner = matcher.group(1).trim();
             if (inner.isEmpty()) {
                 matcher.appendReplacement(sb, "return {}");
