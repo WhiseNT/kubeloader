@@ -82,6 +82,15 @@ public class KLScriptLoader {
                         + "（class 必须独占一行行首；嵌套在方法体里、或与其它代码同行的 class 暂不支持）";
                 unsupported = unsupported == null ? leftover : unsupported + "；" + leftover;
             }
+            // 转换结果里还留着「带默认值的解构模式」，同理：Rhino 只会说
+            // "missing ( before function parameters"，用户根本猜不到是解构的问题
+            if (ModernJSSugarConverter.hasLeftoverPatternDefault(sourceCode)) {
+                String leftover = "结果里仍然有「带默认值的解构模式」，说明它没有被转换"
+                        + "（目前只支持 var/let/const 声明与函数形参里的简单模式；"
+                        + "嵌套模式、模式里的数组 rest、for-of/for-in、不带声明的解构赋值暂不支持）。"
+                        + "Rhino 对此报的 \"missing ( before function parameters\" 是它的误导信息";
+                unsupported = unsupported == null ? leftover : unsupported + "；" + leftover;
+            }
             String hint = unsupported != null
                     ? unsupported + "。若这一行并没有用到它，那多半是 ModernJS 转换器的问题，"
                     + "请把这一行连同原始写法反馈给作者"

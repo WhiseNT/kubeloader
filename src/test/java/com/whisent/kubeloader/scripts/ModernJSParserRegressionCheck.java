@@ -69,6 +69,9 @@ public final class ModernJSParserRegressionCheck {
         // 止血-10：对象字面量的计算属性名
         runCase("计算属性名 {[expr]: v}", ModernJSParserRegressionCheck::computedKeysAreConverted);
 
+        // 止血-11：解构模式里的默认值
+        runCase("解构模式里的默认值（含函数形参）", ModernJSParserRegressionCheck::patternDefaultsAreConverted);
+
         // 止血-5：类体花括号按词法数 + 转换失败也要变成可读错误
         runCase("类体字符串里的 } 不算类结束", ModernJSParserRegressionCheck::bracesInsideStringDoNotEndClass);
         runCase("类体注释里的 } 不算类结束", ModernJSParserRegressionCheck::bracesInsideCommentDoNotEndClass);
@@ -446,6 +449,90 @@ public final class ModernJSParserRegressionCheck {
                 "var k = 'k';",
                 "var o = {['[a]']: 5};",
                 "o['[a]'];")), "计算属性名里的字符串不该被误判");
+    }
+
+    // ── 止血-11：解构模式里的默认值 ────────────────────────────────────
+    //
+    // Rhino 不支持这种写法，而且报错很误导：`{a = 1}` 报的是
+    // "missing ( before function parameters"，完全看不出跟解构有关
+    // （实测是 Rhino 自己的说法）。所以要把带默认值的模式摊平成普通语句。
+    // 反过来，没有默认值的解构 Rhino 原生支持，不该去动它——无谓改写只会
+    // 平白引入行为差异。
+
+    private static void patternDefaultsAreConverted() {
+        // 对象模式：缺省命中 / 不缺省
+        checkEquals("1", evalTransformed(lines(
+                "var x = {};",
+                "var {a = 1} = x;",
+                "a;")), "对象解构默认值（缺省命中）");
+        checkEquals("5", evalTransformed(lines(
+                "var x = {a: 5};",
+                "var {a = 1} = x;",
+                "a;")), "对象解构默认值（不缺省）");
+
+        // 改名形式 {a: b = 2}
+        checkEquals("2", evalTransformed(lines(
+                "var x = {};",
+                "var {a: b = 2} = x;",
+                "b;")), "改名 + 默认值（缺省命中）");
+        checkEquals("7", evalTransformed(lines(
+                "var x = {a: 7};",
+                "var {a: b = 2} = x;",
+                "b;")), "改名 + 默认值（不缺省）");
+
+        // 数组模式
+        checkEquals("9", evalTransformed(lines(
+                "var arr = [];",
+                "var [p = 9] = arr;",
+                "p;")), "数组解构默认值（缺省命中）");
+        checkEquals("4", evalTransformed(lines(
+                "var arr = [4];",
+                "var [p = 9] = arr;",
+                "p;")), "数组解构默认值（不缺省）");
+
+        // 函数形参里的模式
+        checkEquals("3", evalTransformed(lines(
+                "function f({n = 3}) { return n; }",
+                "f({});")), "函数形参解构默认值（缺省命中）");
+        checkEquals("8", evalTransformed(lines(
+                "function f({n = 3}) { return n; }",
+                "f({n: 8});")), "函数形参解构默认值（不缺省）");
+
+        // 普通默认参数与解构默认参数共存（默认参数那一步不能把模式改坏）
+        checkEquals("0|1", evalTransformed(lines(
+                "function f(a = 0, {b = 1}) { return a + '|' + b; }",
+                "f(undefined, {});")), "普通默认参数与解构默认参数可以共存");
+
+        // 右侧只能求值一次：有副作用时算两遍就是静默错值
+        checkEquals("1|1", evalTransformed(lines(
+                "var c = 0;",
+                "function g() { c++; return {}; }",
+                "var {a = 1} = g();",
+                "a + '|' + c;")), "右侧表达式只应求值一次");
+
+        // let / const 同样处理
+        checkEquals("1", evalTransformed(lines(
+                "let x = {};",
+                "let {a = 1} = x;",
+                "a;")), "let 声明里的解构默认值");
+        checkEquals("1", evalTransformed(lines(
+                "const x = {};",
+                "const {a = 1} = x;",
+                "a;")), "const 声明里的解构默认值");
+
+        // 没有默认值的解构：照常工作，而且不该被改写
+        String plain = lines("var {a} = {a: 3};", "a;");
+        checkEquals("3", evalTransformed(plain), "没有默认值的解构应当照常工作");
+        checkEquals(plain, ModernJSParser.parse(plain), "没有默认值的解构不该被改写");
+
+        // 转换不改写的形式（for-of、嵌套模式）要能被认出来，
+        // 才能把 Rhino 那句误导报错解释成人话
+        checkTrue(ModernJSSugarConverter.hasLeftoverPatternDefault(
+                "for (var {a = 1} of list) { }"), "for-of 里的解构默认值应被认出来");
+        checkTrue(ModernJSSugarConverter.hasLeftoverPatternDefault(
+                "var {a: {b = 1}} = x;"), "嵌套模式里的默认值应被认出来");
+        checkTrue(!ModernJSSugarConverter.hasLeftoverPatternDefault(
+                "var {a} = x;"), "没有默认值的解构不该被误报");
     }
 
     // ── 止血-5：类体花括号必须按词法数；转换失败的异常也必须被接住 ────────

@@ -1,5 +1,6 @@
 package com.whisent.kubeloader.scripts;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -43,7 +44,373 @@ final class ModernJSSugarConverter {
         String result = convertNumericSeparators(text);
         result = convertOptionalCatch(result);
         result = convertLogicalAssignments(result);
-        return convertComputedKeys(result);
+        result = convertComputedKeys(result);
+        return convertPatternDefaults(result);
+    }
+
+    /* ===================== 解构的模式侧默认值 ===================== */
+
+    /** 摊平解构模式时用的临时变量前缀 */
+    private static final String DESTR_TMP = "__kl_d";
+
+    /**
+     * 解构模式里的默认值降级。
+     *
+     * <p>Rhino 不支持这种写法，而且报错信息很误导：改名与数组形式会老实地报
+     * {@code Default values in destructuring declarations are not supported}，
+     * 最普通的 {@code {a = 1}} 却报 {@code missing ( before function parameters}
+     * ——这实测是 Rhino 自己的说法，跟转换器没关系。
+     * 这里把带默认值的模式摊平成普通语句：</p>
+     * <pre>
+     *   var {a = 1} = x;        →  var a = x["a"] === undefined ? 1 : x["a"];
+     *   var {a: b = 2} = x;     →  var b = x["a"] === undefined ? 2 : x["a"];
+     *   var [x = 9] = arr;      →  var x = arr[0] === undefined ? 9 : arr[0];
+     *   function f({n = 3}) {}  →  function f(__kl_dp0) { var n = __kl_dp0["n"] === undefined ? 3 : __kl_dp0["n"]; }
+     * </pre>
+     *
+     * <p>右侧不是简单标识符时会先存进临时变量，保证只求值一次（{@code f()} 不会被调两次）。</p>
+     *
+     * <p>只处理「模式紧跟 var/let/const」与「函数形参」两种位置，且每个成员都得是普通标识符。
+     * 下面这些形式一概原样留着，让 Rhino 直接报语法错误（响亮失败，不会静默算错值）：
+     * 嵌套模式（{@code {a: {b = 1}}}）、模式里的数组 rest（{@code [a, ...r]}）、
+     * for-of / for-in（{@code for (var {a = 1} of ...)}）、不带声明的解构赋值
+     * （{@code ({a = 1} = o)}）、箭头函数形参。没有默认值的普通解构 Rhino 原生支持，
+     * 这里也不会去动（见 {@link #hasLeftoverPatternDefault} 处的说明）。</p>
+     */
+    private static String convertPatternDefaults(String text) {
+        if (text.indexOf('=') < 0) {
+            return text;
+        }
+        String result = text;
+        for (int round = 0; round < MAX_ROUNDS; round++) {
+            String masked = ModernJSMask.mask(result);
+            Rewrite rewrite = findPatternRewrite(masked, result, round);
+            if (rewrite == null) {
+                return result;
+            }
+            result = result.substring(0, rewrite.start) + rewrite.replacement + result.substring(rewrite.end);
+        }
+        return result;
+    }
+
+    /**
+     * 转换之后源码里是否还留着「带默认值的解构模式」。
+     *
+     * <p>支持的形式都被摊平了，所以转换结果里还能看到这种模式，就说明遇上了上面列的
+     * 那些不支持改写的形式。只用来给报错补一句人话：Rhino 对 {@code {a = 1}} 这类写法
+     * 报的是 {@code missing ( before function parameters}，完全看不出跟解构有关。</p>
+     *
+     * <p>只认「var/let/const 后面」和「{@code (} 后面」（箭头/函数形参、解构赋值）两个位置，
+     * 且模式内部任意深度上要有真正的 {@code =}，免得把对象字面量、代码块误判进来。
+     * 放宽到「任意深度」是为了能看到嵌套模式里的默认值（{@code {a: {b = 1}}}）。</p>
+     */
+    static boolean hasLeftoverPatternDefault(String text) {
+        if (text == null || text.indexOf('=') < 0) {
+            return false;
+        }
+        String masked = ModernJSMask.mask(text);
+        for (int i = 0; i < masked.length(); i++) {
+            char c = masked.charAt(i);
+            if (c != '{' && c != '[') {
+                continue;
+            }
+            int j = i;
+            while (j > 0 && Character.isWhitespace(masked.charAt(j - 1))) {
+                j--;
+            }
+            int wordEnd = j;
+            while (j > 0 && isIdentifierChar(masked.charAt(j - 1))) {
+                j--;
+            }
+            String word = masked.substring(j, wordEnd);
+            boolean declSite = "var".equals(word) || "let".equals(word) || "const".equals(word)
+                    || (word.isEmpty() && j > 0 && masked.charAt(j - 1) == '(');
+            if (!declSite) {
+                continue;
+            }
+            int close = ModernJSMask.matchClose(masked, i);
+            if (close < 0) {
+                continue;
+            }
+            if (hasAssignAnywhere(masked, i + 1, close)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** 从右往左找一处可改写的解构默认值：改最靠后的一处，不影响左边内容的下标。 */
+    private static Rewrite findPatternRewrite(String masked, String original, int round) {
+        for (int i = masked.length() - 1; i >= 0; i--) {
+            char c = masked.charAt(i);
+            if (c == '{' || c == '[') {
+                Rewrite rewrite = tryDeclarationPattern(masked, original, i, round);
+                if (rewrite != null) {
+                    return rewrite;
+                }
+                continue;
+            }
+            if (c == 'f' && masked.startsWith("function", i)
+                    && !isIdentifierChar(charAt(masked, i - 1))
+                    && !isIdentifierChar(charAt(masked, i + 8))) {
+                Rewrite rewrite = tryFunctionParams(masked, original, i);
+                if (rewrite != null) {
+                    return rewrite;
+                }
+            }
+        }
+        return null;
+    }
+
+    /** var/let/const {…} = rhs 形式。 */
+    private static Rewrite tryDeclarationPattern(String masked, String original, int open, int round) {
+        int i = open;
+        while (i > 0 && Character.isWhitespace(masked.charAt(i - 1))) {
+            i--;
+        }
+        int wordEnd = i;
+        while (i > 0 && isIdentifierChar(masked.charAt(i - 1))) {
+            i--;
+        }
+        String keyword = masked.substring(i, wordEnd);
+        if (!"var".equals(keyword) && !"let".equals(keyword) && !"const".equals(keyword)) {
+            return null; // 不是声明语句里的模式
+        }
+        int close = ModernJSMask.matchClose(masked, open);
+        if (close < 0) {
+            return null;
+        }
+        // 模式里一个默认值都没有的话，Rhino 原生就支持这种解构（{a} / [x, y] / {a: b}），
+        // 不用动它：无谓改写只会平白引入行为差异。
+        if (topLevelAssign(masked, open + 1, close) < 0) {
+            return null;
+        }
+        int eq = close + 1;
+        while (eq < masked.length() && Character.isWhitespace(masked.charAt(eq))) {
+            eq++;
+        }
+        if (eq >= masked.length() || masked.charAt(eq) != '=' || masked.startsWith("==", eq)) {
+            return null; // 解构赋值（没有声明）或 for-of 之类，不在这次范围内
+        }
+        int rhsStart = eq + 1;
+        int rhsEnd = findRhsEnd(masked, rhsStart);
+        String rhs = original.substring(rhsStart, rhsEnd).trim();
+        if (rhs.isEmpty()) {
+            return null;
+        }
+
+        String prefix;
+        String source;
+        if (isIdentifier(rhs) || "this".equals(rhs)) {
+            prefix = keyword + " ";
+            source = rhs;
+        } else {
+            String tmp = DESTR_TMP + round;
+            prefix = keyword + " " + tmp + " = " + rhs + ", ";
+            source = tmp;
+        }
+        String bindings = buildPatternBindings(masked, original, open, close, source);
+        if (bindings == null) {
+            return null;
+        }
+        return new Rewrite(i, rhsEnd, prefix + bindings);
+    }
+
+    /** 函数形参里的解构模式（带默认值的那些换成临时变量，并在函数体开头摊平）。 */
+    private static Rewrite tryFunctionParams(String masked, String original, int funcStart) {
+        int i = funcStart + 8;
+        while (i < masked.length() && Character.isWhitespace(masked.charAt(i))) {
+            i++;
+        }
+        while (i < masked.length() && isIdentifierChar(masked.charAt(i))) {
+            i++; // 可选函数名
+        }
+        while (i < masked.length() && Character.isWhitespace(masked.charAt(i))) {
+            i++;
+        }
+        if (i >= masked.length() || masked.charAt(i) != '(') {
+            return null;
+        }
+        int open = i;
+        int close = ModernJSMask.matchClose(masked, open);
+        if (close < 0) {
+            return null;
+        }
+        int brace = close + 1;
+        while (brace < masked.length() && Character.isWhitespace(masked.charAt(brace))) {
+            brace++;
+        }
+        if (brace >= masked.length() || masked.charAt(brace) != '{') {
+            return null; // 没有函数体（箭头函数之类）：不冒险
+        }
+
+        List<String> params = new ArrayList<>();
+        StringBuilder stmts = new StringBuilder();
+        boolean changed = false;
+        int index = 0;
+
+        for (int[] p : ModernJSMask.splitTopLevel(masked, open + 1, close)) {
+            String param = original.substring(p[0], p[1]).trim();
+            if (param.isEmpty()) {
+                continue;
+            }
+            char first = param.charAt(0);
+            if (first != '{' && first != '[') {
+                params.add(param); // 普通参数：Rhino 自己能处理，不动
+                continue;
+            }
+            int patOpen = p[0];
+            while (patOpen < p[1] && Character.isWhitespace(masked.charAt(patOpen))) {
+                patOpen++;
+            }
+            if (masked.charAt(patOpen) != '{' && masked.charAt(patOpen) != '[') {
+                params.add(param);
+                continue;
+            }
+            int patClose = ModernJSMask.matchClose(masked, patOpen);
+            if (patClose < 0 || patClose > p[1]) {
+                return null;
+            }
+            int after = patClose + 1;
+            while (after < p[1] && Character.isWhitespace(masked.charAt(after))) {
+                after++;
+            }
+            if (after < p[1]) {
+                return null; // 形如 {a = 1} = {}（整个模式再带默认值）：不在这次范围内
+            }
+            // 关键：要看模式「内部」有没有默认值。把模式的 {} / [] 一起算进跨度的话，
+            // 里面的 '=' 会落在深度 1 上，被当成「没有默认值」直接跳过。
+            if (topLevelAssign(masked, patOpen + 1, patClose) < 0) {
+                params.add(param); // 没有默认值的模式：Rhino 自己能处理，不动
+                continue;
+            }
+            String tmp = DESTR_TMP + "p" + index;
+            index++;
+            String bindings = buildPatternBindings(masked, original, patOpen, patClose, tmp);
+            if (bindings == null) {
+                return null;
+            }
+            params.add(tmp);
+            stmts.append("var ").append(bindings).append(";\n");
+            changed = true;
+        }
+
+        if (!changed) {
+            return null;
+        }
+        return new Rewrite(open, brace + 1, "(" + String.join(", ", params) + ") {\n" + stmts);
+    }
+
+    /**
+     * 把一个模式摊平成「绑定赋值」列表（逗号分隔）；有搞不定的成员返回 null。
+     *
+     * @param source 取值的来源表达式：可能是原样标识符，也可能是临时变量名
+     */
+    private static String buildPatternBindings(String masked, String original, int open, int close, String source) {
+        char opener = masked.charAt(open);
+        List<String> bindings = new ArrayList<>();
+        int index = 0;
+
+        for (int[] p : ModernJSMask.splitTopLevel(masked, open + 1, close)) {
+            String member = original.substring(p[0], p[1]).trim();
+            if (member.isEmpty()) {
+                index++; // 数组模式里的空位（[, a]）也要占一个下标
+                continue;
+            }
+            if (member.startsWith("...")) {
+                return null; // 数组 rest：不在这次范围内
+            }
+
+            int assign = topLevelAssign(masked, p[0], p[1]);
+            String accessExpr;
+            int targetFrom;
+
+            if (opener == '{') {
+                if (member.startsWith("{") || member.startsWith("[")) {
+                    return null; // 嵌套模式：不在这次范围内
+                }
+                // 顺序很重要：先找默认值分隔符（顶层 '='），再在它之前找 ':'。
+                // 否则 {a = 1} 这种「简写 + 默认值」会把 "a = 1" 整个当成键名。
+                int valueEnd = assign >= 0 ? assign : p[1];
+                int colon = topLevelColon(masked, p[0], valueEnd);
+                String key = original.substring(p[0], colon >= 0 ? colon : valueEnd).trim();
+                if (key.isEmpty()) {
+                    return null;
+                }
+                boolean quoted = key.charAt(0) == '"' || key.charAt(0) == '\'';
+                if (quoted) {
+                    accessExpr = source + "[" + key + "]";
+                } else if (isIdentifierOrNumber(key)) {
+                    // 一律加引号：写成 source[a] 会被当成变量，也顺便避开保留字做键名
+                    accessExpr = source + "[\"" + key + "\"]";
+                } else {
+                    return null; // 计算属性名之类的模式，不处理
+                }
+                targetFrom = colon >= 0 ? colon + 1 : p[0];
+            } else {
+                if (member.startsWith("{") || member.startsWith("[")) {
+                    return null; // 嵌套模式：不在这次范围内
+                }
+                accessExpr = source + "[" + index + "]";
+                targetFrom = p[0];
+            }
+
+            String target = original.substring(targetFrom, assign >= 0 ? assign : p[1]).trim();
+            if (!isIdentifier(target)) {
+                return null; // 目标不是普通标识符（嵌套 / 成员访问等）
+            }
+            index++;
+
+            if (assign < 0) {
+                bindings.add(target + " = " + accessExpr);
+            } else {
+                String fallback = original.substring(assign + 1, p[1]).trim();
+                if (fallback.isEmpty()) {
+                    return null;
+                }
+                bindings.add(target + " = " + accessExpr + " === undefined ? " + fallback + " : " + accessExpr);
+            }
+        }
+
+        return bindings.isEmpty() ? null : String.join(", ", bindings);
+    }
+
+    /** 位置 {@code i} 上的 {@code =} 是不是「真正的赋值等号」（不是 == / === / => / 复合赋值的一部分）。 */
+    private static boolean isAssignEquals(String masked, int i) {
+        char prev = charAt(masked, i - 1);
+        char next = charAt(masked, i + 1);
+        if (next == '=' || next == '>') {
+            return false;
+        }
+        return prev != '=' && prev != '!' && prev != '<' && prev != '>' && prev != '+'
+                && prev != '-' && prev != '*' && prev != '/' && prev != '%' && prev != '&'
+                && prev != '|' && prev != '^';
+    }
+
+    /** [from, to) 里有没有真正的赋值等号（忽略括号深度）；用于「模式里到底有没有默认值」。 */
+    private static boolean hasAssignAnywhere(String masked, int from, int to) {
+        for (int i = from; i < to; i++) {
+            if (masked.charAt(i) == '=' && isAssignEquals(masked, i)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** 找到 [from, to) 里第一个「真正的赋值等号」（排除 == / === / => / <= / >= / != 等运算符的一部分）；没有返回 -1。 */
+    private static int topLevelAssign(String masked, int from, int to) {
+        int depth = 0;
+        for (int i = from; i < to; i++) {
+            char c = masked.charAt(i);
+            if (c == '(' || c == '[' || c == '{') {
+                depth++;
+            } else if (c == ')' || c == ']' || c == '}') {
+                depth--;
+            } else if (c == '=' && depth == 0 && isAssignEquals(masked, i)) {
+                return i;
+            }
+        }
+        return -1;
     }
 
     /* ===================== 计算属性名 ===================== */

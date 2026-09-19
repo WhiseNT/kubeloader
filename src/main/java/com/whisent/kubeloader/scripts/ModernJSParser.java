@@ -1026,6 +1026,13 @@ public class ModernJSParser {
             for (int i = 0; i < params.length; i++) {
                 String p = params[i].trim();
                 if (i > 0) cleanParams.append(", ");
+                // 解构参数（形如 {n = 3}、[x = 9]）里的 '=' 是「模式默认值」，不是「参数默认值」。
+                // 这里必须原样放过：下面按 '=' 切分会把它切出 `{n === undefined ? 3} : {n` 这种垃圾。
+                // 带默认值的模式统一交给 ModernJSSugarConverter 摊平。
+                if (p.startsWith("{") || p.startsWith("[")) {
+                    cleanParams.append(p);
+                    continue;
+                }
                 int eq = p.indexOf('=');
                 if (eq > 0) {
                     String name = p.substring(0, eq).trim();
