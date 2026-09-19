@@ -22,7 +22,7 @@ on:
         default: ''
         type: string
       game_version_ids:
-        description: 'CurseForge game version IDs（逗号分隔；11779=1.21.1, 10150=NeoForge）'
+        description: 'CurseForge game version IDs（逗号分隔；默认 11779=1.21.1, 10150=NeoForge 仅适用于 1211-Dev；master/1.20.1 请改成对应的 1.20.1 + Forge ID）'
         required: false
         default: '11779,10150'
         type: string
@@ -107,6 +107,12 @@ jobs:
           set -euo pipefail
           DISPLAY_NAME="${DISPLAY_NAME_INPUT:-$VERSION}"
           CHANGELOG="${CHANGELOG_INPUT:-Release $DISPLAY_NAME}"
+
+          if [ -z "$(printf '%s' "$GAME_VERSION_IDS" | tr -d '[:space:]')" ]; then
+            echo "::error::game_version_ids 不能为空"
+            exit 1
+          fi
+
           GAME_VERSIONS="$(printf '%s' "$GAME_VERSION_IDS" | tr ',' '\n' | tr -d '[:space:]' | grep -v '^$' | jq -s 'map(tonumber)')"
 
           jq -n \
