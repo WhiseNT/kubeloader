@@ -1,5 +1,7 @@
 package com.whisent.kubeloader.scripts;
 
+import java.util.List;
+
 /**
  * 一批高频「语法糖」的降级：Rhino 解析不了这几种写法，而后面的引擎能力补不回来。
  *
@@ -33,7 +35,7 @@ final class ModernJSSugarConverter {
     private ModernJSSugarConverter() {
     }
 
-    /** 依次降级三种语法糖。 */
+    /** 依次降级各种语法糖。 */
     static String convert(String text) {
         if (text == null || text.isEmpty()) {
             return text;
@@ -41,7 +43,248 @@ final class ModernJSSugarConverter {
         String result = convertNumericSeparators(text);
         result = convertOptionalCatch(result);
         result = convertLogicalAssignments(result);
+        return convertComputedKeys(result);
+    }
+
+    /* ===================== 计算属性名 ===================== */
+
+    /** 建临时对象用的变量名，取个不容易撞车的 */
+    private static final String OBJ_TMP = "__kl_o";
+
+    /** 一次改写：[start, end) 换成 replacement。 */
+    private static final class Rewrite {
+        final int start;
+        final int end;
+        final String replacement;
+
+        Rewrite(int start, int end, String replacement) {
+            this.start = start;
+            this.end = end;
+            this.replacement = replacement;
+        }
+    }
+
+    /**
+     * 对象字面量里的计算属性名 {@code {[expr]: v}} 降级。
+     *
+     * <p>Rhino 对这种写法直接报 {@code invalid property id}。这里把整个对象改写成
+     * 「先建空对象、再按书写顺序逐个赋值」的 IIFE：</p>
+     * <pre>
+     *   {a: 1, [k]: 2}  →  (function () { var __kl_o = {}; __kl_o["a"] = 1; __kl_o[k] = 2; return __kl_o; })()
+     * </pre>
+     *
+     * <p>展开成员 {@code ...x} 交给 {@code Object.assign}（与 `...` 的降级保持一致），
+     * 顺序也照写：后面的覆盖前面的。</p>
+     *
+     * <p>遇到存取器（get/set）或方法简写就<b>不动</b>这个对象——那两种成员没法简单地
+     * 搬进 IIFE，原样留着让 Rhino 报语法错误，比改出错误结果安全。</p>
+     */
+    private static String convertComputedKeys(String text) {
+        if (text.indexOf('[') < 0) {
+            return text;
+        }
+        String result = text;
+        for (int round = 0; round < MAX_ROUNDS; round++) {
+            String masked = ModernJSMask.mask(result);
+            Rewrite rewrite = findComputedKeyRewrite(masked, result);
+            if (rewrite == null) {
+                return result;
+            }
+            result = result.substring(0, rewrite.start) + rewrite.replacement + result.substring(rewrite.end);
+        }
         return result;
+    }
+
+    /**
+     * 找含计算属性名成员的对象字面量。
+     *
+     * <p>从右往左找最内层那个：改它不会影响它左边任何内容的下标。</p>
+     */
+    private static Rewrite findComputedKeyRewrite(String masked, String original) {
+        for (int i = masked.length() - 1; i >= 0; i--) {
+            if (masked.charAt(i) != '{') {
+                continue;
+            }
+            int close = ModernJSMask.matchClose(masked, i);
+            if (close <= i || followedByAssignment(masked, close)) {
+                continue; // 不配对，或是解构模式（`var {[k]: x} = o` 这种不能按字面量改）
+            }
+            List<int[]> parts = ModernJSMask.splitTopLevel(masked, i + 1, close);
+            if (!hasComputedMember(masked, parts)) {
+                continue;
+            }
+            String replacement = buildComputedObject(masked, original, parts);
+            if (replacement != null) {
+                return new Rewrite(i, close + 1, replacement);
+            }
+        }
+        return null;
+    }
+
+    private static boolean hasComputedMember(String masked, List<int[]> parts) {
+        for (int[] p : parts) {
+            int i = p[0];
+            while (i < p[1] && Character.isWhitespace(masked.charAt(i))) {
+                i++;
+            }
+            if (i < p[1] && masked.charAt(i) == '[' && isComputedKey(masked, i, p[1])) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** '[' 起头、且配对的 ']' 后面（跳过空白）是 ':' —— 这就是计算属性名。 */
+    private static boolean isComputedKey(String masked, int bracket, int memberEnd) {
+        int close = ModernJSMask.matchClose(masked, bracket);
+        if (close < 0 || close >= memberEnd) {
+            return false;
+        }
+        int j = close + 1;
+        while (j < memberEnd && Character.isWhitespace(masked.charAt(j))) {
+            j++;
+        }
+        return j < memberEnd && masked.charAt(j) == ':';
+    }
+
+    /**
+     * 把对象字面量的成员拼成 IIFE 里的赋值序列；碰到搞不定的成员返回 null（整个对象不动）。
+     */
+    private static String buildComputedObject(String masked, String original, List<int[]> parts) {
+        StringBuilder assigns = new StringBuilder();
+        for (int[] p : parts) {
+            int from = p[0];
+            String member = original.substring(from, p[1]).trim();
+            if (member.isEmpty()) {
+                continue; // 尾逗号留下的空段
+            }
+            if (member.startsWith("...")) {
+                assigns.append("Object.assign(").append(OBJ_TMP).append(", ")
+                        .append(member.substring(3).trim()).append(");\n");
+                continue;
+            }
+            if (member.startsWith("get ") || member.startsWith("set ")) {
+                return null; // 存取器搬不进这种形式
+            }
+
+            // 计算属性名
+            int i = from;
+            while (i < p[1] && Character.isWhitespace(masked.charAt(i))) {
+                i++;
+            }
+            if (i < p[1] && masked.charAt(i) == '[') {
+                int bracketClose = ModernJSMask.matchClose(masked, i);
+                if (bracketClose < 0 || bracketClose >= p[1]) {
+                    return null;
+                }
+                String keyExpr = original.substring(i + 1, bracketClose).trim();
+                int j = bracketClose + 1;
+                while (j < p[1] && Character.isWhitespace(masked.charAt(j))) {
+                    j++;
+                }
+                if (j >= p[1] || masked.charAt(j) != ':' || keyExpr.isEmpty()) {
+                    return null;
+                }
+                String value = original.substring(j + 1, p[1]).trim();
+                if (value.isEmpty()) {
+                    return null;
+                }
+                assigns.append(OBJ_TMP).append('[').append(keyExpr).append("] = ").append(value).append(";\n");
+                continue;
+            }
+
+            // 普通 key: value
+            int colon = topLevelColon(masked, from, p[1]);
+            if (colon < 0) {
+                // 没有冒号：只认「简写属性」（{a}），方法简写之类一概不动
+                if (!isIdentifier(member)) {
+                    return null;
+                }
+                assigns.append(OBJ_TMP).append("[\"").append(member).append("\"] = ").append(member).append(";\n");
+                continue;
+            }
+            String key = original.substring(from, colon).trim();
+            String value = original.substring(colon + 1, p[1]).trim();
+            if (key.isEmpty() || value.isEmpty()) {
+                return null;
+            }
+            boolean quoted = key.charAt(0) == '"' || key.charAt(0) == '\'';
+            if (!quoted && !isIdentifierOrNumber(key)) {
+                return null;
+            }
+            // 标识符/数字键要加引号：写成 __kl_o[a] 会被当成变量
+            assigns.append(OBJ_TMP).append('[').append(quoted ? key : "\"" + key + "\"").append("] = ")
+                    .append(value).append(";\n");
+        }
+        return "(function () {\nvar " + OBJ_TMP + " = {};\n" + assigns + "return " + OBJ_TMP + ";\n})()";
+    }
+
+    /** 成员里第一个顶层冒号的位置；没有返回 -1。 */
+    private static int topLevelColon(String masked, int from, int to) {
+        int depth = 0;
+        for (int i = from; i < to; i++) {
+            char c = masked.charAt(i);
+            if (c == '(' || c == '[' || c == '{') {
+                depth++;
+            } else if (c == ')' || c == ']' || c == '}') {
+                depth--;
+            } else if (c == ':' && depth == 0) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    /** 闭合括号后面（跳过空白）是不是 = / of / in —— 那是解构模式。 */
+    private static boolean followedByAssignment(String masked, int close) {
+        int i = close + 1;
+        while (i < masked.length() && Character.isWhitespace(masked.charAt(i))) {
+            i++;
+        }
+        if (i >= masked.length()) {
+            return false;
+        }
+        char c = masked.charAt(i);
+        if (c == '=' && !masked.startsWith("==", i)) {
+            return true;
+        }
+        if (isIdentifierChar(c)) {
+            int end = i;
+            while (end < masked.length() && isIdentifierChar(masked.charAt(end))) {
+                end++;
+            }
+            String word = masked.substring(i, end);
+            return "of".equals(word) || "in".equals(word);
+        }
+        return false;
+    }
+
+    private static boolean isIdentifier(String s) {
+        if (s.isEmpty() || !isIdentifierStart(s.charAt(0))) {
+            return false;
+        }
+        for (int i = 1; i < s.length(); i++) {
+            if (!isIdentifierChar(s.charAt(i))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static boolean isIdentifierOrNumber(String s) {
+        if (isIdentifier(s)) {
+            return true;
+        }
+        for (int i = 0; i < s.length(); i++) {
+            if (!Character.isDigit(s.charAt(i))) {
+                return false;
+            }
+        }
+        return !s.isEmpty();
+    }
+
+    private static boolean isIdentifierStart(char c) {
+        return Character.isLetter(c) || c == '_' || c == '$';
     }
 
     /* ===================== 数字分隔符 ===================== */

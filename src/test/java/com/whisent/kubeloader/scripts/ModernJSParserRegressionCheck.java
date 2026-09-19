@@ -66,6 +66,9 @@ public final class ModernJSParserRegressionCheck {
         // 止血-9：数字分隔符 / 可选 catch / 逻辑赋值
         runCase("语法糖（数字分隔符、可选 catch、逻辑赋值）", ModernJSParserRegressionCheck::sugarFormsAreConverted);
 
+        // 止血-10：对象字面量的计算属性名
+        runCase("计算属性名 {[expr]: v}", ModernJSParserRegressionCheck::computedKeysAreConverted);
+
         // 止血-5：类体花括号按词法数 + 转换失败也要变成可读错误
         runCase("类体字符串里的 } 不算类结束", ModernJSParserRegressionCheck::bracesInsideStringDoNotEndClass);
         runCase("类体注释里的 } 不算类结束", ModernJSParserRegressionCheck::bracesInsideCommentDoNotEndClass);
@@ -406,6 +409,43 @@ public final class ModernJSParserRegressionCheck {
                 "var s = '1_000';",
                 "var t = 'catch { }';",
                 "s === '1_000' && t === 'catch { }';")), "字符串里的 1_000 / catch 不该被改写");
+    }
+
+    // ── 止血-10：对象字面量的计算属性名 ────────────────────────────────
+
+    private static void computedKeysAreConverted() {
+        checkEquals("1", evalTransformed(lines(
+                "var k = 'a';",
+                "var o = {[k]: 1};",
+                "o.a;")), "计算属性名（变量）");
+
+        checkEquals("9", evalTransformed(lines(
+                "var i = 2;",
+                "var o = {['x' + i]: 9};",
+                "o.x2;")), "计算属性名（表达式）");
+
+        checkEquals("3", evalTransformed(lines(
+                "var k = 'b';",
+                "var o = {a: 1, [k]: 2};",
+                "o.a + o.b;")), "计算属性名与普通成员混用");
+
+        // 书写顺序要保留：后面的覆盖前面的
+        checkEquals("2", evalTransformed(lines(
+                "var o = {a: 1, ['a']: 2};",
+                "o.a;")), "同名时后面的成员应当覆盖前面的");
+
+        // 简写属性 + 计算属性名
+        checkEquals("3", evalTransformed(lines(
+                "var a = 1;",
+                "var k = 'b';",
+                "var o = {a, [k]: 2};",
+                "o.a + o.b;")), "简写属性与计算属性名可以共存");
+
+        // 字符串里的 [..] 不该被当成计算属性名
+        checkEquals("5", evalTransformed(lines(
+                "var k = 'k';",
+                "var o = {['[a]']: 5};",
+                "o['[a]'];")), "计算属性名里的字符串不该被误判");
     }
 
     // ── 止血-5：类体花括号必须按词法数；转换失败的异常也必须被接住 ────────

@@ -118,7 +118,7 @@ final class ModernJSSpreadConverter {
                 continue; // 没有外层构造（例如正则残留），不是这几种写法
             }
             int open = stack.get(stack.size() - 1)[0];
-            int close = matchClose(masked, open);
+            int close = ModernJSMask.matchClose(masked, open);
             if (close > open) {
                 Rewrite rewrite = buildRewrite(masked, original, open, close);
                 if (rewrite != null) {
@@ -128,25 +128,6 @@ final class ModernJSSpreadConverter {
             i += 2;
         }
         return null;
-    }
-
-    /** 与 open 处括号配对的闭合括号下标；找不到返回 -1。 */
-    private static int matchClose(String masked, int open) {
-        char opener = masked.charAt(open);
-        char closer = opener == '(' ? ')' : (opener == '[' ? ']' : '}');
-        int depth = 0;
-        for (int i = open; i < masked.length(); i++) {
-            char c = masked.charAt(i);
-            if (c == opener) {
-                depth++;
-            } else if (c == closer) {
-                depth--;
-                if (depth == 0) {
-                    return i;
-                }
-            }
-        }
-        return -1;
     }
 
     private static Rewrite buildRewrite(String masked, String original, int open, int close) {
@@ -176,7 +157,7 @@ final class ModernJSSpreadConverter {
 
     /** 调用展开：f(a, ...b) / o.m(...b) / new F(...b) */
     private static Rewrite buildCallSpread(String masked, String original, int open, int close) {
-        List<int[]> parts = splitTopLevel(masked, open + 1, close);
+        List<int[]> parts = ModernJSMask.splitTopLevel(masked, open + 1, close);
         if (!hasSpreadPart(masked, parts)) {
             return null;
         }
@@ -216,7 +197,7 @@ final class ModernJSSpreadConverter {
 
     /** 数组字面量展开：[a, ...b] */
     private static Rewrite buildArraySpread(String masked, String original, int open, int close) {
-        List<int[]> parts = splitTopLevel(masked, open + 1, close);
+        List<int[]> parts = ModernJSMask.splitTopLevel(masked, open + 1, close);
         if (!hasSpreadPart(masked, parts)) {
             return null;
         }
@@ -225,7 +206,7 @@ final class ModernJSSpreadConverter {
 
     /** 对象字面量展开：{...a, y: 2} */
     private static Rewrite buildObjectSpread(String masked, String original, int open, int close) {
-        List<int[]> parts = splitTopLevel(masked, open + 1, close);
+        List<int[]> parts = ModernJSMask.splitTopLevel(masked, open + 1, close);
         if (!hasSpreadPart(masked, parts)) {
             return null;
         }
@@ -264,7 +245,7 @@ final class ModernJSSpreadConverter {
 
     /** 剩余参数：function f(a, ...rest) { → function f(a) { var rest = ...; */
     private static Rewrite buildRestParams(String masked, String original, int open, int close) {
-        List<int[]> parts = splitTopLevel(masked, open + 1, close);
+        List<int[]> parts = ModernJSMask.splitTopLevel(masked, open + 1, close);
         if (parts.isEmpty()) {
             return null;
         }
@@ -335,26 +316,6 @@ final class ModernJSSpreadConverter {
             }
         }
         return false;
-    }
-
-    /** 按顶层逗号切分 [from, to)，返回每段的 [start, end) 下标（原文/掩码同下标）。 */
-    private static List<int[]> splitTopLevel(String masked, int from, int to) {
-        List<int[]> parts = new ArrayList<>();
-        int depth = 0;
-        int start = from;
-        for (int i = from; i < to; i++) {
-            char c = masked.charAt(i);
-            if (c == '(' || c == '[' || c == '{') {
-                depth++;
-            } else if (c == ')' || c == ']' || c == '}') {
-                depth--;
-            } else if (c == ',' && depth == 0) {
-                parts.add(new int[]{start, i});
-                start = i + 1;
-            }
-        }
-        parts.add(new int[]{start, to});
-        return parts;
     }
 
     /* ===================== 位置判断 ===================== */
