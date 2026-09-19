@@ -163,6 +163,9 @@ tasks.register('publishCurseForge', net.darkhax.curseforgegradle.TaskPublishCurs
         changelog = project.findProperty('cfChangelog') ?: "Release ${mod_version}"
         addGameVersion minecraft_version
         addModLoader 'NeoForge'
+        // CF 要求 gameVersions 里必须含 environment 组条目（错误码 1021），故显式声明双端
+        addEnvironment 'Client'
+        addEnvironment 'Server'
     }
 
     // 版本条目一律显式声明，关掉自动探测，避免从版本区间推出意外的 MC 版本
