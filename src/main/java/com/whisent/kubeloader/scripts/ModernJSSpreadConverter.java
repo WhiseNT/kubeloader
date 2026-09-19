@@ -29,9 +29,6 @@ import java.util.List;
  */
 final class ModernJSSpreadConverter {
 
-    /** 掩码占位字符：正常源码里不会出现，也不会拼出 {@code ...} */
-    private static final char MASK = '\u0001';
-
     /** 一轮只改写一处，嵌套写法靠多轮收敛；给个上限兜底 */
     private static final int MAX_ROUNDS = 64;
 
@@ -49,7 +46,7 @@ final class ModernJSSpreadConverter {
         boolean needNew = false;
 
         for (int round = 0; round < MAX_ROUNDS; round++) {
-            String masked = mask(result);
+            String masked = ModernJSMask.mask(result);
             Rewrite rewrite = findRewrite(masked, result);
             if (rewrite == null) {
                 break;
@@ -427,7 +424,8 @@ final class ModernJSSpreadConverter {
             return true;
         }
         char before = masked.charAt(i - 1);
-        return !(isIdentifierChar(before) || before == ')' || before == ']' || before == '}' || before == MASK);
+        return !(isIdentifierChar(before) || before == ')' || before == ']' || before == '}'
+                || before == ModernJSMask.MASK);
     }
 
     /** 数组字面量后面紧跟 = / of / in：那其实是解构模式，不能按表达式改写。 */
@@ -490,142 +488,6 @@ final class ModernJSSpreadConverter {
             }
         }
         return true;
-    }
-
-    /* ===================== 掩码 ===================== */
-
-    /**
-     * 把字符串、注释、正则、模板串替换成同长度的占位字符。
-     *
-     * <p>为什么必须掩码：{@code let s = "...";} 或 {@code /\(/} 里的 {@code ...} 和括号
-     * 一旦参与结构判断，就会把这一片代码当成别的构造，改出错误结果。</p>
-     */
-    private static String mask(String text) {
-        char[] out = text.toCharArray();
-        int n = out.length;
-        char prev = '\0';
-        int i = 0;
-
-        while (i < n) {
-            char c = text.charAt(i);
-
-            if (c == '"' || c == '\'') {
-                int end = i + 1;
-                while (end < n) {
-                    char d = text.charAt(end);
-                    if (d == '\\') {
-                        end += 2;
-                        continue;
-                    }
-                    if (d == c || d == '\n') {
-                        break;
-                    }
-                    end++;
-                }
-                for (int k = i; k < Math.min(end + 1, n); k++) {
-                    out[k] = MASK;
-                }
-                prev = c;
-                i = Math.min(end + 1, n);
-                continue;
-            }
-
-            if (c == '`') {
-                int end = i + 1;
-                while (end < n) {
-                    char d = text.charAt(end);
-                    if (d == '\\') {
-                        end += 2;
-                        continue;
-                    }
-                    if (d == '`') {
-                        break;
-                    }
-                    end++;
-                }
-                for (int k = i; k < Math.min(end + 1, n); k++) {
-                    out[k] = MASK;
-                }
-                prev = '`';
-                i = Math.min(end + 1, n);
-                continue;
-            }
-
-            if (c == '/' && i + 1 < n) {
-                char d = text.charAt(i + 1);
-                if (d == '/') {
-                    int end = i;
-                    while (end < n && text.charAt(end) != '\n') {
-                        end++;
-                    }
-                    for (int k = i; k < end; k++) {
-                        out[k] = MASK;
-                    }
-                    i = end;
-                    continue;
-                }
-                if (d == '*') {
-                    int end = i + 2;
-                    while (end < n && !(text.charAt(end) == '*' && end + 1 < n && text.charAt(end + 1) == '/')) {
-                        end++;
-                    }
-                    int stop = Math.min(end + 2, n);
-                    for (int k = i; k < stop; k++) {
-                        out[k] = MASK;
-                    }
-                    i = stop;
-                    continue;
-                }
-                if (canStartRegex(prev)) {
-                    int end = i + 1;
-                    boolean inClass = false;
-                    while (end < n) {
-                        char e = text.charAt(end);
-                        if (e == '\\') {
-                            end += 2;
-                            continue;
-                        }
-                        if (e == '\n') {
-                            break;
-                        }
-                        if (e == '[') {
-                            inClass = true;
-                        } else if (e == ']') {
-                            inClass = false;
-                        } else if (e == '/' && !inClass) {
-                            end++;
-                            break;
-                        }
-                        end++;
-                    }
-                    while (end < n && Character.isLetter(text.charAt(end))) {
-                        end++;
-                    }
-                    for (int k = i; k < Math.min(end, n); k++) {
-                        out[k] = MASK;
-                    }
-                    prev = ')';
-                    i = Math.min(end, n);
-                    continue;
-                }
-            }
-
-            if (!Character.isWhitespace(c)) {
-                prev = c;
-            }
-            i++;
-        }
-
-        return new String(out);
-    }
-
-    /** '/' 前面是这个字符时，'/ ' 更可能是除号而不是正则开头。 */
-    private static boolean canStartRegex(char p) {
-        if (p == '\0') {
-            return true;
-        }
-        return !(Character.isLetterOrDigit(p) || p == '_' || p == '$'
-                || p == ')' || p == ']' || p == '}' || p == '"' || p == '\'' || p == '`');
     }
 
     /* ===================== 运行时辅助 ===================== */

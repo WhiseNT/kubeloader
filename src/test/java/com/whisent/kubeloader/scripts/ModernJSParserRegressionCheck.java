@@ -63,6 +63,9 @@ public final class ModernJSParserRegressionCheck {
         // 止血-8：`...` 展开 / 剩余参数
         runCase("`...` 各种写法都能转换", ModernJSParserRegressionCheck::spreadFormsAreConverted);
 
+        // 止血-9：数字分隔符 / 可选 catch / 逻辑赋值
+        runCase("语法糖（数字分隔符、可选 catch、逻辑赋值）", ModernJSParserRegressionCheck::sugarFormsAreConverted);
+
         // 止血-5：类体花括号按词法数 + 转换失败也要变成可读错误
         runCase("类体字符串里的 } 不算类结束", ModernJSParserRegressionCheck::bracesInsideStringDoNotEndClass);
         runCase("类体注释里的 } 不算类结束", ModernJSParserRegressionCheck::bracesInsideCommentDoNotEndClass);
@@ -371,6 +374,38 @@ public final class ModernJSParserRegressionCheck {
                 "var s = \"...a\";",
                 "var t = `...b`;",
                 "s === '...a' && t === '...b';")), "字符串/模板串里的 ... 不该被改写");
+    }
+
+    // ── 止血-9：一批高频语法糖 ──────────────────────────────────────────
+
+    private static void sugarFormsAreConverted() {
+        checkEquals("2501000", evalTransformed(lines(
+                "var a = 1_000;",
+                "var b = 2_500_000;",
+                "a + b;")), "数字分隔符");
+
+        checkEquals("1", evalTransformed(lines(
+                "var r = 0;",
+                "try { throw 1; } catch { r = 1; }",
+                "r;")), "可选 catch 绑定");
+
+        checkEquals("5", evalTransformed(lines("var a = null;", "a ||= 5;", "a;")), "||=");
+        checkEquals("5", evalTransformed(lines("var a = 1;", "a &&= 5;", "a;")), "&&=");
+        checkEquals("5", evalTransformed(lines("var a = null;", "a ??= 5;", "a;")), "??=");
+
+        // 短路语义：`||=` 右侧只应被求值一次
+        checkEquals("7|1", evalTransformed(lines(
+                "var n = 0;",
+                "function pick() { n++; return 7; }",
+                "var a = null;",
+                "a ||= pick();",
+                "a + '|' + n;")), "逻辑赋值要短路，右侧不该被多算");
+
+        // 这些东西写在字符串里时不该被改写
+        checkEquals("true", evalTransformed(lines(
+                "var s = '1_000';",
+                "var t = 'catch { }';",
+                "s === '1_000' && t === 'catch { }';")), "字符串里的 1_000 / catch 不该被改写");
     }
 
     // ── 止血-5：类体花括号必须按词法数；转换失败的异常也必须被接住 ────────

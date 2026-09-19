@@ -180,6 +180,11 @@ public final class ModernJSSyntaxGuard {
 
         private void checkNullish() {
             if (s.charAt(i) == '?' && i + 1 < n && s.charAt(i + 1) == '?') {
+                // `??=` 是逻辑赋值（现代写法），不是空值合并：它由 ModernJSSugarConverter
+                // 展开成显式判断，这里不能按 `??` 拦下来
+                if (i + 2 < n && s.charAt(i + 2) == '=') {
+                    return;
+                }
                 throw new ModernJSParseException(
                         "检测到 `??`（空值合并），但当前 Rhino 引擎会算错它的值：右侧表达式会被忽略",
                         line, lineText(),
