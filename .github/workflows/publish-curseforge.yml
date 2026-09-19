@@ -81,12 +81,16 @@ jobs:
               echo "$URL | $CODE | 1.21.1命中=$CNT | $(printf '%s' "$BODY" | head -c 90)"
             done
           done
-          echo "===== B) 上传端点可达性（无效 token 探测，不会产生文件）====="
+          echo "===== B) 上传端点可达性（无效 token + 真实 multipart 体；CF 会先拒绝 token，不会产生文件）====="
           for base in https://legacy.curseforge.com https://www.curseforge.com https://minecraft.curseforge.com; do
             URL="$base/api/projects/1205072/upload-file"
-            OUT="$(curl -s -w '\n__C=%{http_code}' --max-time 30 -X POST -H "X-Api-Token: invalid-probe-token" -H "User-Agent: CurseForgeGradle" "$URL" || true)"
+            OUT="$(curl -s -w '\n__C=%{http_code}' --max-time 30 -X POST \
+              -H "X-Api-Token: invalid-probe-token" -H "User-Agent: CurseForgeGradle" \
+              -F 'metadata={"changelogType":"text","changelog":"probe","displayName":"probe","gameVersions":[11779],"releaseType":"alpha"};type=application/json' \
+              -F "file=@/dev/null;filename=probe.jar" \
+              "$URL" || true)"
             CODE="$(printf '%s' "$OUT" | tail -1)"
-            BODY="$(printf '%s' "$OUT" | sed '$d' | head -c 110)"
+            BODY="$(printf '%s' "$OUT" | sed '$d' | head -c 130)"
             echo "$URL | $CODE | $BODY"
           done
 
