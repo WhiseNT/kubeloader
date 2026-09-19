@@ -16,8 +16,9 @@ public class ModernJSParser {
     private static final Pattern RETURN_SHORTHAND_PATTERN =
             Pattern.compile("\\breturn\\s*\\{([^{}]*)\\}\\s*(?=;|\\n|\\r|$)");
 
+    // 具名与匿名函数都要处理：类方法会被转换成 "Class.prototype.m = function(...) {"
     private static final Pattern FUNCTION_WITH_DEFAULTS_PATTERN =
-            Pattern.compile("(\\bfunction\\s+\\w+\\s*\\([^)]*\\))(\\s*\\{)");
+            Pattern.compile("(\\bfunction\\s*(?:[a-zA-Z_$][a-zA-Z0-9_$]*)?\\s*\\([^)]*\\))(\\s*\\{)");
 
     // ===================== 入口 =====================
     public static String parse(String input) {
@@ -186,13 +187,14 @@ public class ModernJSParser {
             stat = rewriteSuperMemberAccess(stat.trim(), staticPrefix);
             if (stat.startsWith("get ") || stat.startsWith("set ")) {
                 continue;
-            } else if (stat.contains("=")) {
-                output.append(className).append(".").append(stat).append("\n");
-            } else if (stat.contains("(")) {
+            } else if (isStaticMethodDecl(stat)) {
+                // 方法要先判：参数默认值/方法体里都可能出现 '='，不能当作静态字段
                 String methodName = extractMethodName(stat);
                 String paramsAndBody = stat.substring(stat.indexOf("("));
                 output.append(className).append(".").append(methodName)
                         .append(" = function").append(paramsAndBody).append(";\n");
+            } else if (stat.contains("=")) {
+                output.append(className).append(".").append(stat).append("\n");
             }
         }
         if (!staticMembers.isEmpty()) {
@@ -313,6 +315,17 @@ public class ModernJSParser {
         if (paren <= 0) return false;
         String name = stmt.substring(0, paren).trim();
         return isValidIdentifier(name) && stmt.endsWith("}");
+    }
+
+    /**
+     * 静态方法：形如 {@code name(...) {...}}，左括号前必须是合法的名字。
+     * 用于与静态字段（{@code name = value}）区分——后者即使值里带括号
+     * （如 {@code BASE = Math.max(1, 2)}）也不会被误判成方法。
+     */
+    private static boolean isStaticMethodDecl(String stat) {
+        int paren = stat.indexOf('(');
+        if (paren <= 0) return false;
+        return isValidIdentifier(stat.substring(0, paren).trim());
     }
 
     private static boolean isValidPlainField(String stmt) {
