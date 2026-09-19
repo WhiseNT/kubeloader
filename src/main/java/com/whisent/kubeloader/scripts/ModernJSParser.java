@@ -7,9 +7,6 @@ import java.util.stream.Collectors;
 public class ModernJSParser {
 
     // ===================== 缓存常用正则 =====================
-    private static final Pattern CLASS_HEADER_PATTERN =
-            Pattern.compile("^\\s*class\\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\\s*(?:extends\\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\\s*)?\\{?\\s*$");
-
     private static final Pattern THIS_ASSIGN_PATTERN =
             Pattern.compile("\\bthis\\.([a-zA-Z_$][a-zA-Z0-9_$]*)\\s*=");
 
@@ -55,26 +52,181 @@ public class ModernJSParser {
         if (rhinoTarget) {
             ModernJSSyntaxGuard.check(input);
         }
-        StringBuilder result = new StringBuilder();
-        String[] lines = input.split("\\r?\\n");
-        int i = 0;
+        return postProcessing(convertClasses(input));
+    }
 
-        while (i < lines.length) {
-            String line = lines[i].trim();
+    /** class 表头：名字、可选的 extends、以及类体的 '{' */
+    private static final Pattern CLASS_STATEMENT_PATTERN = Pattern.compile(
+            "class\\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\\s*(?:extends\\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\\s*)?\\{");
 
-            if (line.startsWith("class ")) {
-                ClassDef def = parseClassFromLines(lines, i);
-                // 必须补一个换行：convertClass 会去掉尾部空白，若直接拼接，类体最后的 "}"
-                // 会和下一行粘成 "}let x = 1;"——既有 ASI 隐患，也会打乱后续行号对应
-                result.append(convertClass(def.className, def.parentClass, def.body)).append("\n");
-                i = def.endLineIndex + 1;
-            } else {
-                result.append(lines[i]).append("\n");
-                i++;
+    /**
+     * 把文本里处于<b>语句位置</b>的 class 声明全部转换掉。
+     *
+     * <p>以前是按行找「以 class 开头的行」，于是 class 与别的代码同行
+     * （{@code class A { ... } class B { ... }}、{@code function f() { class A { ... } } }）
+     * 就会被整个跳过或直接报错。现在改成按词法在整段文本里定位 class，
+     * 用它后面第一个 '{' 的配对 '}' 划出类体，然后继续处理类之后同一行剩下的代码。</p>
+     *
+     * <p>转换出的代码里可能还有 class（原来是嵌套在方法体里的），所以生成结果
+     * 会再走一遍同样的流程。</p>
+     */
+    private static String convertClasses(String text) {
+        StringBuilder out = new StringBuilder();
+        String rest = text;
+        while (true) {
+            int at = findClassStatement(rest);
+            if (at < 0) {
+                out.append(rest);
+                break;
             }
-        }
+            // class 之前的全部内容原样保留（缩进、同一行的其它代码都在里面）
+            out.append(rest, 0, at);
 
-        return postProcessing(result.toString());
+            ClassDef def = parseClassAt(rest, at);
+            // 必须补换行：convertClass 会去掉尾部空白，否则类的最后一个 "}" 会和
+            // 后面的代码粘成 "}let x = 1;"
+            out.append(convertClasses(convertClass(def.className, def.parentClass, def.body))).append("\n");
+            rest = rest.substring(def.endOffset);
+        }
+        return out.toString();
+    }
+
+    /**
+     * 找第一个处于语句位置、且写法能识别的 class，返回 'c' 的下标；没有返回 -1。
+     *
+     * <p>「语句位置」= 前面跳过空白后是文本开头、';'、'{'、'}' 或换行。
+     * 这样 {@code let C = class {}} 这类 class 表达式（本项目也不支持）不会误判。
+     * 字符串、注释、模板串里的 {@code class} 一律不算。</p>
+     */
+    private static int findClassStatement(String text) {
+        int n = text.length();
+        LexState st = new LexState();
+        int lastMeaningful = -1; // 上一个有效代码字符的位置，-1 表示还没遇到
+        for (int i = 0; i < n; i++) {
+            char c = text.charAt(i);
+            char next = i + 1 < n ? text.charAt(i + 1) : '\0';
+
+            if (st.inBlockComment) {
+                if (c == '*' && next == '/') {
+                    st.inBlockComment = false;
+                    i++;
+                }
+                continue;
+            }
+            if (st.stringQuote != '\0') {
+                if (c == '\\') {
+                    i++;
+                    continue;
+                }
+                if (c == st.stringQuote) st.stringQuote = '\0';
+                lastMeaningful = i;
+                continue;
+            }
+            if (st.inTemplateText) {
+                if (c == '\\') {
+                    i++;
+                    continue;
+                }
+                if (c == '`') {
+                    st.inTemplateText = false;
+                    lastMeaningful = i;
+                    continue;
+                }
+                if (c == '$' && next == '{') {
+                    st.inTemplateText = false;
+                    st.templateExprDepth = 1;
+                    i++;
+                    continue;
+                }
+                continue;
+            }
+            if (c == '/' && next == '/') { // 行注释：跳到下一行
+                while (i < n && text.charAt(i) != '\n') i++;
+                continue;
+            }
+            if (c == '/' && next == '*') {
+                st.inBlockComment = true;
+                i++;
+                continue;
+            }
+            if (c == '\'' || c == '"') {
+                st.stringQuote = c;
+                continue;
+            }
+            if (c == '`') {
+                st.inTemplateText = true;
+                continue;
+            }
+            if (st.templateExprDepth > 0) {
+                if (c == '{') st.templateExprDepth++;
+                else if (c == '}' && --st.templateExprDepth == 0) st.inTemplateText = true;
+                lastMeaningful = i;
+                continue;
+            }
+            if (c == '{') {
+                st.templateExprDepth = 0;
+            }
+
+            if (isClassNameStart(text, i, lastMeaningful)) {
+                Matcher m = CLASS_STATEMENT_PATTERN.matcher(text);
+                m.region(i, n);
+                if (m.lookingAt()) return i;
+            }
+
+            if (!Character.isWhitespace(c)) lastMeaningful = i;
+        }
+        return -1;
+    }
+
+    /** 判断 i 处是不是一个「语句位置的 class 关键字」。 */
+    private static boolean isClassNameStart(String text, int i, int lastMeaningful) {
+        if (!text.startsWith("class", i)) return false;
+        int after = i + 5;
+        if (after < text.length() && isIdentChar(text.charAt(after))) return false;
+        if (i == 0 || lastMeaningful < 0) return true;
+        char prev = text.charAt(lastMeaningful);
+        return prev == ';' || prev == '{' || prev == '}' || prev == '\n';
+    }
+
+    private static boolean isIdentChar(char c) {
+        return Character.isLetterOrDigit(c) || c == '_' || c == '$';
+    }
+
+    /** 解析 at 处的 class 声明：表头 + 用词法配对花括号划出的类体。 */
+    private static ClassDef parseClassAt(String text, int at) {
+        Matcher m = CLASS_STATEMENT_PATTERN.matcher(text);
+        m.region(at, text.length());
+        if (!m.lookingAt()) {
+            throw new ModernJSParseException(
+                    "这个 class 写法暂不支持：" + firstLine(text.substring(at)),
+                    lineOf(text, at), firstLine(text.substring(at)),
+                    "class 目前要求写成 `class 名字 (extends 父类)? {`，并保证类体的花括号配对；"
+                            + "若是 class 表达式（let C = class {}）暂不支持");
+        }
+        int openBrace = m.end() - 1;
+        int closeBrace = findMatchingBrace(text, openBrace);
+        if (closeBrace == -1) {
+            throw new ModernJSParseException(
+                    "从这个 class 开始找不到配对的 '}'",
+                    lineOf(text, at), firstLine(text.substring(at)),
+                    "检查类体的花括号是否配对；若类体里有内容含 '{' 或 '}'（长字符串、正则等），"
+                            + "也欢迎把这一处反馈给作者");
+        }
+        String body = text.substring(openBrace + 1, closeBrace).trim();
+        return new ClassDef(m.group(1), m.group(2), body, closeBrace + 1);
+    }
+
+    private static String firstLine(String s) {
+        int end = s.indexOf('\n');
+        return (end < 0 ? s : s.substring(0, end)).trim();
+    }
+
+    private static int lineOf(String text, int offset) {
+        int line = 1;
+        for (int i = 0; i < offset && i < text.length(); i++) {
+            if (text.charAt(i) == '\n') line++;
+        }
+        return line;
     }
 
     /* ===================== 内部数据结构 ===================== */
@@ -82,13 +234,14 @@ public class ModernJSParser {
         final String className;
         final String parentClass;
         final String body;
-        final int endLineIndex;
+        /** 类声明结束后的下标（配对 '}' 之后），用来继续处理同一行剩下的代码 */
+        final int endOffset;
 
-        ClassDef(String className, String parentClass, String body, int endLineIndex) {
+        ClassDef(String className, String parentClass, String body, int endOffset) {
             this.className = className;
             this.parentClass = parentClass;
             this.body = body;
-            this.endLineIndex = endLineIndex;
+            this.endOffset = endOffset;
         }
     }
 
@@ -102,63 +255,6 @@ public class ModernJSParser {
             this.bodyContent = bodyContent;
             this.bodyWithoutConstructor = bodyWithoutConstructor;
         }
-    }
-
-    /* ===================== 解析 class ===================== */
-    private static ClassDef parseClassFromLines(String[] lines, int start) {
-        String header = lines[start];
-        Matcher m = CLASS_HEADER_PATTERN.matcher(header);
-        if (!m.find()) {
-            throw new ModernJSParseException(
-                    "这个 class 写法暂不支持：" + header.trim(),
-                    start + 1, header.trim(),
-                    "class 目前必须让「class 名字 {」独占一行再换行展开类体。"
-                            + "与其它代码挤在同一行（例如函数体内联写的 class）请拆成多行；嵌套 class 同样暂不支持");
-        }
-
-        String className = m.group(1);
-        String parentClass = m.group(2);
-
-        StringBuilder body = new StringBuilder();
-        int braceCount = 0;
-        int i = start;
-        // 数花括号必须按词法来（跳过字符串/注释/模板文本），否则类体里一个 "}" 字符串
-        // 就会被当成类结束，把后面的代码粘成非法语句
-        LexState lexState = new LexState();
-
-        for (; i < lines.length; i++) {
-            String line = lines[i];
-
-            if (i == start) {
-                braceCount = updateBraceCount(line, 0, lexState);
-                int openBrace = line.indexOf('{');
-                if (openBrace != -1) {
-                    String after = line.substring(openBrace + 1);
-                    if (!after.trim().isEmpty()) {
-                        body.append(after).append("\n");
-                    }
-                }
-            } else {
-                body.append(line).append("\n");
-                braceCount = updateBraceCount(line, braceCount, lexState);
-            }
-
-            if (braceCount == 0) {
-                String bodyStr = body.toString();
-                if (bodyStr.endsWith("}\n")) {
-                    bodyStr = bodyStr.substring(0, bodyStr.length() - 2);
-                } else if (bodyStr.endsWith("}")) {
-                    bodyStr = bodyStr.substring(0, bodyStr.length() - 1);
-                }
-                return new ClassDef(className, parentClass, bodyStr.trim(), i);
-            }
-        }
-
-        throw new ModernJSParseException(
-                "从这个 class 开始找不到配对的 '}'",
-                start + 1, lines[start].trim(),
-                "检查类体的花括号是否配对；若类体里有内容含 '{' 或 '}'（长字符串、正则等），"
-                        + "也欢迎把这一处反馈给作者");
     }
 
     /* ===================== 转换 class ===================== */
@@ -409,7 +505,7 @@ public class ModernJSParser {
             if (braceDepth == 0) {
                 String stmt = current.toString().trim();
                 if (!stmt.isEmpty()) {
-                    result.add(stmt);
+                    result.addAll(splitTopLevelSemicolons(stmt));
                     current.setLength(0);
                 }
             }
@@ -417,9 +513,97 @@ public class ModernJSParser {
 
         if (current.length() > 0) {
             String stmt = current.toString().trim();
-            if (!stmt.isEmpty()) result.add(stmt);
+            if (!stmt.isEmpty()) result.addAll(splitTopLevelSemicolons(stmt));
         }
+
         return result;
+    }
+
+    /**
+     * 把一条成员语句按<b>顶层</b> ';' 再切一次。
+     *
+     * <p>用来处理「几个成员写在同一行」：{@code x = 5; get() { return this.x }} 若不切开，
+     * 会被整体当成一个字段，转换出 {@code this.x = 5; get() { ... };} 这种非法代码。</p>
+     */
+    private static List<String> splitTopLevelSemicolons(String statement) {
+        List<String> pieces = new ArrayList<>();
+        LexState st = new LexState();
+        int depth = 0;
+        int start = 0;
+        int n = statement.length();
+
+        for (int i = 0; i < n; i++) {
+            char c = statement.charAt(i);
+            char next = i + 1 < n ? statement.charAt(i + 1) : '\0';
+
+            if (st.inBlockComment) {
+                if (c == '*' && next == '/') {
+                    st.inBlockComment = false;
+                    i++;
+                }
+                continue;
+            }
+            if (st.stringQuote != '\0') {
+                if (c == '\\') {
+                    i++;
+                    continue;
+                }
+                if (c == st.stringQuote) st.stringQuote = '\0';
+                continue;
+            }
+            if (st.inTemplateText) {
+                if (c == '\\') {
+                    i++;
+                    continue;
+                }
+                if (c == '`') {
+                    st.inTemplateText = false;
+                    continue;
+                }
+                if (c == '$' && next == '{') {
+                    st.inTemplateText = false;
+                    st.templateExprDepth = 1;
+                    i++;
+                    continue;
+                }
+                continue;
+            }
+            if (c == '/' && next == '/') { // 行注释：跳到行尾
+                while (i < n && statement.charAt(i) != '\n') i++;
+                continue;
+            }
+            if (c == '/' && next == '*') {
+                st.inBlockComment = true;
+                i++;
+                continue;
+            }
+            if (c == '\'' || c == '"') {
+                st.stringQuote = c;
+                continue;
+            }
+            if (c == '`') {
+                st.inTemplateText = true;
+                continue;
+            }
+            if (c == '{') {
+                if (st.templateExprDepth > 0) st.templateExprDepth++;
+                else depth++;
+            } else if (c == '}') {
+                if (st.templateExprDepth > 0) {
+                    if (--st.templateExprDepth == 0) st.inTemplateText = true;
+                } else {
+                    depth--;
+                }
+            } else if (c == ';' && depth == 0 && st.templateExprDepth == 0) {
+                String piece = statement.substring(start, i + 1).trim();
+                if (!piece.isEmpty()) pieces.add(piece);
+                start = i + 1;
+            }
+        }
+
+        String tail = statement.substring(start).trim();
+        if (!tail.isEmpty()) pieces.add(tail);
+        return pieces;
     }
 
     /* ===================== 辅助方法 ===================== */

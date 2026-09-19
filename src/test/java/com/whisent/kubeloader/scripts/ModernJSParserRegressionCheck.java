@@ -65,7 +65,7 @@ public final class ModernJSParserRegressionCheck {
         runCase("类体注释里的 } 不算类结束", ModernJSParserRegressionCheck::bracesInsideCommentDoNotEndClass);
         runCase("类体模板串里的 } 不算类结束", ModernJSParserRegressionCheck::bracesInsideTemplateDoNotEndClass);
         runCase("getter 体里字符串的 } 不截断", ModernJSParserRegressionCheck::getterBodyWithBraceInString);
-        runCase("不支持的 class 写法给出建议", ModernJSParserRegressionCheck::unsupportedClassFormGivesAdvice);
+        runCase("同行/嵌入式 class 都能转换", ModernJSParserRegressionCheck::inlineClassFormsWork);
         runCase("未闭合的 class 给出建议", ModernJSParserRegressionCheck::unclosedClassGivesAdvice);
 
         System.out.println();
@@ -371,19 +371,26 @@ public final class ModernJSParserRegressionCheck {
         checkEquals("}", evalTransformed(source), "getter 体里的 \"}\" 不该截断 getter 体");
     }
 
-    private static void unsupportedClassFormGivesAdvice() {
-        // 单行 class 转换器认不出来。关键是别把原始 RuntimeException 抛出去：
-        // KLScriptLoader 只 catch ModernJSParseException，漏出去会连累同包其它脚本
-        try {
-            ModernJSParser.parse(lines("class A { m() { return 1 } } new A().m();"));
-        } catch (ModernJSParseException e) {
-            checkTrue(e.describe().contains("多行") || e.describe().contains("独占一行"),
-                    "应给出「拆成多行」的建议：" + e.describe());
-            return;
-        } catch (RuntimeException e) {
-            throw new AssertionError("不该抛出非 ModernJSParseException 的异常：" + e);
-        }
-        throw new AssertionError("预期这个 class 写法会被拦下，但通过了");
+    private static void inlineClassFormsWork() {
+        // 以前 class 必须独占一行；现在与其它代码同行、嵌套在方法体里都能转
+        checkEquals("5", evalTransformed("class A { x = 5; get() { return this.x } } new A().get();"),
+                "同行写的字段 + 方法应能正确转换");
+
+        checkEquals("3", evalTransformed("class A { m() { return 1 } } class B { m() { return 2 } } new A().m() + new B().m();"),
+                "同一行两个 class 应能正确转换");
+
+        checkEquals("7", evalTransformed(lines(
+                "function make() {",
+                "    class A {",
+                "        m() { return 7 }",
+                "    }",
+                "    return new A().m();",
+                "}",
+                "make();")), "函数体（与 function 同一行）里的 class 应能正确转换");
+
+        checkEquals("true", evalTransformed(
+                "class Outer { m() { class Inner { } return new Inner() instanceof Object } } new Outer().m();"),
+                "嵌套在方法体里的 class 应能正确转换");
     }
 
     private static void unclosedClassGivesAdvice() {
