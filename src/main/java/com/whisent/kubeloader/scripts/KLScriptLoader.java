@@ -80,7 +80,7 @@ public class KLScriptLoader {
             ci.cancel();
             return;
         }
-        evalString(cx, pack, info, sourceCode);
+        evalString(cx, pack, info, sourceCode, String.join("\n", lines));
         ci.cancel();
     }
 
@@ -119,70 +119,86 @@ public class KLScriptLoader {
 
     public static boolean isTsFile(String file) {
         return file.endsWith(".ts");
-    }    public static boolean isJsFile(String file) {
+    }
+
+    public static boolean isJsFile(String file) {
         return file.endsWith(".js");
     }
     public static void evalString(KubeJSContext cx, ScriptPack pack,ScriptFileInfo info,String code) {
+        evalString(cx, pack, info, code, null);
+    }
+
+    /**
+     * 执行脚本。
+     *
+     * <p>{@code originalSource} 是转换前的原文（可为 null），用来把报错行号映射回
+     * 用户真正写的那一行。每个分支都单独兜住异常：一个脚本失败只影响它自己，
+     * 同包其它脚本照常加载。</p>
+     */
+    public static void evalString(KubeJSContext cx, ScriptPack pack, ScriptFileInfo info,
+                                  String code, String originalSource) {
         // 获取脚本指定的引擎
         Engine scriptEngine = getScriptEngine(info);
-        
+
         // 根据引擎类型选择执行方式
         if (scriptEngine == Engine.both) {
             // 在两个引擎中都加载
             System.out.println("[KubeLoader] Evaluating script with BOTH engines: " + info.location);
-            
+
             // 先用 GraalJS 加载
             if (GraalJSCompat.canUseGraalJS()) {
-                try {
-                    System.out.println("[KubeLoader] Evaluating with GraalJS: " + info.location);
-                    graalEvalString(pack, info, code);
-                } catch (Exception e) {
-                    System.out.println("[KubeLoader] GraalJS evaluation failed: " + e.getMessage());
-                }
+                System.out.println("[KubeLoader] Evaluating with GraalJS: " + info.location);
+                evalSafely(info, code, originalSource, "GraalJS", () -> graalEvalString(pack, info, code));
             } else {
                 System.out.println("[KubeLoader] GraalJS not available, skipping GraalJS evaluation");
             }
-            
+
             // 再用 Rhino 加载
-            try {
-                System.out.println("[KubeLoader] Evaluating with Rhino: " + info.location);
-                cx.evaluateString(
-                    cx.topLevelScope,
-                        code,
-                        info.location,
-                        1,
-                        (Object)null
-                );
-            } catch (Exception e) {
-                System.out.println("[KubeLoader] Rhino evaluation failed: " + e.getMessage());
-            }
+            System.out.println("[KubeLoader] Evaluating with Rhino: " + info.location);
+            evalSafely(info, code, originalSource, "Rhino",
+                    () -> cx.evaluateString(cx.topLevelScope, code, info.location, 1, (Object) null));
         } else if (scriptEngine == Engine.graaljs && GraalJSCompat.canUseGraalJS()) {
             System.out.println("[KubeLoader] Evaluating script with GraalJS: " + info.location);
-            graalEvalString(pack, info, code);
+            evalSafely(info, code, originalSource, "GraalJS", () -> graalEvalString(pack, info, code));
         } else if (scriptEngine == Engine.rhino) {
             System.out.println("[KubeLoader] Evaluating script with Rhino: " + info.location);
-            cx.evaluateString(
-                cx.topLevelScope,
-                    code,
-                    info.location,
-                    1,
-                    (Object)null
-            );
+            evalSafely(info, code, originalSource, "Rhino",
+                    () -> cx.evaluateString(cx.topLevelScope, code, info.location, 1, (Object) null));
         } else {
             // DEFAULT：根据系统配置决定
             if (GraalJSCompat.canUseGraalJS()) {
                 System.out.println("[KubeLoader] Evaluating script with GraalJS (DEFAULT): " + info.location);
-                graalEvalString(pack, info, code);
+                evalSafely(info, code, originalSource, "GraalJS", () -> graalEvalString(pack, info, code));
             } else {
                 System.out.println("[KubeLoader] Evaluating script with Rhino (DEFAULT): " + info.location);
-                cx.evaluateString(
-                        cx.topLevelScope,
-                        code,
-                        info.location,
-                        1,
-                        (Object)null
-                );
+                evalSafely(info, code, originalSource, "Rhino",
+                        () -> cx.evaluateString(cx.topLevelScope, code, info.location, 1, (Object) null));
             }
+        }
+    }
+
+    /**
+     * 跑一个引擎并兜住异常：失败只记录日志、不往外抛（一个脚本炸了不该影响别的脚本）。
+     * 若报错来自 Rhino 且拿得到原始源码，就把行号换算成「原始第 N 行 + 该行原文」。
+     */
+    private static void evalSafely(ScriptFileInfo info, String code, String originalSource,
+                                   String engineName, Runnable action) {
+        try {
+            action.run();
+        } catch (Throwable e) {
+            StringBuilder message = new StringBuilder("[KubeLoader] ")
+                    .append(engineName).append(" 执行失败，已跳过该脚本：").append(info.location);
+            if (e instanceof dev.latvian.mods.rhino.RhinoException re && re.lineNumber() > 0) {
+                message.append("（转换后第 ").append(re.lineNumber()).append(" 行");
+                if (originalSource != null) {
+                    int originalLine = OriginalLineMapper.toOriginalLine(code, originalSource, re.lineNumber());
+                    message.append("，原始第 ").append(originalLine).append(" 行")
+                            .append("：").append(OriginalLineMapper.lineText(originalSource, originalLine));
+                }
+                message.append("）");
+            }
+            message.append(" -> ").append(e);
+            System.out.println(message);
         }
     }
     
