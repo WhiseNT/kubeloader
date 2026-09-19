@@ -51,6 +51,9 @@ public final class ModernJSParserRegressionCheck {
         runCase("?? 在模板串 ${} 代码里要拦下", ModernJSParserRegressionCheck::nullishInTemplateCodeIsRejected);
         runCase("正则里的惰性 ?? 不该被拦下", ModernJSParserRegressionCheck::nullishInRegexIsFine);
 
+        // 止血-2：转换后行号能映射回原始脚本
+        runCase("行号映射能指回原始源码", ModernJSParserRegressionCheck::lineMapPointsBackToSource);
+
         System.out.println();
         if (!FAILURES.isEmpty()) {
             System.out.println("结果：失败 " + FAILURES.size() + " 个，通过 " + passed + " 个");
@@ -225,6 +228,44 @@ public final class ModernJSParserRegressionCheck {
         } catch (ModernJSParseException e) {
             throw new AssertionError("不该被拦下，但被误报了：" + e.describe());
         }
+    }
+
+    // ── 止血-2：转换后行号 → 原始源码行号 ──────────────────────────────
+
+    private static void lineMapPointsBackToSource() {
+        String original = lines(
+                "let before = 1;",
+                "class A {",
+                "    constructor(id) {",
+                "        this._id = id",
+                "    }",
+                "}",
+                "let after = 2;");
+        String generated = ModernJSParser.parse(original);
+        String[] genLines = generated.split("\\r?\\n", -1);
+
+        // 类体收尾的 "}" 不能和下一行粘在一起（ASI 隐患 + 会让行号错位）
+        checkTrue(generated.contains("\nlet after = 2;"), "类之后的语句被粘住了：" + generated);
+
+        // 类之后的语句是原样保留的，必须精确映回原始第 7 行
+        int afterIndex = indexOfGeneratedLine(genLines, "let after = 2;");
+        checkEquals("7", String.valueOf(OriginalLineMapper.toOriginalLine(generated, original, afterIndex)),
+                "类之后的语句应精确映回原始第 7 行");
+
+        // 类被展开成的新行，应映射回类头附近（2~6 行之间）
+        int mapped = OriginalLineMapper.toOriginalLine(generated, original, 2);
+        checkTrue(mapped >= 2 && mapped <= 6, "类体内生成行的映射落在预期范围外：" + mapped);
+
+        // 行内容也能取到
+        checkTrue(!OriginalLineMapper.lineText(original, mapped).isEmpty(), "应能取到原始行内容");
+    }
+
+    /** 在转换后代码里找某一行（1 起），找不到直接失败。 */
+    private static int indexOfGeneratedLine(String[] lines, String text) {
+        for (int i = 0; i < lines.length; i++) {
+            if (lines[i].trim().equals(text)) return i + 1;
+        }
+        throw new AssertionError("转换后代码里找不到这一行：" + text);
     }
 
     // ── 工具 ─────────────────────────────────────────────────────────

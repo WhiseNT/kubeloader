@@ -35,7 +35,9 @@ public class ModernJSParser {
 
             if (line.startsWith("class ")) {
                 ClassDef def = parseClassFromLines(lines, i);
-                result.append(convertClass(def.className, def.parentClass, def.body));
+                // 必须补一个换行：convertClass 会去掉尾部空白，若直接拼接，类体最后的 "}"
+                // 会和下一行粘成 "}let x = 1;"——既有 ASI 隐患，也会打乱后续行号对应
+                result.append(convertClass(def.className, def.parentClass, def.body)).append("\n");
                 i = def.endLineIndex + 1;
             } else {
                 result.append(lines[i]).append("\n");

@@ -60,9 +60,25 @@ public class KLScriptLoader {
                 Debugger.out("修改后的源代码(ES5兼容运行) " + info.location + ":\n" + sourceCode);
             }
         }
-        //先处理KLM
-        if (mixinMap.getOrDefault(info.location,null)  != null ) {
-            sourceCode = applyMixin(cx, pack, info, mixinMap, sourceCode);
+        // 先处理KLM；随后用 Rhino 自己的 parser 解析一遍最终代码做语法校验。
+        // 校验失败时把报错换算成「原始文件:行 + 原始代码」再报出来，
+        // 避免 Rhino 给的“转换后行号”把用户引到源码里并不存在的那一行。
+        try {
+            if (mixinMap.getOrDefault(info.location,null)  != null ) {
+                sourceCode = applyMixin(cx, pack, info, mixinMap, sourceCode);
+            }
+            new Parser(cx).parse(sourceCode, info.file, 0);
+        } catch (dev.latvian.mods.rhino.RhinoException e) {
+            int generatedLine = e.lineNumber() > 0 ? e.lineNumber() : 1;
+            String originalSource = String.join("\n", lines);
+            int originalLine = OriginalLineMapper.toOriginalLine(sourceCode, originalSource, generatedLine);
+            skipScript(pack, info, new ModernJSParseException(
+                    "转换/校验后代码不合法：" + e.getMessage() + "（转换后第 " + generatedLine + " 行）",
+                    originalLine,
+                    OriginalLineMapper.lineText(originalSource, originalLine),
+                    "多半是 ModernJS 转换器在这个写法上出了问题，请把这一行连同原始写法反馈给作者；临时可先改写绕过"));
+            ci.cancel();
+            return;
         }
         evalString(cx, pack, info, sourceCode);
         ci.cancel();
