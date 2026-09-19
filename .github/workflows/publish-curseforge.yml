@@ -72,18 +72,20 @@ jobs:
         run: |
           set -euo pipefail
           chmod +x ./gradlew
-          ./gradlew build -x test --no-daemon
+          ./gradlew clean build -x test --no-daemon
 
       - name: Resolve version and jar
         id: meta
         run: |
           set -euo pipefail
           VERSION="$(grep -E '^mod_version=' gradle.properties | cut -d= -f2- | tr -d '\r')"
-          JAR="$(find build/libs -maxdepth 1 -name '*.jar' ! -name '*sources*' | head -n1)"
-          if [ -z "${JAR}" ]; then
-            echo "::error::构建产物中找不到 jar"
+          mapfile -t CANDIDATES < <(find build/libs -maxdepth 1 -name "*-${VERSION}.jar" ! -name '*sources*' -print)
+          if [ "${#CANDIDATES[@]}" -ne 1 ]; then
+            echo "::error::期望恰好 1 个 ${VERSION} 产物，实际 ${#CANDIDATES[@]} 个: ${CANDIDATES[*]:-无}"
+            ls -1 build/libs || true
             exit 1
           fi
+          JAR="${CANDIDATES[0]}"
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "jar=${JAR}" >> "$GITHUB_OUTPUT"
           echo "版本: ${VERSION}"
