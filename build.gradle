@@ -104,6 +104,20 @@ dependencies {
     implementation "curse.maven:graal-1504336:${project.graal_curse_file}"
 }
 
+// 回归检查：ModernJS 转换（issue #22 等）。纯字符串逻辑 + 项目自带 Rhino，
+// 不引入测试框架依赖、不启动游戏，因此本机与 CI 都能直接跑。
+tasks.register('parserRegressionCheck', JavaExec) {
+    group = 'verification'
+    description = '运行 ModernJSParser 回归检查（用例在 src/test/java 下）'
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.whisent.kubeloader.scripts.ModernJSParserRegressionCheck'
+    // 用例失败会抛 AssertionError → 任务失败，可用于 CI（见下方 check 依赖）
+}
+
+tasks.named('check') {
+    dependsOn tasks.named('parserRegressionCheck')
+}
+
 tasks.named('processResources', ProcessResources).configure {
     var replaceProperties = [minecraft_version      : minecraft_version,
                              minecraft_version_range: minecraft_version_range,
