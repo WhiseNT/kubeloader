@@ -23,6 +23,9 @@ public class ModernJSParser {
     // ===================== 入口 =====================
     public static String parse(String input) {
         if (input == null || input.isEmpty()) return input;
+        // 先过安全网：Rhino 会“静默算错”的语法（如 ??）在这里直接报错，
+        // 而不是让它跑出错误结果
+        ModernJSSyntaxGuard.check(input);
         StringBuilder result = new StringBuilder();
         String[] lines = input.split("\\r?\\n");
         int i = 0;

@@ -43,6 +43,14 @@ public final class ModernJSParserRegressionCheck {
         runCase("静态字段的值带括号（回归防护）", ModernJSParserRegressionCheck::staticFieldWithParenthesesInValue);
         runCase("实例方法带默认参数（同类问题的附带修复）", ModernJSParserRegressionCheck::instanceMethodWithDefaultParam);
 
+        // 止血-1：?? 安全网（Rhino 能解析但会算错值，改为显式失败）
+        runCase("?? 在代码里会被拦下", ModernJSParserRegressionCheck::nullishIsRejected);
+        runCase("?? 在字符串里不该被拦下", ModernJSParserRegressionCheck::nullishInStringIsFine);
+        runCase("?? 在注释里不该被拦下", ModernJSParserRegressionCheck::nullishInCommentIsFine);
+        runCase("?? 在模板串文本里不该被拦下", ModernJSParserRegressionCheck::nullishInTemplateTextIsFine);
+        runCase("?? 在模板串 ${} 代码里要拦下", ModernJSParserRegressionCheck::nullishInTemplateCodeIsRejected);
+        runCase("正则里的惰性 ?? 不该被拦下", ModernJSParserRegressionCheck::nullishInRegexIsFine);
+
         System.out.println();
         if (!FAILURES.isEmpty()) {
             System.out.println("结果：失败 " + FAILURES.size() + " 个，通过 " + passed + " 个");
@@ -168,6 +176,55 @@ public final class ModernJSParserRegressionCheck {
         checkTrue(out.contains("F.prototype.describe = function(prefix) {"), out);
         checkTrue(out.contains("prefix = prefix === undefined ? \"id\" : prefix;"), "默认值未下沉进函数体：" + out);
         checkEquals("id9", evalTransformed(source));
+    }
+
+    // ── 止血-1：?? 安全网（Rhino 能解析却会算错值，改为显式失败） ─────────
+
+    private static void nullishIsRejected() {
+        expectRejected(lines(
+                "let a = null;",
+                "let b = a ?? 1;"), 2);
+    }
+
+    private static void nullishInStringIsFine() {
+        expectAccepted(lines("let s = \"a ?? b\";"));
+    }
+
+    private static void nullishInCommentIsFine() {
+        expectAccepted(lines("// a ?? b", "let x = 1;"));
+    }
+
+    private static void nullishInTemplateTextIsFine() {
+        expectAccepted(lines("let s = `a ?? b`;"));
+    }
+
+    private static void nullishInTemplateCodeIsRejected() {
+        expectRejected(lines("let t = `${a ?? 1}`;"), 1);
+    }
+
+    private static void nullishInRegexIsFine() {
+        expectAccepted(lines("let re = /a??/;", "let s = 'x';"));
+    }
+
+    /** 断言这段代码会被安全网拦下，并且行号指向原始源码。 */
+    private static void expectRejected(String source, int expectedLine) {
+        try {
+            ModernJSParser.parse(source);
+        } catch (ModernJSParseException e) {
+            checkEquals(String.valueOf(expectedLine), String.valueOf(e.getLine()), "拦截行号不符");
+            checkTrue(e.getSourceLine() != null && !e.getSourceLine().isEmpty(), "应带上原始行内容");
+            return;
+        }
+        throw new AssertionError("预期被安全网拦下，但没有报错");
+    }
+
+    /** 断言这段代码能正常通过（不该被误报）。 */
+    private static void expectAccepted(String source) {
+        try {
+            ModernJSParser.parse(source);
+        } catch (ModernJSParseException e) {
+            throw new AssertionError("不该被拦下，但被误报了：" + e.describe());
+        }
     }
 
     // ── 工具 ─────────────────────────────────────────────────────────

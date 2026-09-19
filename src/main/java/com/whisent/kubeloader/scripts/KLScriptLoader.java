@@ -38,13 +38,25 @@ public class KLScriptLoader {
             Debugger.out("修改后的源代码(TS→ES6) " + info.location + ":\n" + sourceCode);
             //根据配置决定是否转换ES6语法
             if (ConfigManager.shouldUseModernJS()) {
-                sourceCode = ModernJSParser.parse(sourceCode);
+                try {
+                    sourceCode = ModernJSParser.parse(sourceCode);
+                } catch (ModernJSParseException e) {
+                    skipScript(pack, info, e);
+                    ci.cancel();
+                    return;
+                }
                 Debugger.out("修改后的源代码(ES6→ES5) " + info.location + ":\n" + sourceCode);
             }
         } else if (isJsFile(info.file)) {
             //根据配置决定是否进行现代JS转换
             if (ConfigManager.shouldUseModernJS()) {
-                sourceCode = ModernJSParser.parse(sourceCode);
+                try {
+                    sourceCode = ModernJSParser.parse(sourceCode);
+                } catch (ModernJSParseException e) {
+                    skipScript(pack, info, e);
+                    ci.cancel();
+                    return;
+                }
                 Debugger.out("修改后的源代码(ES5兼容运行) " + info.location + ":\n" + sourceCode);
             }
         }
@@ -54,6 +66,16 @@ public class KLScriptLoader {
         }
         evalString(cx, pack, info, sourceCode);
         ci.cancel();
+    }
+
+    /**
+     * 转换/扫描发现问题时的统一处理：日志给出「文件:行 + 原始代码 + 改写建议」，
+     * 然后 <b>只跳过这一个脚本</b>，同包其它脚本照常加载。
+     */
+    private static void skipScript(ScriptPack pack, ScriptFileInfo info, ModernJSParseException e) {
+        String message = "[KubeLoader] 已跳过脚本（不支持的语法）" + info.location + "：" + e.describe();
+        pack.manager.scriptType.console.error(message);
+        Debugger.out(message);
     }
 
     public static String applyMixin(KubeJSContext cx, ScriptPack pack,ScriptFileInfo info,
@@ -81,8 +103,7 @@ public class KLScriptLoader {
 
     public static boolean isTsFile(String file) {
         return file.endsWith(".ts");
-    }
-    public static boolean isJsFile(String file) {
+    }    public static boolean isJsFile(String file) {
         return file.endsWith(".js");
     }
     public static void evalString(KubeJSContext cx, ScriptPack pack,ScriptFileInfo info,String code) {
