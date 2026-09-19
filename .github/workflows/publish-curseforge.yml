@@ -26,6 +26,11 @@ on:
         required: false
         default: '11779,10150'
         type: string
+      java_version:
+        description: 'JDK 版本（1211-Dev / 1.21.1 用 21；master / 1.20.1 用 17）'
+        required: false
+        default: '21'
+        type: string
       changelog:
         description: 'Changelog（markdown，可多行；留空则自动生成一行）'
         required: false
@@ -54,11 +59,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up JDK 21
+      - name: Set up JDK
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '21'
+          java-version: ${{ inputs.java_version }}
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
