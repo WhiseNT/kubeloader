@@ -124,7 +124,7 @@ public class ModernJSParser {
         List<String> methods = new ArrayList<>();
         List<String> staticMembers = new ArrayList<>();
 
-        parseMembers(className, bodyWithoutCtor, instanceFields, methods, staticMembers);
+        parseMembers(className, parentClass, bodyWithoutCtor, instanceFields, methods, staticMembers);
 
         Set<String> assignedInCtor = new HashSet<>();
         if (!ctorInfo.bodyContent.isEmpty()) {
@@ -164,7 +164,8 @@ public class ModernJSParser {
             output.append("  this.").append(field).append("\n");
         }
 
-        // 剩余构造逻辑
+        // 剩余构造逻辑（super.member(...) 重写为父类原型调用）
+        userCtorBody = rewriteSuperMemberAccess(userCtorBody, parentPrefix(parentClass, false));
         if (!userCtorBody.isEmpty()) {
             output.append(userCtorBody.trim()).append('\n');
         }
@@ -179,9 +180,10 @@ public class ModernJSParser {
                     .append(parentClass).append(");\n\n");
         }
 
-        // 静态成员
+        // 静态成员（静态上下文中 super.member 指向父类本身）
+        String staticPrefix = parentPrefix(parentClass, true);
         for (String stat : staticMembers) {
-            stat = stat.trim();
+            stat = rewriteSuperMemberAccess(stat.trim(), staticPrefix);
             if (stat.startsWith("get ") || stat.startsWith("set ")) {
                 continue;
             } else if (stat.contains("=")) {
@@ -277,7 +279,7 @@ public class ModernJSParser {
     }
 
     /* ===================== 解析成员 ===================== */
-    private static void parseMembers(String className, String body,
+    private static void parseMembers(String className, String parentClass, String body,
                                      List<String> instanceFields,
                                      List<String> methods,
                                      List<String> staticMembers) {
@@ -293,9 +295,9 @@ public class ModernJSParser {
             if (stmt.startsWith("static ")) {
                 staticMembers.add(stmt.substring(7).trim());
             } else if (stmt.startsWith("get ") || stmt.startsWith("set ")) {
-                methods.add(convertGetterSetter(className, stmt));
+                methods.add(convertGetterSetter(className, parentClass, stmt));
             } else if (isValidMethodDecl(stmt)) {
-                methods.add(convertMethod(className, stmt));
+                methods.add(convertMethod(className, parentClass, stmt));
             } else if (stmt.contains("=") && isValidFieldName(stmt)) {
                 instanceFields.add(stmt);
             } else if (isValidPlainField(stmt)) {
@@ -368,15 +370,15 @@ public class ModernJSParser {
     }
 
     /* ===================== 辅助方法 ===================== */
-    private static String convertMethod(String className, String methodDecl) {
+    private static String convertMethod(String className, String parentClass, String methodDecl) {
         int paren = methodDecl.indexOf('(');
         if (paren == -1) return "// invalid method: " + methodDecl;
         String name = methodDecl.substring(0, paren).trim();
-        String rest = methodDecl.substring(paren);
+        String rest = rewriteSuperMemberAccess(methodDecl.substring(paren), parentPrefix(parentClass, false));
         return className + ".prototype." + name + " = function" + rest + ";";
     }
 
-    private static String convertGetterSetter(String className, String decl) {
+    private static String convertGetterSetter(String className, String parentClass, String decl) {
         boolean isGet = decl.startsWith("get ");
         String prefix = isGet ? "get" : "set";
         String propName = decl.substring(prefix.length()).trim();
@@ -391,6 +393,7 @@ public class ModernJSParser {
                 body = decl.substring(startBrace + 1, endBrace).trim();
             }
         }
+        body = rewriteSuperMemberAccess(body, parentPrefix(parentClass, false));
 
         return "Object.defineProperty(" + className + ".prototype, '" + propName + "', {\n" +
                 "  " + prefix + ": function() {\n" +
@@ -516,6 +519,109 @@ public class ModernJSParser {
             i++;
         }
         return code.length();
+    }
+
+    /**
+     * 计算 super 成员的父类访问前缀。
+     * 实例成员用 "Parent.prototype"，静态成员用 "Parent"（静态上下文中 super 指向父类本身）。
+     * 无父类时返回空串。
+     */
+    private static String parentPrefix(String parentClass, boolean isStatic) {
+        if (parentClass == null || parentClass.trim().isEmpty()) return "";
+        String p = parentClass.trim();
+        return isStatic ? p : p + ".prototype";
+    }
+
+    /**
+     * 将方法体中的 super.member 访问重写为对父类的显式访问（Rhino 不支持 super 关键字）：
+     *   super.foo(args)  ->  {parentPrefix}.foo.call(this, args)
+     *   super.foo        ->  {parentPrefix}.foo
+     * 跳过字符串/模板字符串与注释中的内容。
+     *
+     * @param parentPrefix 由 {@link #parentPrefix(String, boolean)} 计算；为空时原样返回
+     */
+    private static String rewriteSuperMemberAccess(String body, String parentPrefix) {
+        if (body == null || body.isEmpty() || parentPrefix == null || parentPrefix.isEmpty()) {
+            return body;
+        }
+
+        StringBuilder sb = new StringBuilder(body.length() + 32);
+        int i = 0;
+        int n = body.length();
+
+        while (i < n) {
+            char c = body.charAt(i);
+
+            if (c == '"' || c == '\'' || c == '`') {
+                int end = skipStringLiteral(body, i);
+                sb.append(body, i, end);
+                i = end;
+                continue;
+            }
+            if (c == '/' && i + 1 < n) {
+                char next = body.charAt(i + 1);
+                if (next == '/') {
+                    int nl = body.indexOf('\n', i);
+                    int end = (nl == -1) ? n : nl;
+                    sb.append(body, i, end);
+                    i = end;
+                    continue;
+                }
+                if (next == '*') {
+                    int close = body.indexOf("*/", i + 2);
+                    int end = (close == -1) ? n : close + 2;
+                    sb.append(body, i, end);
+                    i = end;
+                    continue;
+                }
+            }
+
+            if (c == 's' && body.startsWith("super", i)
+                    && (i == 0 || !Character.isJavaIdentifierPart(body.charAt(i - 1)))) {
+                int p = i + 5;
+                while (p < n && Character.isWhitespace(body.charAt(p))) p++;
+
+                if (p < n && body.charAt(p) == '.') {
+                    int nameStart = p + 1;
+                    while (nameStart < n && Character.isWhitespace(body.charAt(nameStart))) nameStart++;
+
+                    int nameEnd = nameStart;
+                    while (nameEnd < n && (Character.isLetterOrDigit(body.charAt(nameEnd))
+                            || body.charAt(nameEnd) == '_' || body.charAt(nameEnd) == '$')) {
+                        nameEnd++;
+                    }
+
+                    if (nameEnd > nameStart) {
+                        String name = body.substring(nameStart, nameEnd);
+
+                        int after = nameEnd;
+                        while (after < n && Character.isWhitespace(body.charAt(after))) after++;
+
+                        if (after < n && body.charAt(after) == '(') {
+                            // super.foo(...) -> Parent.prototype.foo.call(this, ...)：消费 '('
+                            int argStart = after + 1;
+                            int k = argStart;
+                            while (k < n && Character.isWhitespace(body.charAt(k))) k++;
+                            boolean noArgs = k < n && body.charAt(k) == ')';
+
+                            sb.append(parentPrefix).append('.').append(name).append(".call(this");
+                            if (!noArgs) sb.append(", ");
+                            i = argStart;
+                        } else {
+                            // super.foo -> Parent.prototype.foo
+                            sb.append(parentPrefix).append('.').append(name);
+                            i = nameEnd;
+                        }
+                        continue;
+                    }
+                }
+            }
+
+            sb.append(c);
+            i++;
+        }
+
+        return sb.toString();
     }
 
     /* ===================== 后处理 ===================== */
