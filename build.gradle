@@ -171,7 +171,8 @@ tasks.register('publishCurseForge', net.darkhax.curseforgegradle.TaskPublishCurs
 
     // 签名是 upload(projectId, artifact) —— 项目 ID 在前
     upload('1205072', tasks.named('jar').flatMap { it.archiveFile }) {
-        displayName = project.findProperty('cfDisplayName') ?: mod_version
+        // CF 上的显示名统一成 kubeloader-<mod_version>.jar，与文件列表里的既有命名保持一致
+        displayName = project.findProperty('cfDisplayName') ?: "${mod_id}-${mod_version}.jar"
         releaseType = project.findProperty('cfReleaseType') ?: 'alpha'
         changelogType = 'markdown'
         changelog = project.findProperty('cfChangelog') ?: "Release ${mod_version}"
