@@ -3,6 +3,8 @@ plugins {
     id 'idea'
     id 'java'
     id 'net.neoforged.moddev' version '2.0.137'
+    // 注意版本：1.2.30 起要求 Gradle 运行在 JVM 25+，本工程用 JDK 21，故停在 1.1.28
+    id 'net.darkhax.curseforgegradle' version '1.1.28'
 }
 
 group = mod_group_id
@@ -136,4 +138,31 @@ tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
     options.release.set(21)
     options.compilerArgs << '-parameters'
+}
+
+// ── CurseForge 发布 ──────────────────────────────────────────────────
+// 用法： CURSEFORGE_TOKEN=xxx ./gradlew publishCurseForge
+// 可选： -PcfReleaseType=alpha|beta|release   -PcfDisplayName="..."   -PcfChangelog="..."
+// 凭证只从环境变量读取，不写入任何版本库文件。
+tasks.register('publishCurseForge', net.darkhax.curseforgegradle.TaskPublishCurseForge) {
+    group = 'publishing'
+    description = '构建并把产物上传到 CurseForge（需要环境变量 CURSEFORGE_TOKEN）'
+
+    dependsOn tasks.named('build')
+    apiToken = System.getenv('CURSEFORGE_TOKEN') ?: ''
+    // 1.1.28 的默认端点是旧域名 minecraft.curseforge.com，显式改用 legacy
+    apiEndpoint = project.findProperty('cfApiEndpoint') ?: 'https://legacy.curseforge.com'
+
+    // 签名是 upload(projectId, artifact) —— 项目 ID 在前
+    upload('1205072', tasks.named('jar').flatMap { it.archiveFile }) {
+        displayName = project.findProperty('cfDisplayName') ?: mod_version
+        releaseType = project.findProperty('cfReleaseType') ?: 'alpha'
+        changelogType = 'markdown'
+        changelog = project.findProperty('cfChangelog') ?: "Release ${mod_version}"
+        addGameVersion minecraft_version
+        addModLoader 'NeoForge'
+    }
+
+    // 版本条目一律显式声明，关掉自动探测，避免从版本区间推出意外的 MC 版本
+    disableVersionDetection()
 }
