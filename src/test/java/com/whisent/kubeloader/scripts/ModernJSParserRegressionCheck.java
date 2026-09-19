@@ -54,6 +54,12 @@ public final class ModernJSParserRegressionCheck {
         // 止血-2：转换后行号能映射回原始脚本
         runCase("行号映射能指回原始源码", ModernJSParserRegressionCheck::lineMapPointsBackToSource);
 
+        // 止血-4：缺失内建提示 + 解析不了的语法提示
+        runCase("GraalJS 目标下不该拦 ??", ModernJSParserRegressionCheck::nullishAllowedForGraalJsTarget);
+        runCase("缺失的内建会被提示（带原始行号）", ModernJSParserRegressionCheck::missingBuiltinsAreReported);
+        runCase("字符串/注释/正则里的名字不算使用", ModernJSParserRegressionCheck::missingBuiltinsInTextAreIgnored);
+        runCase("解析不了的语法会给出改写建议", ModernJSParserRegressionCheck::unsupportedSyntaxGetsAdvice);
+
         System.out.println();
         if (!FAILURES.isEmpty()) {
             System.out.println("结果：失败 " + FAILURES.size() + " 个，通过 " + passed + " 个");
@@ -266,6 +272,49 @@ public final class ModernJSParserRegressionCheck {
             if (lines[i].trim().equals(text)) return i + 1;
         }
         throw new AssertionError("转换后代码里找不到这一行：" + text);
+    }
+
+    // ── 止血-4：缺失内建提示 + 解析不了的语法提示 ───────────────────────
+
+    private static void nullishAllowedForGraalJsTarget() {
+        // GraalJS 原生支持 ??，对它做「静默算错」的拦截属于误伤
+        ModernJSParser.parse(lines("let a = null;", "let b = a ?? 1;"), false);
+    }
+
+    private static void missingBuiltinsAreReported() {
+        String source = lines(
+                "let p = new Promise(function (r) { r(1) });", // 1
+                "let g = globalThis;",                          // 2
+                "let v = [1, 2].at(-1);",                       // 3
+                "let h = Object.hasOwn({}, \"a\");");           // 4
+
+        String joined = String.join(" | ", ModernJSSyntaxGuard.collectWarnings(source));
+        checkTrue(joined.contains("Promise"), "应提示 Promise：" + joined);
+        checkTrue(joined.contains("globalThis"), "应提示 globalThis：" + joined);
+        checkTrue(joined.contains("Array/String.prototype.at"), "应提示 .at()：" + joined);
+        checkTrue(joined.contains("Object.hasOwn"), "应提示 Object.hasOwn：" + joined);
+        checkTrue(joined.contains("第 3 行"), "提示里应带上原始行号：" + joined);
+    }
+
+    private static void missingBuiltinsInTextAreIgnored() {
+        String source = lines(
+                "// Promise 只是注释",
+                "let s = \"Promise and Proxy\";",
+                "let r = /Promise/;");
+
+        int count = ModernJSSyntaxGuard.collectWarnings(source).size();
+        checkEquals("0", String.valueOf(count), "字符串/注释/正则里的名字不该被当成使用");
+    }
+
+    private static void unsupportedSyntaxGetsAdvice() {
+        String async = ModernJSSyntaxGuard.explainUnsupported("async function f() { return 1; }");
+        checkTrue(async != null && async.contains("async"), "应识别 async/await：" + async);
+
+        String spread = ModernJSSyntaxGuard.explainUnsupported("let a = [1]; let b = [...a];");
+        checkTrue(spread != null && spread.contains("..."), "应识别展开运算符：" + spread);
+
+        checkTrue(ModernJSSyntaxGuard.explainUnsupported("let a = 1;") == null,
+                "普通代码不该给出建议");
     }
 
     // ── 工具 ─────────────────────────────────────────────────────────

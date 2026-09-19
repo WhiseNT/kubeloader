@@ -27,7 +27,8 @@ public class KLScriptLoader {
 
     public static void load(ScriptPack pack, ScriptFileInfo info, String[] lines,
                             Map<String, List<MixinDSL>> mixinMap, KubeJSContext cx, CallbackInfo ci)  {
-        String sourceCode = String.join("\n", lines);
+        String originalSource = String.join("\n", lines);
+        String sourceCode = originalSource;
 
         //根据文件后缀进行处理
         if (isTsFile(info.file)) {
@@ -39,7 +40,7 @@ public class KLScriptLoader {
             //根据配置决定是否转换ES6语法
             if (ConfigManager.shouldUseModernJS()) {
                 try {
-                    sourceCode = ModernJSParser.parse(sourceCode);
+                    sourceCode = ModernJSParser.parse(sourceCode, isRhinoTarget(info));
                 } catch (ModernJSParseException e) {
                     skipScript(pack, info, e);
                     ci.cancel();
@@ -51,7 +52,7 @@ public class KLScriptLoader {
             //根据配置决定是否进行现代JS转换
             if (ConfigManager.shouldUseModernJS()) {
                 try {
-                    sourceCode = ModernJSParser.parse(sourceCode);
+                    sourceCode = ModernJSParser.parse(sourceCode, isRhinoTarget(info));
                 } catch (ModernJSParseException e) {
                     skipScript(pack, info, e);
                     ci.cancel();
@@ -70,17 +71,31 @@ public class KLScriptLoader {
             new Parser(cx).parse(sourceCode, info.file, 0);
         } catch (dev.latvian.mods.rhino.RhinoException e) {
             int generatedLine = e.lineNumber() > 0 ? e.lineNumber() : 1;
-            String originalSource = String.join("\n", lines);
             int originalLine = OriginalLineMapper.toOriginalLine(sourceCode, originalSource, generatedLine);
+            // 原始代码里若是已知的「Rhino 解析不了」的语法，那才是真正的原因，
+            // 比"转换器出问题"更可能，所以先把改写建议摆出来
+            String unsupported = ModernJSSyntaxGuard.explainUnsupported(originalSource);
+            String hint = unsupported != null
+                    ? unsupported + "。若这一行并没有用到它，那多半是 ModernJS 转换器的问题，"
+                    + "请把这一行连同原始写法反馈给作者"
+                    : "多半是 ModernJS 转换器在这个写法上出了问题，请把这一行连同原始写法反馈给作者；临时可先改写绕过";
             skipScript(pack, info, new ModernJSParseException(
                     "转换/校验后代码不合法：" + e.getMessage() + "（转换后第 " + generatedLine + " 行）",
                     originalLine,
                     OriginalLineMapper.lineText(originalSource, originalLine),
-                    "多半是 ModernJS 转换器在这个写法上出了问题，请把这一行连同原始写法反馈给作者；临时可先改写绕过"));
+                    hint));
             ci.cancel();
             return;
         }
-        evalString(cx, pack, info, sourceCode, String.join("\n", lines));
+
+        // 缺失内建（Promise/Proxy/.at/...）：Rhino 里没有，跑到那一行才抛 TypeError，
+        // 而报错本身看不出该怎么改。这里提前把改写建议写进日志，但不拦脚本——
+        // 这类代码可能写在不执行的分支里，硬失败反而会误伤。
+        if (isRhinoTarget(info)) {
+            logCompatWarnings(pack, info, originalSource);
+        }
+
+        evalString(cx, pack, info, sourceCode, originalSource);
         ci.cancel();
     }
 
@@ -91,6 +106,34 @@ public class KLScriptLoader {
     private static void skipScript(ScriptPack pack, ScriptFileInfo info, ModernJSParseException e) {
         String message = "[KubeLoader] 已跳过脚本（不支持的语法）" + info.location + "：" + e.describe();
         pack.manager.scriptType.console.error(message);
+        Debugger.out(message);
+    }
+
+    /**
+     * 目标引擎里是否包含 Rhino。
+     *
+     * <p>{@code both} 会在两个引擎里都跑，而 {@code graaljs}/{@code default_engine}
+     * 在拿不到 GraalJS 时会回退到 Rhino —— 取值与 {@link #evalString} 的分支保持一致，
+     * 否则会出现「以为走 GraalJS 而放过，实际用 Rhino 跑出错误结果」。</p>
+     */
+    private static boolean isRhinoTarget(ScriptFileInfo info) {
+        Engine engine = getScriptEngine(info);
+        if (engine == Engine.both || engine == Engine.rhino) return true;
+        return !GraalJSCompat.canUseGraalJS();
+    }
+
+    /**
+     * 提示脚本里用到的「Rhino 没有的内建」。
+     *
+     * <p>只告警不拦截：同一段代码可能写在不会执行到的分支里，硬失败会误伤。
+     * 扫描用的是<b>原始</b>源码，这样行号直接就是用户写的那一行。</p>
+     */
+    private static void logCompatWarnings(ScriptPack pack, ScriptFileInfo info, String originalSource) {
+        List<String> warnings = ModernJSSyntaxGuard.collectWarnings(originalSource);
+        if (warnings.isEmpty()) return;
+        String message = "[KubeLoader] " + info.location + " 可能无法在 Rhino 下正常工作：\n  "
+                + String.join("\n  ", warnings);
+        pack.manager.scriptType.console.warn(message);
         Debugger.out(message);
     }
 

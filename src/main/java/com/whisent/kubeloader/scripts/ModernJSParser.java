@@ -22,10 +22,22 @@ public class ModernJSParser {
 
     // ===================== 入口 =====================
     public static String parse(String input) {
+        return parse(input, true);
+    }
+
+    /**
+     * 转换入口。
+     *
+     * @param rhinoTarget 目标引擎是否包含 Rhino。Rhino 会「静默算错」{@code ??} 这类语法，
+     *                    所以要对它做硬失败；而 GraalJS 原生支持这些写法，同样拦下来属于误伤。
+     */
+    public static String parse(String input, boolean rhinoTarget) {
         if (input == null || input.isEmpty()) return input;
         // 先过安全网：Rhino 会“静默算错”的语法（如 ??）在这里直接报错，
         // 而不是让它跑出错误结果
-        ModernJSSyntaxGuard.check(input);
+        if (rhinoTarget) {
+            ModernJSSyntaxGuard.check(input);
+        }
         StringBuilder result = new StringBuilder();
         String[] lines = input.split("\\r?\\n");
         int i = 0;
