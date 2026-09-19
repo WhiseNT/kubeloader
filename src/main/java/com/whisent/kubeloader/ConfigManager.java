@@ -38,7 +38,11 @@ public class ConfigManager {
         /** 是否使用现代JS转换 */
         @SerializedName("useModernJS")
         private boolean useModernJS = true;  // 默认为true
-        
+
+        /** 是否给 Rhino 补上它缺少的内建（globalThis / at / hasOwn / fromEntries / replaceAll / flat / flatMap / matchAll） */
+        @SerializedName("polyfillBuiltins")
+        private boolean polyfillBuiltins = true;  // 默认为true
+
         // Getters
         public String getEngine() {
             return engine;
@@ -46,6 +50,10 @@ public class ConfigManager {
         
         public boolean isUseModernJS() {
             return useModernJS;
+        }
+
+        public boolean isPolyfillBuiltins() {
+            return polyfillBuiltins;
         }
         
         // Setters
@@ -55,6 +63,10 @@ public class ConfigManager {
         
         public void setUseModernJS(boolean useModernJS) {
             this.useModernJS = useModernJS;
+        }
+
+        public void setPolyfillBuiltins(boolean polyfillBuiltins) {
+            this.polyfillBuiltins = polyfillBuiltins;
         }
         
         @Override
@@ -134,9 +146,11 @@ public class ConfigManager {
             // 从 TOML 读取配置
             String engine = configData.getOrElse("engine", "Rhino");
             Boolean useModernJS = configData.getOrElse("useModernJS", true);
-            
+            Boolean polyfillBuiltins = configData.getOrElse("polyfillBuiltins", true);
+
             config.setEngine(engine);
             config.setUseModernJS(useModernJS);
+            config.setPolyfillBuiltins(polyfillBuiltins);
             
             configData.close();
             LOGGER.info("[KubeLoader] 读取TOML配置文件: {}", CONFIG_FILE_TOML);
@@ -194,10 +208,13 @@ public class ConfigManager {
         
         configData.set("engine", config.getEngine());
         configData.set("useModernJS", config.isUseModernJS());
+        configData.set("polyfillBuiltins", config.isPolyfillBuiltins());
         
         // 添加注释
         configData.setComment("engine", "JavaScript引擎选择: \"Rhino\" 或 \"GraalJS\"");
         configData.setComment("useModernJS", "是否启用现代JavaScript语法转换");
+        configData.setComment("polyfillBuiltins",
+                "是否给 Rhino 补上它缺少的内建（globalThis / at / hasOwn / fromEntries / replaceAll / flat / flatMap / matchAll）");
         
         configData.save();
         configData.close();
@@ -222,6 +239,13 @@ public class ConfigManager {
      */
     public static boolean shouldUseModernJS() {
         return config.isUseModernJS();
+    }
+
+    /**
+     * 检查是否应该给 Rhino 补上它缺少的内建
+     */
+    public static boolean shouldPolyfillBuiltins() {
+        return config.isPolyfillBuiltins();
     }
     
     /**

@@ -114,8 +114,18 @@ tasks.register('parserRegressionCheck', JavaExec) {
     // 用例失败会抛 AssertionError → 任务失败，可用于 CI（见下方 check 依赖）
 }
 
+// 回归检查：Rhino 内建补丁（globalThis / at / hasOwn / fromEntries / replaceAll /
+// flat / flatMap / matchAll）。同样只依赖项目自带的 Rhino，不启动游戏。
+tasks.register('polyfillRegressionCheck', JavaExec) {
+    group = 'verification'
+    description = '运行 Rhino 内建补丁的回归检查（用例在 src/test/java 下）'
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.whisent.kubeloader.compat.RhinoPolyfillRegressionCheck'
+}
+
 tasks.named('check') {
     dependsOn tasks.named('parserRegressionCheck')
+    dependsOn tasks.named('polyfillRegressionCheck')
 }
 
 tasks.named('processResources', ProcessResources).configure {

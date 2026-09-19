@@ -18,6 +18,7 @@
     "ItemEntityMixin",
     "ItemMixin",
     "ItemStackMixin",
+    "KubeJSContextMixin",
     "LevelChunkMixin",
     "ScriptFileInfoMixin",
     "ScriptFileMixin",
