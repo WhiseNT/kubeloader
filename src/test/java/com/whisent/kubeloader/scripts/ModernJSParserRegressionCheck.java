@@ -60,6 +60,9 @@ public final class ModernJSParserRegressionCheck {
         runCase("字符串/注释/正则里的名字不算使用", ModernJSParserRegressionCheck::missingBuiltinsInTextAreIgnored);
         runCase("解析不了的语法会给出改写建议", ModernJSParserRegressionCheck::unsupportedSyntaxGetsAdvice);
 
+        // 止血-8：`...` 展开 / 剩余参数
+        runCase("`...` 各种写法都能转换", ModernJSParserRegressionCheck::spreadFormsAreConverted);
+
         // 止血-5：类体花括号按词法数 + 转换失败也要变成可读错误
         runCase("类体字符串里的 } 不算类结束", ModernJSParserRegressionCheck::bracesInsideStringDoNotEndClass);
         runCase("类体注释里的 } 不算类结束", ModernJSParserRegressionCheck::bracesInsideCommentDoNotEndClass);
@@ -318,11 +321,56 @@ public final class ModernJSParserRegressionCheck {
         String async = ModernJSSyntaxGuard.explainUnsupported("async function f() { return 1; }");
         checkTrue(async != null && async.contains("async"), "应识别 async/await：" + async);
 
-        String spread = ModernJSSyntaxGuard.explainUnsupported("let a = [1]; let b = [...a];");
-        checkTrue(spread != null && spread.contains("..."), "应识别展开运算符：" + spread);
+        String logicalAssign = ModernJSSyntaxGuard.explainUnsupported("var a = 1; a ||= 2;");
+        checkTrue(logicalAssign != null && logicalAssign.contains("逻辑赋值"),
+                "应识别逻辑赋值：" + logicalAssign);
+
+        checkTrue(ModernJSSyntaxGuard.explainUnsupported("let a = [1]; let b = [...a];") == null,
+                "`...` 已经能转换，不该再提示「不支持」");
 
         checkTrue(ModernJSSyntaxGuard.explainUnsupported("let a = 1;") == null,
                 "普通代码不该给出建议");
+    }
+
+    // ── 止血-8：`...`（展开 / 剩余参数）─────────────────────────────────
+
+    private static void spreadFormsAreConverted() {
+        checkEquals("1,2,3", evalTransformed(lines(
+                "var b = [2, 3];",
+                "var a = [1, ...b];",
+                "a.join(',');")), "数组字面量展开");
+
+        checkEquals("6", evalTransformed(lines(
+                "function sum(x, y, z) { return x + y + z; }",
+                "var a = [1, 2, 3];",
+                "sum(...a);")), "函数调用展开");
+
+        checkEquals("3", evalTransformed(lines(
+                "var o = { v: 0, add: function (a, b) { return this.v + a + b; } };",
+                "o.add(...[1, 2]);")), "成员调用展开要保留 this");
+
+        checkEquals("1|2,3", evalTransformed(lines(
+                "function f(a, ...rest) { return a + '|' + rest.join(','); }",
+                "f(1, 2, 3);")), "剩余参数");
+
+        checkEquals("3", evalTransformed(lines(
+                "function P(x, y) { this.s = x + y; }",
+                "new P(...[1, 2]).s;")), "构造调用展开");
+
+        checkEquals("0,a,b", evalTransformed(lines(
+                "var a = [0, ...'ab'];",
+                "a.join(',');")), "字符串展开按字符拆开");
+
+        checkEquals("3", evalTransformed(lines(
+                "var a = { x: 1 };",
+                "var b = {...a, y: 2};",
+                "b.x + b.y;")), "对象字面量展开");
+
+        // 展开的东西出现在字符串/注释里时不该被当成代码
+        checkEquals("true", evalTransformed(lines(
+                "var s = \"...a\";",
+                "var t = `...b`;",
+                "s === '...a' && t === '...b';")), "字符串/模板串里的 ... 不该被改写");
     }
 
     // ── 止血-5：类体花括号必须按词法数；转换失败的异常也必须被接住 ────────

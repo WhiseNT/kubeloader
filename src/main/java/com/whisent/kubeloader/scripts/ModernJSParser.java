@@ -1045,7 +1045,9 @@ public class ModernJSParser {
                     Matcher.quoteReplacement(cleanSig + brace + "\n" + dftStmts.toString()));
         }
         m2.appendTail(sb2);
-        return sb2.toString();
+        // 最后处理 `...`（展开/剩余参数）：它必须在类转换与默认参数之后——
+        // 那时类方法已经变成 function(...)，剩余参数才认得出来
+        return ModernJSSpreadConverter.convert(sb2.toString());
     }
 
     private static String expandShorthandReturnObjects(String result) {

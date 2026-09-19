@@ -238,9 +238,6 @@ public final class ModernJSSyntaxGuard {
                 addUnsupported("async/await",
                         "Rhino 不支持；改用回调/事件，或给这个脚本单独加 `//engine: graaljs`");
             }
-            if (s.startsWith("...", i)) {
-                addUnsupported("`...`（展开/剩余参数）", "Rhino 不支持；用 apply/concat/arguments 改写");
-            }
             if (s.startsWith("||=", i) || s.startsWith("&&=", i) || s.startsWith("??=", i)) {
                 addUnsupported("逻辑赋值（||= / &&= / ??=）", "改写为 a = a || b 这种完整赋值");
             }
