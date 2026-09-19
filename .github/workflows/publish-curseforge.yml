@@ -21,11 +21,6 @@ on:
         required: false
         default: ''
         type: string
-      game_version_ids:
-        description: 'CurseForge game version IDs（逗号分隔；默认 11779=1.21.1, 10150=NeoForge 仅适用于 1211-Dev；master/1.20.1 请改成对应的 1.20.1 + Forge ID）'
-        required: false
-        default: '11779,10150'
-        type: string
       java_version:
         description: 'JDK 版本（1211-Dev / 1.21.1 用 21；master / 1.20.1 用 17）'
         required: false
@@ -48,7 +43,6 @@ permissions:
 env:
   CF_PROJECT_ID: '1205072'
   CF_MOD_URL: 'https://www.curseforge.com/minecraft/mc-mods/kubeloader'
-  CF_UPLOAD_URL: 'https://www.curseforge.com/api/projects/1205072/upload-file'
 
 jobs:
   build-and-publish:
@@ -98,38 +92,6 @@ jobs:
           path: ${{ steps.meta.outputs.jar }}
           if-no-files-found: error
 
-      - name: Build upload metadata
-        env:
-          DISPLAY_NAME_INPUT: ${{ inputs.display_name }}
-          GAME_VERSION_IDS: ${{ inputs.game_version_ids }}
-          RELEASE_TYPE_INPUT: ${{ inputs.release_type }}
-          CHANGELOG_INPUT: ${{ inputs.changelog }}
-          VERSION: ${{ steps.meta.outputs.version }}
-        run: |
-          set -euo pipefail
-          DISPLAY_NAME="${DISPLAY_NAME_INPUT:-$VERSION}"
-          CHANGELOG="${CHANGELOG_INPUT:-Release $DISPLAY_NAME}"
-
-          if [ -z "$(printf '%s' "$GAME_VERSION_IDS" | tr -d '[:space:]')" ]; then
-            echo "::error::game_version_ids 不能为空"
-            exit 1
-          fi
-
-          GAME_VERSIONS="$(printf '%s' "$GAME_VERSION_IDS" | tr ',' '\n' | tr -d '[:space:]' | grep -v '^$' | jq -s 'map(tonumber)')"
-
-          jq -n \
-            --arg ch "$CHANGELOG" \
-            --arg ct 'markdown' \
-            --arg dn "$DISPLAY_NAME" \
-            --arg rt "$RELEASE_TYPE_INPUT" \
-            --argjson gv "$GAME_VERSIONS" \
-            '{changelog:$ch, changelogType:$ct, displayName:$dn, gameVersions:$gv, releaseType:$rt}' \
-            > metadata.json
-
-          echo "=== upload metadata ==="
-          cat metadata.json
-          echo ""
-
       - name: Check CURSEFORGE_TOKEN
         env:
           DRY_RUN: ${{ inputs.dry_run }}
@@ -143,43 +105,38 @@ jobs:
             exit 1
           fi
 
-      - name: Publish to CurseForge
+      - name: Publish via CurseForgeGradle
         env:
           DRY_RUN: ${{ inputs.dry_run }}
+          CF_RELEASE_TYPE: ${{ inputs.release_type }}
+          CF_DISPLAY_NAME: ${{ inputs.display_name }}
+          CF_CHANGELOG: ${{ inputs.changelog }}
         run: |
           set -euo pipefail
-          if [ "${DRY_RUN}" = "true" ]; then
-            echo "dry_run=true → 不上传，仅完成构建与元数据检查"
-            exit 0
-          fi
-          RESPONSE_FILE="$(mktemp)"
-          HTTP_CODE="$(curl -sS -o "$RESPONSE_FILE" -w '%{http_code}' \
-            --max-time 300 \
-            -X POST "${CF_UPLOAD_URL}" \
-            -H "X-Api-Token: ${CURSEFORGE_TOKEN}" \
-            -F "metadata=@metadata.json;type=application/json" \
-            -F "file=@${{ steps.meta.outputs.jar }}" || true)"
 
-          RESPONSE="$(cat "$RESPONSE_FILE")"
-          rm -f "$RESPONSE_FILE"
-
-          echo "HTTP ${HTTP_CODE}"
-          echo "--- 响应 ---"
-          echo "${RESPONSE:0:800}"
-          echo ""
-
-          if [ "$HTTP_CODE" != "200" ]; then
-            echo "::error::CurseForge 上传失败（HTTP ${HTTP_CODE}）"
-            echo "提示：若响应是 Cloudflare 的 'Just a moment...' 页面，说明该出口 IP 被挑战，需要走别的发布方式。"
+          if ! ./gradlew -q help --task publishCurseForge >/dev/null 2>&1; then
+            echo "::error::当前分支的 build.gradle 未注册 publishCurseForge（该分支还没接入 CurseForgeGradle）"
             exit 1
           fi
 
-          FILE_ID="$(printf '%s' "$RESPONSE" | jq -r '.id // empty')"
+          ARGS=(-PcfReleaseType="${CF_RELEASE_TYPE}")
+          if [ -n "${CF_DISPLAY_NAME}" ]; then ARGS+=(-PcfDisplayName="${CF_DISPLAY_NAME}"); fi
+          if [ -n "${CF_CHANGELOG}" ]; then ARGS+=(-PcfChangelog="${CF_CHANGELOG}"); fi
+
+          if [ "${DRY_RUN}" = "true" ]; then
+            echo "dry_run=true → 只校验发布任务图，不上传"
+            ./gradlew publishCurseForge --dry-run --no-daemon "${ARGS[@]}"
+            exit 0
+          fi
+
+          ./gradlew publishCurseForge --no-daemon "${ARGS[@]}"
+
           {
-            echo "## ✅ 已发布到 CurseForge"
+            echo "## ✅ 已提交发布到 CurseForge"
             echo ""
             echo "- 版本: \`${{ steps.meta.outputs.version }}\`"
-            echo "- 文件 ID: \`${FILE_ID}\`"
-            echo "- 链接: ${CF_MOD_URL}/files/${FILE_ID}"
+            echo "- releaseType: \`${CF_RELEASE_TYPE}\`"
+            echo "- 文件列表: ${CF_MOD_URL}/files"
+            echo ""
+            echo "CF 页面显示可能有延迟。"
           } >> "$GITHUB_STEP_SUMMARY"
-          echo "发布成功，File ID: ${FILE_ID}"
