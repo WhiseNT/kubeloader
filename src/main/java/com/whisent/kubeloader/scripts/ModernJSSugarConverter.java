@@ -182,7 +182,7 @@ final class ModernJSSugarConverter {
         }
         // 模式里一个默认值都没有的话，Rhino 原生就支持这种解构（{a} / [x, y] / {a: b}），
         // 不用动它：无谓改写只会平白引入行为差异。
-        if (topLevelAssign(masked, open + 1, close) < 0) {
+        if (ModernJSMask.topLevelAssign(masked, open + 1, close) < 0) {
             return null;
         }
         int eq = close + 1;
@@ -280,7 +280,7 @@ final class ModernJSSugarConverter {
             }
             // 关键：要看模式「内部」有没有默认值。把模式的 {} / [] 一起算进跨度的话，
             // 里面的 '=' 会落在深度 1 上，被当成「没有默认值」直接跳过。
-            if (topLevelAssign(masked, patOpen + 1, patClose) < 0) {
+            if (ModernJSMask.topLevelAssign(masked, patOpen + 1, patClose) < 0) {
                 params.add(param); // 没有默认值的模式：Rhino 自己能处理，不动
                 continue;
             }
@@ -321,7 +321,7 @@ final class ModernJSSugarConverter {
                 return null; // 数组 rest：不在这次范围内
             }
 
-            int assign = topLevelAssign(masked, p[0], p[1]);
+            int assign = ModernJSMask.topLevelAssign(masked, p[0], p[1]);
             String accessExpr;
             int targetFrom;
 
@@ -375,42 +375,14 @@ final class ModernJSSugarConverter {
         return bindings.isEmpty() ? null : String.join(", ", bindings);
     }
 
-    /** 位置 {@code i} 上的 {@code =} 是不是「真正的赋值等号」（不是 == / === / => / 复合赋值的一部分）。 */
-    private static boolean isAssignEquals(String masked, int i) {
-        char prev = charAt(masked, i - 1);
-        char next = charAt(masked, i + 1);
-        if (next == '=' || next == '>') {
-            return false;
-        }
-        return prev != '=' && prev != '!' && prev != '<' && prev != '>' && prev != '+'
-                && prev != '-' && prev != '*' && prev != '/' && prev != '%' && prev != '&'
-                && prev != '|' && prev != '^';
-    }
-
     /** [from, to) 里有没有真正的赋值等号（忽略括号深度）；用于「模式里到底有没有默认值」。 */
     private static boolean hasAssignAnywhere(String masked, int from, int to) {
         for (int i = from; i < to; i++) {
-            if (masked.charAt(i) == '=' && isAssignEquals(masked, i)) {
+            if (masked.charAt(i) == '=' && ModernJSMask.isAssignEquals(masked, i)) {
                 return true;
             }
         }
         return false;
-    }
-
-    /** 找到 [from, to) 里第一个「真正的赋值等号」（排除 == / === / => / <= / >= / != 等运算符的一部分）；没有返回 -1。 */
-    private static int topLevelAssign(String masked, int from, int to) {
-        int depth = 0;
-        for (int i = from; i < to; i++) {
-            char c = masked.charAt(i);
-            if (c == '(' || c == '[' || c == '{') {
-                depth++;
-            } else if (c == ')' || c == ']' || c == '}') {
-                depth--;
-            } else if (c == '=' && depth == 0 && isAssignEquals(masked, i)) {
-                return i;
-            }
-        }
-        return -1;
     }
 
     /* ===================== 计算属性名 ===================== */

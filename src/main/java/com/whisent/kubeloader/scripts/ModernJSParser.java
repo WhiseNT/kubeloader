@@ -297,6 +297,12 @@ public class ModernJSParser {
                         .append(");\n");
                 userCtorBody = (userCtorBody.substring(0, superCall.start)
                         + userCtorBody.substring(superCall.end)).trim();
+            } else {
+                // 派生类没写构造器（或没写 super）时，JS 的默认构造器会把实参转发给父类。
+                // 原来这里什么都不生成，父类构造器从不执行，this.xxx 全是 undefined
+                // ——静默算错（实测 super.m() 直接算出 NaN）。
+                // 合法 JS 里派生类构造器必须调 super，所以这样补不会影响任何合法代码。
+                output.append("  ").append(parentClass).append(".apply(this, arguments);\n");
             }
         }
 
@@ -330,7 +336,7 @@ public class ModernJSParser {
         String staticPrefix = parentPrefix(parentClass, true);
         for (String stat : staticMembers) {
             stat = rewriteSuperMemberAccess(stat.trim(), staticPrefix);
-            if (stat.startsWith("get ") || stat.startsWith("set ")) {
+            if (startsWithKeyword(stat, "get") || startsWithKeyword(stat, "set")) {
                 continue;
             } else if (isStaticMethodDecl(stat)) {
                 // 方法要先判：参数默认值/方法体里都可能出现 '='，不能当作静态字段
@@ -434,9 +440,9 @@ public class ModernJSParser {
             stmt = stmt.trim();
             if (stmt.isEmpty()) continue;
 
-            if (stmt.startsWith("static ")) {
+            if (startsWithKeyword(stmt, "static")) {
                 staticMembers.add(stmt.substring(7).trim());
-            } else if (stmt.startsWith("get ") || stmt.startsWith("set ")) {
+            } else if (startsWithKeyword(stmt, "get") || startsWithKeyword(stmt, "set")) {
                 methods.add(convertGetterSetter(className, parentClass, stmt));
             } else if (isValidMethodDecl(stmt)) {
                 methods.add(convertMethod(className, parentClass, stmt));
@@ -520,7 +526,63 @@ public class ModernJSParser {
             if (!stmt.isEmpty()) result.addAll(splitTopLevelSemicolons(stmt));
         }
 
-        return result;
+        // 把「方法头 + 它的 {…}」拼回去。{ 单独占一行（Allman 风格）时，
+        // 「get x()」那一行结束时花括号深度也是 0，会被当成一条完整成员收掉 ——
+        // 结果方法体变成游离块被丢弃，转换出来是空方法（静默返回 undefined）。
+        // 这里把「明显还没写完」的成员与下一条合并。
+        List<String> merged = new ArrayList<>();
+        StringBuilder pending = new StringBuilder();
+        for (String stmt : result) {
+            if (pending.length() > 0) {
+                pending.append("\n").append(stmt);
+                if (looksUnfinished(pending.toString())) {
+                    continue;
+                }
+                merged.add(pending.toString());
+                pending.setLength(0);
+                continue;
+            }
+            if (looksUnfinished(stmt)) {
+                pending.append(stmt);
+                continue;
+            }
+            merged.add(stmt);
+        }
+        if (pending.length() > 0) {
+            merged.add(pending.toString());
+        }
+        return merged;
+    }
+
+    /**
+     * 这条成员是不是「明显还没写完」。
+     *
+     * <p>认两种情况：括号还没配对（签名跨行）；以 {@code )} 收尾且没有顶层 {@code =}
+     * ——那是方法 / 访问器头部，还在等它的 {@code {}。字段赋值（如
+     * {@code BASE = Math.max(1, 2)}）以 {@code )} 收尾但**有**顶层 {@code =}，不算。
+     * 方法默认参数的 {@code =} 在括号里，同样不算顶层。</p>
+     */
+    private static boolean looksUnfinished(String text) {
+        String masked = ModernJSMask.mask(text).trim();
+        if (masked.isEmpty()) {
+            return false;
+        }
+        int depth = 0;
+        for (int i = 0; i < masked.length(); i++) {
+            char c = masked.charAt(i);
+            if (c == '(') {
+                depth++;
+            } else if (c == ')') {
+                depth--;
+            }
+        }
+        if (depth != 0) {
+            return true;
+        }
+        if (!masked.endsWith(")")) {
+            return false;
+        }
+        return ModernJSMask.topLevelAssign(masked, 0, masked.length()) < 0;
     }
 
     /**
@@ -620,7 +682,7 @@ public class ModernJSParser {
     }
 
     private static String convertGetterSetter(String className, String parentClass, String decl) {
-        boolean isGet = decl.startsWith("get ");
+        boolean isGet = startsWithKeyword(decl, "get");
         String prefix = isGet ? "get" : "set";
         String propName = decl.substring(prefix.length()).trim();
         int paren = propName.indexOf('(');
@@ -659,6 +721,18 @@ public class ModernJSParser {
     private static String extractMethodName(String stat) {
         int paren = stat.indexOf('(');
         return paren == -1 ? stat : stat.substring(0, paren).trim();
+    }
+
+    /**
+     * 以关键字开头、且后面跟的是空白（空格 / Tab / 换行都算）。
+     *
+     * <p>成员分类必须容忍 Tab：{@code static\ts()} 用 {@code startsWith("static ")}
+     * 判断会不匹配，一路落到「未匹配，忽略」，成员就被静默丢掉了。</p>
+     */
+    private static boolean startsWithKeyword(String text, String keyword) {
+        return text.startsWith(keyword)
+                && text.length() > keyword.length()
+                && Character.isWhitespace(text.charAt(keyword.length()));
     }
 
     private static String indentLines(String code, String indent) {
@@ -802,7 +876,14 @@ public class ModernJSParser {
                 }
                 continue;
             }
-            if (c == '/' && next == '/') return -1; // 单行情况，后面没代码了
+            if (c == '/' && next == '/') {
+                // 行注释：跳到行尾继续找配对。原来是直接 return -1（当成「后面没代码了」），
+                // 于是类体里只要出现一处行注释，整个 class 就报「找不到配对的 '}'」。
+                while (i + 1 < s.length() && s.charAt(i + 1) != '\n') {
+                    i++;
+                }
+                continue;
+            }
             if (c == '/' && next == '*') {
                 st.inBlockComment = true;
                 i++;

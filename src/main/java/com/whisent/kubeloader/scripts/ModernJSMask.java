@@ -187,4 +187,41 @@ final class ModernJSMask {
         parts.add(new int[]{start, to});
         return parts;
     }
+
+    /**
+     * 位置 {@code i} 上的 {@code =} 是不是「真正的赋值等号」
+     * （不是 {@code ==} / {@code ===} / {@code =>} / 复合赋值运算符的一部分）。
+     */
+    static boolean isAssignEquals(String masked, int i) {
+        char prev = i > 0 ? masked.charAt(i - 1) : '\0';
+        char next = i + 1 < masked.length() ? masked.charAt(i + 1) : '\0';
+        if (next == '=' || next == '>') {
+            return false;
+        }
+        return prev != '=' && prev != '!' && prev != '<' && prev != '>' && prev != '+'
+                && prev != '-' && prev != '*' && prev != '/' && prev != '%' && prev != '&'
+                && prev != '|' && prev != '^';
+    }
+
+    /**
+     * [from, to) 里第一个「顶层的真正赋值等号」的下标（括号 / 方括号 / 花括号深度为 0）；
+     * 没有返回 -1。
+     *
+     * <p>用来区分「字段赋值」和「方法头」：{@code BASE = Math.max(1, 2)} 有顶层 {@code =}，
+     * 而 {@code get x()} / {@code m(a = 1)} 没有（默认参数的 {@code =} 在括号里）。</p>
+     */
+    static int topLevelAssign(String masked, int from, int to) {
+        int depth = 0;
+        for (int i = from; i < to; i++) {
+            char c = masked.charAt(i);
+            if (c == '(' || c == '[' || c == '{') {
+                depth++;
+            } else if (c == ')' || c == ']' || c == '}') {
+                depth--;
+            } else if (c == '=' && depth == 0 && isAssignEquals(masked, i)) {
+                return i;
+            }
+        }
+        return -1;
+    }
 }

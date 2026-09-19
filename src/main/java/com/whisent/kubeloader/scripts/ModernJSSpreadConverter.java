@@ -163,11 +163,27 @@ final class ModernJSSpreadConverter {
         }
 
         int calleeStart = open;
+        // 调用括号前可能有空格（`f (...args)` / `o.m (...args)`），先跳过再取被调用者
+        while (calleeStart > 0 && Character.isWhitespace(masked.charAt(calleeStart - 1))) {
+            calleeStart--;
+        }
+        int afterWhitespace = calleeStart;
         while (calleeStart > 0 && isCalleeChar(masked.charAt(calleeStart - 1))) {
             calleeStart--;
         }
-        if (calleeStart == open) {
+        if (calleeStart == afterWhitespace) {
             return null; // 形如 (...) 的分组括号，没有被调用的东西
+        }
+        // 成员链被空白断开（`o . m(...)` / `o . m (...)`）时，回扫只拿到方法名，
+        // 前面还有个 '.' —— 这时 callee 是残缺的。与其退化成 apply(null, ...) 把 this
+        // 弄丢（非严格模式下 this 是全局对象，方法里读 this.x 静默得到 undefined），
+        // 不如不改写，留着 `...` 让 Rhino 报语法错误（响亮失败）。
+        int probe = calleeStart;
+        while (probe > 0 && Character.isWhitespace(masked.charAt(probe - 1))) {
+            probe--;
+        }
+        if (probe > 0 && masked.charAt(probe - 1) == '.') {
+            return null;
         }
         String callee = original.substring(calleeStart, open).trim();
         if (callee.isEmpty()) {
