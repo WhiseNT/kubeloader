@@ -1,0 +1,173 @@
+name: Publish to CurseForge
+
+# 手动触发：Actions → Publish to CurseForge → Run workflow
+# 需要仓库 Secret: CURSEFORGE_TOKEN（CurseForge Author/Upload API token）
+# 上传由 GitHub 的 IP 发起，不受本机网络/Cloudflare 挑战影响
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_type:
+        description: 'Release type'
+        required: true
+        default: alpha
+        type: choice
+        options:
+          - alpha
+          - beta
+          - release
+      display_name:
+        description: 'File display name (留空则用 gradle.properties 的 mod_version)'
+        required: false
+        default: ''
+        type: string
+      game_version_ids:
+        description: 'CurseForge game version IDs（逗号分隔；默认 11779=1.21.1, 10150=NeoForge 仅适用于 1211-Dev；master/1.20.1 请改成对应的 1.20.1 + Forge ID）'
+        required: false
+        default: '11779,10150'
+        type: string
+      java_version:
+        description: 'JDK 版本（1211-Dev / 1.21.1 用 21；master / 1.20.1 用 17）'
+        required: false
+        default: '21'
+        type: string
+      changelog:
+        description: 'Changelog（markdown，可多行；留空则自动生成一行）'
+        required: false
+        default: ''
+        type: string
+      dry_run:
+        description: '只构建并检查元数据，不上传'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+env:
+  CF_PROJECT_ID: '1205072'
+  CF_MOD_URL: 'https://www.curseforge.com/minecraft/mc-mods/kubeloader'
+  CF_UPLOAD_URL: 'https://www.curseforge.com/api/projects/1205072/upload-file'
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    env:
+      CURSEFORGE_TOKEN: ${{ secrets.CURSEFORGE_TOKEN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ inputs.java_version }}
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build jar
+        run: |
+          set -euo pipefail
+          chmod +x ./gradlew
+          ./gradlew build -x test --no-daemon
+
+      - name: Resolve version and jar
+        id: meta
+        run: |
+          set -euo pipefail
+          VERSION="$(grep -E '^mod_version=' gradle.properties | cut -d= -f2- | tr -d '\r')"
+          JAR="$(find build/libs -maxdepth 1 -name '*.jar' ! -name '*sources*' | head -n1)"
+          if [ -z "${JAR}" ]; then
+            echo "::error::构建产物中找不到 jar"
+            exit 1
+          fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "jar=${JAR}" >> "$GITHUB_OUTPUT"
+          echo "版本: ${VERSION}"
+          echo "产物: ${JAR} ($(du -h "${JAR}" | cut -f1))"
+
+      - name: Upload jar as workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: kubeloader-${{ steps.meta.outputs.version }}
+          path: ${{ steps.meta.outputs.jar }}
+          if-no-files-found: error
+
+      - name: Build upload metadata
+        env:
+          DISPLAY_NAME_INPUT: ${{ inputs.display_name }}
+          GAME_VERSION_IDS: ${{ inputs.game_version_ids }}
+          RELEASE_TYPE_INPUT: ${{ inputs.release_type }}
+          CHANGELOG_INPUT: ${{ inputs.changelog }}
+          VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          set -euo pipefail
+          DISPLAY_NAME="${DISPLAY_NAME_INPUT:-$VERSION}"
+          CHANGELOG="${CHANGELOG_INPUT:-Release $DISPLAY_NAME}"
+
+          if [ -z "$(printf '%s' "$GAME_VERSION_IDS" | tr -d '[:space:]')" ]; then
+            echo "::error::game_version_ids 不能为空"
+            exit 1
+          fi
+
+          GAME_VERSIONS="$(printf '%s' "$GAME_VERSION_IDS" | tr ',' '\n' | tr -d '[:space:]' | grep -v '^$' | jq -s 'map(tonumber)')"
+
+          jq -n \
+            --arg ch "$CHANGELOG" \
+            --arg ct 'markdown' \
+            --arg dn "$DISPLAY_NAME" \
+            --arg rt "$RELEASE_TYPE_INPUT" \
+            --argjson gv "$GAME_VERSIONS" \
+            '{changelog:$ch, changelogType:$ct, displayName:$dn, gameVersions:$gv, releaseType:$rt}' \
+            > metadata.json
+
+          echo "=== upload metadata ==="
+          cat metadata.json
+          echo ""
+
+      - name: Check CURSEFORGE_TOKEN
+        if: inputs.dry_run != true
+        run: |
+          if [ -z "${CURSEFORGE_TOKEN}" ]; then
+            echo "::error::未配置 Secret CURSEFORGE_TOKEN（Settings → Secrets and variables → Actions → New repository secret）"
+            exit 1
+          fi
+
+      - name: Publish to CurseForge
+        if: inputs.dry_run != true
+        run: |
+          set -euo pipefail
+          RESPONSE_FILE="$(mktemp)"
+          HTTP_CODE="$(curl -sS -o "$RESPONSE_FILE" -w '%{http_code}' \
+            --max-time 300 \
+            -X POST "${CF_UPLOAD_URL}" \
+            -H "X-Api-Token: ${CURSEFORGE_TOKEN}" \
+            -F "metadata=@metadata.json;type=application/json" \
+            -F "file=@${{ steps.meta.outputs.jar }}" || true)"
+
+          RESPONSE="$(cat "$RESPONSE_FILE")"
+          rm -f "$RESPONSE_FILE"
+
+          echo "HTTP ${HTTP_CODE}"
+          echo "--- 响应 ---"
+          echo "${RESPONSE:0:800}"
+          echo ""
+
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "::error::CurseForge 上传失败（HTTP ${HTTP_CODE}）"
+            echo "提示：若响应是 Cloudflare 的 'Just a moment...' 页面，说明该出口 IP 被挑战，需要走别的发布方式。"
+            exit 1
+          fi
+
+          FILE_ID="$(printf '%s' "$RESPONSE" | jq -r '.id // empty')"
+          {
+            echo "## ✅ 已发布到 CurseForge"
+            echo ""
+            echo "- 版本: \`${{ steps.meta.outputs.version }}\`"
+            echo "- 文件 ID: \`${FILE_ID}\`"
+            echo "- 链接: ${CF_MOD_URL}/files/${FILE_ID}"
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "发布成功，File ID: ${FILE_ID}"
