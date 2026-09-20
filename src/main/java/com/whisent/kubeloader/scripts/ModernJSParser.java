@@ -56,8 +56,9 @@ public class ModernJSParser {
     }
 
     /** class 表头：名字、可选的 extends、以及类体的 '{' */
+    // 类名 / 父类名允许 Unicode 字母（KubeJS 脚本里用中文标识符并不罕见）
     private static final Pattern CLASS_STATEMENT_PATTERN = Pattern.compile(
-            "class\\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\\s*(?:extends\\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\\s*)?\\{");
+            "class\\s+([\\p{L}_$][\\p{L}\\p{N}_$]*)\\s*(?:extends\\s+([\\p{L}_$][\\p{L}\\p{N}_$]*)\\s*)?\\{");
 
     /**
      * 把文本里处于<b>语句位置</b>的 class 声明全部转换掉。
@@ -138,6 +139,13 @@ public class ModernJSParser {
                     i++;
                     continue;
                 }
+                continue;
+            }
+            // 正则字面量必须优先于注释判断：`/[/*]/`、`/https?:\/\//` 里的 /* 与 //
+            // 都不是注释开头。判错会把后面整段代码当注释吞掉，后面的 class 就找不到了。
+            if (c == '/' && i + 1 < n && ModernJSMask.canStartRegexAt(text, i)) {
+                i = ModernJSMask.skipRegexLiteral(text, i);
+                lastMeaningful = i;
                 continue;
             }
             if (c == '/' && next == '/') { // 行注释：跳到下一行
@@ -337,6 +345,9 @@ public class ModernJSParser {
         for (String stat : staticMembers) {
             stat = rewriteSuperMemberAccess(stat.trim(), staticPrefix);
             if (startsWithKeyword(stat, "get") || startsWithKeyword(stat, "set")) {
+                // 静态访问器要挂到类本身（不是 prototype）。原来这里直接 continue，
+                // 于是 `static get instance()` 这种单例写法被**静默丢掉**。
+                output.append(convertStaticAccessor(className, parentClass, stat)).append("\n");
                 continue;
             } else if (isStaticMethodDecl(stat)) {
                 // 方法要先判：参数默认值/方法体里都可能出现 '='，不能当作静态字段
@@ -634,6 +645,10 @@ public class ModernJSParser {
                 }
                 continue;
             }
+            if (c == '/' && i + 1 < n && ModernJSMask.canStartRegexAt(statement, i)) {
+                i = ModernJSMask.skipRegexLiteral(statement, i);
+                continue; // 正则里的 ; 不是成员分隔符
+            }
             if (c == '/' && next == '/') { // 行注释：跳到行尾
                 while (i < n && statement.charAt(i) != '\n') i++;
                 continue;
@@ -682,6 +697,20 @@ public class ModernJSParser {
     }
 
     private static String convertGetterSetter(String className, String parentClass, String decl) {
+        return convertAccessor(className + ".prototype", parentClass, decl);
+    }
+
+    /** 静态访问器：挂到类本身（不是 prototype）。 */
+    private static String convertStaticAccessor(String className, String parentClass, String decl) {
+        return convertAccessor(className, parentClass, decl);
+    }
+
+    /**
+     * 生成访问器定义。
+     *
+     * @param target 接收者：实例访问器传 {@code 类名.prototype}，静态访问器传 {@code 类名}
+     */
+    private static String convertAccessor(String target, String parentClass, String decl) {
         boolean isGet = startsWithKeyword(decl, "get");
         String prefix = isGet ? "get" : "set";
         String propName = decl.substring(prefix.length()).trim();
@@ -709,7 +738,7 @@ public class ModernJSParser {
             }
         }
 
-        return "Object.defineProperty(" + className + ".prototype, '" + propName + "', {\n" +
+        return "Object.defineProperty(" + target + ", '" + propName + "', {\n" +
                 "  " + prefix + ": function(" + params + ") {\n" +
                 indentLines(body, "    ") +
                 "  },\n" +
@@ -806,6 +835,10 @@ public class ModernJSParser {
             }
 
             // 以下都是「代码」部分
+            if (c == '/' && i + 1 < n && ModernJSMask.canStartRegexAt(line, i)) {
+                i = ModernJSMask.skipRegexLiteral(line, i);
+                continue; // 正则里的 { } 不算花括号（return /}/ 这种）
+            }
             if (c == '/' && next == '/') return current; // 行注释，本行后面都不是代码
             if (c == '/' && next == '*') {
                 st.inBlockComment = true;
@@ -875,6 +908,10 @@ public class ModernJSParser {
                     continue;
                 }
                 continue;
+            }
+            if (c == '/' && i + 1 < s.length() && ModernJSMask.canStartRegexAt(s, i)) {
+                i = ModernJSMask.skipRegexLiteral(s, i);
+                continue; // 正则里的 { } 不算花括号
             }
             if (c == '/' && next == '/') {
                 // 行注释：跳到行尾继续找配对。原来是直接 return -1（当成「后面没代码了」），

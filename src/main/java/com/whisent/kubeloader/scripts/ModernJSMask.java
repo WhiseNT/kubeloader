@@ -94,31 +94,7 @@ final class ModernJSMask {
                     continue;
                 }
                 if (canStartRegex(prev)) {
-                    int end = i + 1;
-                    boolean inClass = false;
-                    while (end < n) {
-                        char e = text.charAt(end);
-                        if (e == '\\') {
-                            end += 2;
-                            continue;
-                        }
-                        if (e == '\n') {
-                            break;
-                        }
-                        if (e == '[') {
-                            inClass = true;
-                        } else if (e == ']') {
-                            inClass = false;
-                        } else if (e == '/' && !inClass) {
-                            end++;
-                            break;
-                        }
-                        end++;
-                    }
-                    while (end < n && Character.isLetter(text.charAt(end))) {
-                        end++;
-                    }
-                    i = fill(out, i, Math.min(end, n));
+                    i = fill(out, i, Math.min(skipRegexLiteral(text, i) + 1, n));
                     prev = ')';
                     continue;
                 }
@@ -147,6 +123,90 @@ final class ModernJSMask {
         }
         return !(Character.isLetterOrDigit(p) || p == '_' || p == '$'
                 || p == ')' || p == ']' || p == '}' || p == '"' || p == '\'' || p == '`');
+    }
+
+    /**
+     * 位置 {@code i} 处的 {@code /} 能不能开始一个正则字面量。
+     *
+     * <p>比 {@link #canStartRegex(char)} 多看两件事：往前跳过空白（{@code a = / x /} 里
+     * 紧邻的字符是空格）；以及认关键字（{@code return /}/}、{@code typeof /x/} —— 关键字
+     * 后面是允许正则的，但前一个字符是字母，朴素判断会算成除号）。</p>
+     */
+    static boolean canStartRegexAt(String text, int i) {
+        int j = i - 1;
+        while (j >= 0 && Character.isWhitespace(text.charAt(j))) {
+            j--;
+        }
+        if (j < 0) {
+            return true;
+        }
+        char prev = text.charAt(j);
+        if (Character.isLetterOrDigit(prev) || prev == '_' || prev == '$') {
+            int w = j + 1;
+            while (w > 0 && isIdentPart(text.charAt(w - 1))) {
+                w--;
+            }
+            switch (text.substring(w, j + 1)) {
+                case "return":
+                case "typeof":
+                case "instanceof":
+                case "in":
+                case "of":
+                case "case":
+                case "delete":
+                case "void":
+                case "do":
+                case "else":
+                case "yield":
+                case "await":
+                case "new":
+                    return true;
+                default:
+                    return false;
+            }
+        }
+        return canStartRegex(prev);
+    }
+
+    private static boolean isIdentPart(char c) {
+        return Character.isLetterOrDigit(c) || c == '_' || c == '$';
+    }
+
+    /**
+     * 从 {@code from} 处的 {@code /} 开始跳过整个正则字面量（含字符组与修饰符），
+     * 返回**最后一个字符**的下标（调用方接着 {@code i++} 即可）。
+     *
+     * <p>必须优先于注释判断：{@code /[/*]/}、{@code /https?:\/\//} 里的 {@code /*} 与
+     * {@code //} 都不是注释开头；判错会把后面整段代码当成注释吞掉，
+     * 结果连后面的 class 都找不到（报「找不到配对的 }」或原样留着 class）。</p>
+     */
+    static int skipRegexLiteral(String text, int from) {
+        int n = text.length();
+        int end = from + 1;
+        boolean inClass = false;
+        while (end < n) {
+            char e = text.charAt(end);
+            if (e == '\\') {
+                end += 2;
+                continue;
+            }
+            if (e == '\n') {
+                break; // 正则不能跨行，说明这不是正则
+            }
+            if (e == '[') {
+                inClass = true;
+            } else if (e == ']') {
+                inClass = false;
+            } else if (e == '/' && !inClass) {
+                end++;
+                break;
+            }
+            end++;
+        }
+        while (end < n && Character.isLetter(text.charAt(end))) {
+            end++; // 修饰符 gimsuy
+        }
+        return Math.min(end, n) - 1;
     }
 
     /** 与 open 处括号配对的闭合括号下标；找不到返回 -1。 */
