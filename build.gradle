@@ -131,16 +131,30 @@ tasks.register('modernJSCorpusCheck', JavaExec) {
     description = '运行 ModernJS 示例语料库检查（脚本在 examples/modernjs 下）'
     classpath = sourceSets.test.runtimeClasspath
     mainClass = 'com.whisent.kubeloader.scripts.ModernJSScriptCorpusCheck'
-    systemProperty 'modernjs.corpus', file('examples/modernjs').absolutePath
+    // 加 -Pcorpus=<目录> 可以把整轮检查指向别的目录（外部语料库、临时变形目录都行）
+    systemProperty 'modernjs.corpus', project.findProperty('corpus')
+            ?: file('examples/modernjs').absolutePath
     if (project.hasProperty('modernjsVerbose')) {
         systemProperty 'modernjs.verbose', 'true'
     }
+}
+
+// 变形测试：把语料里每个脚本机械地变成等价但更丑的形式（行尾加注释、缩进转 Tab、
+// 行间插空行、CRLF 等），整轮重跑，结论必须与基准一致。
+tasks.register('modernJSMetamorphicCheck', JavaExec) {
+    group = 'verification'
+    description = 'ModernJS 变形测试（只改空白/注释，结论不许变）'
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.whisent.kubeloader.scripts.ModernJSMetamorphicCheck'
+    systemProperty 'modernjs.corpus', project.findProperty('corpus')
+            ?: file('examples/modernjs').absolutePath
 }
 
 tasks.named('check') {
     dependsOn tasks.named('parserRegressionCheck')
     dependsOn tasks.named('polyfillRegressionCheck')
     dependsOn tasks.named('modernJSCorpusCheck')
+    dependsOn tasks.named('modernJSMetamorphicCheck')
 }
 
 tasks.named('processResources', ProcessResources).configure {

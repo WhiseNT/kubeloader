@@ -126,6 +126,104 @@ final class ModernJSMask {
     }
 
     /**
+     * 去掉**首尾**的空白与注释（中间的注释保留）。
+     *
+     * <p>类成员分类只看「代码形状」：{@code m() { return 1 } // 这是个方法} 这种写法里，
+     * 行尾注释会让 {@code endsWith("}")} 失手，成员就被静默丢掉了。
+     * 首部注释同理（{@code /* c *&#47; get x() {...}} 会让 {@code startsWith("get")} 失手）。</p>
+     */
+    static String trimComments(String text) {
+        String s = text;
+        for (int round = 0; round < 64; round++) {
+            String t = s.trim();
+            if (t.startsWith("//")) {
+                int nl = t.indexOf('\n');
+                s = nl < 0 ? "" : t.substring(nl + 1);
+                continue;
+            }
+            if (t.startsWith("/*")) {
+                int end = t.indexOf("*/");
+                s = end < 0 ? "" : t.substring(end + 2);
+                continue;
+            }
+            String tail = stripTrailingComment(t);
+            if (!tail.equals(t)) {
+                s = tail;
+                continue;
+            }
+            return t;
+        }
+        return s.trim();
+    }
+
+    /**
+     * {@code [from, end)} 这段文本里「代码」的结束位置：末尾的行注释 / 块注释不算代码。
+     *
+     * <p>为什么要这个：掩码里的注释是一串 {@link #MASK} 字符，既不是 {@code ;} 也不是
+     * 换行，所以扫描「右值到哪结束」时会直接穿过注释停在行尾。于是右值被当成
+     * {@code empty // 变形注释} 这种带注释的整串，生成的新代码被拼到了 {@code //} 后面，
+     * 整段被注释吞掉——静默算错。生成替换代码前必须先把右值收在真正的代码末尾。</p>
+     */
+    static int codeEndIn(String text, int from, int end) {
+        if (end > text.length()) {
+            end = text.length();
+        }
+        if (from >= end) {
+            return from;
+        }
+        return from + stripTrailingComment(text.substring(from, end)).length();
+    }
+
+    /**
+     * 文本末尾是不是停在行注释里（最后一行里出现过真注释 {@code //}）。
+     *
+     * <p>往这种文本后面拼生成代码，拼出来的东西会被那条注释整段吞掉：
+     * {@code return this._c // 注释} 后面接 {@code },} 就变成
+     * {@code return this._c // 注释  },}，收尾的括号没了。拼接前必须先换行。</p>
+     */
+    static boolean endsInLineComment(String text) {
+        int lastLineStart = text.lastIndexOf('\n') + 1;
+        return findLineComment(text.substring(lastLineStart)) >= 0;
+    }
+
+    /** 去掉末尾的注释（最后一行是行注释，或整段以块注释收尾）。 */
+    private static String stripTrailingComment(String text) {        if (text.endsWith("*/")) {
+            int start = text.lastIndexOf("/*");
+            if (start >= 0) {
+                return text.substring(0, start);
+            }
+        }
+        int lastLineStart = text.lastIndexOf('\n') + 1;
+        int comment = findLineComment(text.substring(lastLineStart));
+        if (comment >= 0) {
+            return text.substring(0, lastLineStart + comment);
+        }
+        return text;
+    }
+
+    /** 在一行里找行注释的起始下标（跳过引号里的内容）；没有返回 -1。 */
+    private static int findLineComment(String line) {
+        char quote = '\0';
+        for (int i = 0; i + 1 < line.length(); i++) {
+            char c = line.charAt(i);
+            if (quote != '\0') {
+                if (c == '\\') {
+                    i++;
+                } else if (c == quote) {
+                    quote = '\0';
+                }
+                continue;
+            }
+            if (c == '\'' || c == '"' || c == '`') {
+                quote = c;
+            } else if (c == '/' && line.charAt(i + 1) == '/') {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    /**
      * 位置 {@code i} 处的 {@code /} 能不能开始一个正则字面量。
      *
      * <p>比 {@link #canStartRegex(char)} 多看两件事：往前跳过空白（{@code a = / x /} 里
@@ -133,6 +231,17 @@ final class ModernJSMask {
      * 后面是允许正则的，但前一个字符是字母，朴素判断会算成除号）。</p>
      */
     static boolean canStartRegexAt(String text, int i) {
+        // `/*` 与 `//` 永远不是合法正则字面量的开头：前者的 body 以量词 `*` 起头（没东西可重复），
+        // 后者是空 body，两者都是语法错。所以必须先把注释排除掉。
+        // 漏了这一步的后果很实在：`/* c */ class A {` 开头的块注释会被当成正则字面量跳过，
+        // 于是后面 `class` 的「前一个有效字符」变成 `/`，整个类不再被判成语句位置、
+        // 原样留在转换结果里 → Rhino 报 identifier is a reserved word: class。
+        if (i + 1 < text.length()) {
+            char next = text.charAt(i + 1);
+            if (next == '*' || next == '/') {
+                return false;
+            }
+        }
         int j = i - 1;
         while (j >= 0 && Character.isWhitespace(text.charAt(j))) {
             j--;

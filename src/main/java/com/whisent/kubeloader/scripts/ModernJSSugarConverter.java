@@ -193,7 +193,7 @@ final class ModernJSSugarConverter {
             return null; // 解构赋值（没有声明）或 for-of 之类，不在这次范围内
         }
         int rhsStart = eq + 1;
-        int rhsEnd = findRhsEnd(masked, rhsStart);
+        int rhsEnd = ModernJSMask.codeEndIn(original, rhsStart, findRhsEnd(masked, rhsStart));
         String rhs = original.substring(rhsStart, rhsEnd).trim();
         if (rhs.isEmpty()) {
             return null;
@@ -745,7 +745,7 @@ final class ModernJSSugarConverter {
                 }
 
                 int rhsStart = at + 3;
-                int rhsEnd = findRhsEnd(masked, rhsStart);
+                int rhsEnd = ModernJSMask.codeEndIn(result, rhsStart, findRhsEnd(masked, rhsStart));
                 String rhs = result.substring(rhsStart, rhsEnd).trim();
                 if (rhs.isEmpty()) {
                     continue;

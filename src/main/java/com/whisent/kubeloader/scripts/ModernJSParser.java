@@ -11,7 +11,9 @@ public class ModernJSParser {
             Pattern.compile("\\bthis\\.([a-zA-Z_$][a-zA-Z0-9_$]*)\\s*=");
 
     private static final Pattern RETURN_SHORTHAND_PATTERN =
-            Pattern.compile("\\breturn\\s*\\{([^{}]*)\\}\\s*(?=;|\\n|\\r|$)");
+            // 收尾的注释也算「语句结束」：`return { a, b } // 说明` 里 '}' 之后跟的是注释，
+            // 只认 ; 换行 的话这条 return 就不会被展开，Rhino 随后报 invalid object initializer。
+            Pattern.compile("\\breturn\\s*\\{([^{}]*)\\}\\s*(?=;|//|/\\*|\\n|\\r|$)");
 
     // 具名与匿名函数都要处理：类方法会被转换成 "Class.prototype.m = function(...) {"
     private static final Pattern FUNCTION_WITH_DEFAULTS_PATTERN =
@@ -56,9 +58,18 @@ public class ModernJSParser {
     }
 
     /** class 表头：名字、可选的 extends、以及类体的 '{' */
+    // 表头 token 之间允许夹注释：`class  Foo  // 说明` 换行再写 `{` 是真实存在的写法，
+    // 而「注释在表头里」会让原先的 \s* 直接失手，整个类原样留在结果里 →
+    // Rhino 报 identifier is a reserved word: class。
+    private static final String CLASS_HEADER_GAP =
+            "(?:[ \\t\\r\\n]|//[^\\n]*|/\\*[\\s\\S]*?\\*/)*";
     // 类名 / 父类名允许 Unicode 字母（KubeJS 脚本里用中文标识符并不罕见）
     private static final Pattern CLASS_STATEMENT_PATTERN = Pattern.compile(
-            "class\\s+([\\p{L}_$][\\p{L}\\p{N}_$]*)\\s*(?:extends\\s+([\\p{L}_$][\\p{L}\\p{N}_$]*)\\s*)?\\{");
+            "class" + CLASS_HEADER_GAP + "+([\\p{L}_$][\\p{L}\\p{N}_$]*)"
+                    + CLASS_HEADER_GAP
+                    + "(?:extends" + CLASS_HEADER_GAP + "+([\\p{L}_$][\\p{L}\\p{N}_$]*)"
+                    + CLASS_HEADER_GAP + ")?"
+                    + "\\{");
 
     /**
      * 把文本里处于<b>语句位置</b>的 class 声明全部转换掉。
@@ -374,6 +385,34 @@ public class ModernJSParser {
     }
 
     /* ===================== 提取 constructor ===================== */
+
+    /**
+     * 跳过空白与注释。
+     *
+     * <p>构造函数签名里 `)` 和 `{` 之间夹注释是合法且常见的写法（
+     * {@code constructor(a)   // 说明} 换行再写 `{`）。这里只跳空白的话，
+     * 那个构造函数会被判定成「不是构造函数」，掉进普通方法分支：
+     * 类拿到一个空构造器、字段永远不赋值，而 Rhino 一句错都不报——
+     * 属于最难查的静默算错。</p>
+     */
+    private static int skipTrivia(String text, int i) {
+        while (i < text.length()) {
+            char c = text.charAt(i);
+            if (Character.isWhitespace(c)) {
+                i++;
+            } else if (c == '/' && i + 1 < text.length() && text.charAt(i + 1) == '/') {
+                int nl = text.indexOf('\n', i);
+                i = nl < 0 ? text.length() : nl + 1;
+            } else if (c == '/' && i + 1 < text.length() && text.charAt(i + 1) == '*') {
+                int end = text.indexOf("*/", i + 2);
+                i = end < 0 ? text.length() : end + 2;
+            } else {
+                return i;
+            }
+        }
+        return i;
+    }
+
     private static ConstructorInfo extractConstructor(String body) {
         String originalBody = body;
         int ctorIndex = -1;
@@ -388,8 +427,7 @@ public class ModernJSParser {
                 continue;
             }
 
-            int pos = ctorIndex + "constructor".length();
-            while (pos < body.length() && Character.isWhitespace(body.charAt(pos))) pos++;
+            int pos = skipTrivia(body, ctorIndex + "constructor".length());
             if (pos >= body.length() || body.charAt(pos) != '(') {
                 searchFrom = ctorIndex + 1;
                 continue;
@@ -410,7 +448,7 @@ public class ModernJSParser {
             }
             int paramEnd = i - 1;
 
-            while (i < body.length() && Character.isWhitespace(body.charAt(i))) i++;
+            i = skipTrivia(body, i);
             if (i >= body.length() || body.charAt(i) != '{') {
                 searchFrom = ctorIndex + 1;
                 continue;
@@ -448,7 +486,10 @@ public class ModernJSParser {
         List<String> statements = splitIntoStatements(clean);
 
         for (String stmt : statements) {
-            stmt = stmt.trim();
+            // 分类只看「代码形状」：首尾注释不影响这是哪种成员，
+            // 但会让 startsWith("static ") / endsWith("}") 这类判断失手，成员就被静默丢掉。
+            // 例：`m() { return 1 } // 这是个方法`、`/* c */ x = 1;`
+            stmt = ModernJSMask.trimComments(stmt);
             if (stmt.isEmpty()) continue;
 
             if (startsWithKeyword(stmt, "static")) {
@@ -574,7 +615,7 @@ public class ModernJSParser {
      * 方法默认参数的 {@code =} 在括号里，同样不算顶层。</p>
      */
     private static boolean looksUnfinished(String text) {
-        String masked = ModernJSMask.mask(text).trim();
+        String masked = ModernJSMask.mask(ModernJSMask.trimComments(text)).trim();
         if (masked.isEmpty()) {
             return false;
         }
@@ -693,7 +734,7 @@ public class ModernJSParser {
         if (paren == -1) return "// invalid method: " + methodDecl;
         String name = methodDecl.substring(0, paren).trim();
         String rest = rewriteSuperMemberAccess(methodDecl.substring(paren), parentPrefix(parentClass, false));
-        return className + ".prototype." + name + " = function" + rest + ";";
+        return className + ".prototype." + name + " = function" + closeBody(rest) + ";";
     }
 
     private static String convertGetterSetter(String className, String parentClass, String decl) {
@@ -740,7 +781,7 @@ public class ModernJSParser {
 
         return "Object.defineProperty(" + target + ", '" + propName + "', {\n" +
                 "  " + prefix + ": function(" + params + ") {\n" +
-                indentLines(body, "    ") +
+                closeBody(indentLines(body, "    ")) +
                 "  },\n" +
                 "  enumerable: true,\n" +
                 "  configurable: true\n" +
@@ -769,6 +810,17 @@ public class ModernJSParser {
         return Arrays.stream(code.split("\\r?\\n"))
                 .map(line -> indent + line)
                 .collect(Collectors.joining("\n"));
+    }
+
+    /**
+     * 往方法体后面拼收尾代码（{@code },}、{@code ;}）之前调一次。
+     *
+     * <p>方法体最后一行如果是行注释（{@code return this._c // 说明}），
+     * 直接拼接会把收尾的括号 / 分号一起注释掉，Rhino 报的却是
+     * {@code missing ; before statement}，完全看不出跟注释有关。这里补一个换行断开。</p>
+     */
+    private static String closeBody(String body) {
+        return ModernJSMask.endsInLineComment(body) ? body + "\n" : body;
     }
 
     /**
@@ -1171,7 +1223,14 @@ public class ModernJSParser {
             boolean firstParam = true;
             for (int[] span : spans) {
                 String p = head.substring(span[0], span[1]).trim();
-                if (!firstParam) cleanParams.append(", ");
+                if (!firstParam) {
+                    // 上一个形参末尾停在行注释里的话（`a // 说明`）必须先换行，
+                    // 否则接上去的 ", b" 会被那条注释吞掉。
+                    if (ModernJSMask.endsInLineComment(cleanParams.toString())) {
+                        cleanParams.append('\n');
+                    }
+                    cleanParams.append(", ");
+                }
                 firstParam = false;
                 // 解构参数（形如 {n = 3}、[x = 9]）里的 '=' 是「模式默认值」，不是「参数默认值」。
                 // 这里必须整段原样放过：下面按 '=' 切分会把它切出 `{n === undefined ? 3} : {n` 这种垃圾。
@@ -1194,7 +1253,15 @@ public class ModernJSParser {
                 }
             }
 
-            String cleanSig = head.substring(0, pStart) + cleanParams + ")";
+            if (dftStmts.length() == 0) {
+                // 一个参数默认值都没有：签名本来就不用动。以前这里照样重建一遍签名，
+                // 于是 `function f( // 说明\n a, b\n) {}` 会被拼成 `f( // 说明\n a, b) {}`——
+                // 收尾的 ')' 落进行注释里，整个函数签名就废了。没有默认值时直接原样放过。
+                continue;
+            }
+
+            String cleanSig = head.substring(0, pStart) + cleanParams
+                    + (ModernJSMask.endsInLineComment(cleanParams.toString()) ? "\n" : "") + ")";
             m2.appendReplacement(sb2,
                     Matcher.quoteReplacement(cleanSig + brace + "\n" + dftStmts.toString()));
         }

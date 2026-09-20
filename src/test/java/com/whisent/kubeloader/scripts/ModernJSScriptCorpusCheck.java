@@ -304,8 +304,28 @@ public final class ModernJSScriptCorpusCheck {
 
     // ── 语料定位与遍历 ────────────────────────────────────────────────
 
-    private static Path locateCorpus() {
-        String configured = System.getProperty(CORPUS_PROPERTY);
+    // ── 供其它检查复用（变形测试要用同一套「结论」判定） ────────────────
+
+    /** 清空累计状态：变形测试会反复借用这个类跑不同变体。 */
+    static void resetState() {
+        FAILURES.clear();
+        PER_CATEGORY.clear();
+        fileCount = 0;
+        assertionCount = 0;
+        rejectCount = 0;
+    }
+
+    /** 上一次运行的失败明细（变形测试要拿它跟基准对比）。 */
+    static List<String> lastFailures() {
+        return new ArrayList<>(FAILURES);
+    }
+
+    /** 语料根目录（变形测试要按同样的相对路径生成变体）。 */
+    static Path corpusRoot() throws IOException {
+        return locateCorpus();
+    }
+
+    private static Path locateCorpus() {        String configured = System.getProperty(CORPUS_PROPERTY);
         if (configured != null && !configured.isBlank()) {
             Path path = Paths.get(configured).toAbsolutePath().normalize();
             if (!Files.isDirectory(path)) {
