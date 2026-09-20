@@ -157,6 +157,37 @@ final class ModernJSMask {
     }
 
     /**
+     * 跳过从 {@code from} 开始的空白与注释，返回第一个真正「代码」字符的下标。
+     *
+     * <p>很多地方要按「代码形状」判断一段源码是什么东西（这一段是展开项吗？是构造函数吗？
+     * 是模式吗？）。只看首字符或只跳空白的话，段首多一条注释就会判错 —— 而注释是合法的、
+     * 而且很常见的写法。判错的后果通常是「生成代码时把这段原样塞进输出」，
+     * 于是结果里留着 Rhino 解析不了的现代语法。</p>
+     */
+    static int skipTrivia(String text, int from) {
+        int i = from;
+        while (i < text.length()) {
+            char c = text.charAt(i);
+            if (Character.isWhitespace(c)) {
+                i++;
+                continue;
+            }
+            if (c == '/' && i + 1 < text.length() && text.charAt(i + 1) == '/') {
+                int nl = text.indexOf('\n', i);
+                i = nl < 0 ? text.length() : nl + 1;
+                continue;
+            }
+            if (c == '/' && i + 1 < text.length() && text.charAt(i + 1) == '*') {
+                int end = text.indexOf("*/", i + 2);
+                i = end < 0 ? text.length() : end + 2;
+                continue;
+            }
+            return i;
+        }
+        return i;
+    }
+
+    /**
      * {@code [from, end)} 这段文本里「代码」的结束位置：末尾的行注释 / 块注释不算代码。
      *
      * <p>为什么要这个：掩码里的注释是一串 {@link #MASK} 字符，既不是 {@code ;} 也不是

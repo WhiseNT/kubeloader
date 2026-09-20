@@ -158,7 +158,7 @@ final class ModernJSSpreadConverter {
     /** 调用展开：f(a, ...b) / o.m(...b) / new F(...b) */
     private static Rewrite buildCallSpread(String masked, String original, int open, int close) {
         List<int[]> parts = ModernJSMask.splitTopLevel(masked, open + 1, close);
-        if (!hasSpreadPart(masked, parts)) {
+        if (!hasSpreadPart(original, parts)) {
             return null;
         }
 
@@ -224,7 +224,7 @@ final class ModernJSSpreadConverter {
     /** 数组字面量展开：[a, ...b] */
     private static Rewrite buildArraySpread(String masked, String original, int open, int close) {
         List<int[]> parts = ModernJSMask.splitTopLevel(masked, open + 1, close);
-        if (!hasSpreadPart(masked, parts)) {
+        if (!hasSpreadPart(original, parts)) {
             return null;
         }
         return new Rewrite(open, close + 1, buildArgsArray(masked, original, parts), true, false);
@@ -233,7 +233,7 @@ final class ModernJSSpreadConverter {
     /** 对象字面量展开：{...a, y: 2} */
     private static Rewrite buildObjectSpread(String masked, String original, int open, int close) {
         List<int[]> parts = ModernJSMask.splitTopLevel(masked, open + 1, close);
-        if (!hasSpreadPart(masked, parts)) {
+        if (!hasSpreadPart(original, parts)) {
             return null;
         }
 
@@ -316,12 +316,20 @@ final class ModernJSSpreadConverter {
     private static String buildArgsArray(String masked, String original, List<int[]> parts) {
         StringBuilder out = new StringBuilder("[].concat(");
         for (int i = 0; i < parts.size(); i++) {
-            String part = original.substring(parts.get(i)[0], parts.get(i)[1]).trim();
+            int from = parts.get(i)[0];
+            int to = parts.get(i)[1];
+            String part = original.substring(from, to).trim();
             if (i > 0) {
                 out.append(", ");
             }
-            if (part.startsWith("...")) {
-                out.append("__kl_spread(").append(part.substring(3).trim()).append(")");
+            // 按「代码形状」判断这一段是不是展开项：段首可能是注释（`/* 前 */ ...前`），
+            // 只看首字符会把展开项当成普通元素，原样塞进 `[...]` —— 输出里就留着 ES6 展开，
+            // Rhino 直接报 syntax error。
+            int codeStart = ModernJSMask.skipTrivia(original, from);
+            if (codeStart + 3 <= to && original.startsWith("...", codeStart)) {
+                out.append("__kl_spread(")
+                        .append(original.substring(codeStart + 3, to).trim())
+                        .append(")");
             } else if (part.isEmpty()) {
                 out.append("[]");
             } else {
@@ -331,13 +339,10 @@ final class ModernJSSpreadConverter {
         return out.append(")").toString();
     }
 
-    private static boolean hasSpreadPart(String masked, List<int[]> parts) {
+    private static boolean hasSpreadPart(String original, List<int[]> parts) {
         for (int[] p : parts) {
-            int i = p[0];
-            while (i < p[1] && Character.isWhitespace(masked.charAt(i))) {
-                i++;
-            }
-            if (i + 2 < p[1] + 1 && i + 2 <= p[1] && masked.startsWith("...", i)) {
+            int i = ModernJSMask.skipTrivia(original, p[0]);
+            if (i + 3 <= p[1] && original.startsWith("...", i)) {
                 return true;
             }
         }

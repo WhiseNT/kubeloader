@@ -150,11 +150,33 @@ tasks.register('modernJSMetamorphicCheck', JavaExec) {
             ?: file('examples/modernjs').absolutePath
 }
 
+// 转换结果合法性扫描：判据和线上一致 —— 转换结果必须能被 Rhino 的 parser 解析。
+// 不需要脚本里写断言，也不执行，所以可以直接指向任意外部语料目录：
+//   ./gradlew modernJSSweepCheck -Pcorpus=<目录>
+//   ./gradlew modernJSSweepCheck -Pcorpus=<目录> -Pbaseline=<已知失败清单>
+//   ./gradlew modernJSSweepCheck -Pshow=<每类打印条数，默认 5>
+tasks.register('modernJSSweepCheck', JavaExec) {
+    group = 'verification'
+    description = 'ModernJS 转换结果合法性扫描（转换结果必须能被 Rhino 解析）'
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.whisent.kubeloader.scripts.ModernJSParseSweepCheck'
+    systemProperty 'modernjs.corpus', project.findProperty('corpus')
+            ?: file('examples/modernjs').absolutePath
+    if (project.hasProperty('baseline')) {
+        systemProperty 'modernjs.sweep.baseline',
+                project.file(project.property('baseline')).absolutePath
+    }
+    if (project.hasProperty('show')) {
+        systemProperty 'modernjs.sweep.show', project.property('show')
+    }
+}
+
 tasks.named('check') {
     dependsOn tasks.named('parserRegressionCheck')
     dependsOn tasks.named('polyfillRegressionCheck')
     dependsOn tasks.named('modernJSCorpusCheck')
     dependsOn tasks.named('modernJSMetamorphicCheck')
+    dependsOn tasks.named('modernJSSweepCheck')
 }
 
 tasks.named('processResources', ProcessResources).configure {

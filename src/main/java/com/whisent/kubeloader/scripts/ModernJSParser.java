@@ -40,11 +40,14 @@ public class ModernJSParser {
             // 转换器自己没预料到的失败：绝不能把原始异常放出去。
             // KLScriptLoader 只认 ModernJSParseException，否则这个异常会冒到 KubeJS 的
             // 脚本加载里，连累同一个包里的其它脚本。
+            // 带上 cause：线上处理与以往一致（文案不变），但检查扫描能靠它把
+            // 「转换器崩了」和「已知限制」分开——否则前者会被当成可接受的失败放过去。
             throw new ModernJSParseException(
                     "ModernJS 转换器在这个写法上失败了：" + e,
                     1, "",
                     "这多半是转换器的问题，请把这一行连同上下文反馈给作者；"
-                            + "该脚本已被跳过，同包其它脚本不受影响");
+                            + "该脚本已被跳过，同包其它脚本不受影响",
+                    e);
         }
     }
 
@@ -332,7 +335,14 @@ public class ModernJSParser {
             String fieldName = field.substring(0, eq).trim();
             if (assignedInCtor.contains(fieldName)) continue;
             if (!field.endsWith(";")) field += ";";
-            output.append("  this.").append(field).append("\n");
+            if (!isValidIdentifier(fieldName) && isMemberName(fieldName)) {
+                // 计算名 / 字符串名：成员访问不能加 '.'，否则 `this.['x'] = 1` 不合法
+                int nameEnd = field.indexOf(fieldName) + fieldName.length();
+                output.append("  this").append(memberSuffix(fieldName))
+                        .append(field.substring(nameEnd)).append("\n");
+            } else {
+                output.append("  this.").append(field).append("\n");
+            }
         }
 
         // 剩余构造逻辑（super.member(...) 重写为父类原型调用）
@@ -363,11 +373,21 @@ public class ModernJSParser {
             } else if (isStaticMethodDecl(stat)) {
                 // 方法要先判：参数默认值/方法体里都可能出现 '='，不能当作静态字段
                 String methodName = extractMethodName(stat);
-                String paramsAndBody = stat.substring(stat.indexOf("("));
-                output.append(className).append(".").append(methodName)
+                String paramsAndBody = stat.substring(paramListStart(stat));
+                output.append(className).append(memberSuffix(methodName))
                         .append(" = function").append(paramsAndBody).append(";\n");
             } else if (stat.contains("=")) {
-                output.append(className).append(".").append(stat).append("\n");
+                // 静态字段。名字是普通标识符时走原路径（逐字节不变——对照用例比对精确字符串）；
+                // 只有计算名 / 字符串名才换写法，否则会生成 `类.['x'] = 1` 这种不合法输出。
+                int assign = stat.indexOf('=');
+                String statName = stat.substring(0, assign).trim();
+                if (!isValidIdentifier(statName) && isMemberName(statName)) {
+                    int nameEnd = stat.indexOf(statName) + statName.length();
+                    output.append(className).append(memberSuffix(statName))
+                            .append(stat.substring(nameEnd)).append("\n");
+                } else {
+                    output.append(className).append(".").append(stat).append("\n");
+                }
             }
         }
         if (!staticMembers.isEmpty()) {
@@ -396,21 +416,7 @@ public class ModernJSParser {
      * 属于最难查的静默算错。</p>
      */
     private static int skipTrivia(String text, int i) {
-        while (i < text.length()) {
-            char c = text.charAt(i);
-            if (Character.isWhitespace(c)) {
-                i++;
-            } else if (c == '/' && i + 1 < text.length() && text.charAt(i + 1) == '/') {
-                int nl = text.indexOf('\n', i);
-                i = nl < 0 ? text.length() : nl + 1;
-            } else if (c == '/' && i + 1 < text.length() && text.charAt(i + 1) == '*') {
-                int end = text.indexOf("*/", i + 2);
-                i = end < 0 ? text.length() : end + 2;
-            } else {
-                return i;
-            }
-        }
-        return i;
+        return ModernJSMask.skipTrivia(text, i);
     }
 
     private static ConstructorInfo extractConstructor(String body) {
@@ -508,11 +514,71 @@ public class ModernJSParser {
         }
     }
 
+    /**
+     * 成员名可以是三种东西：普通标识符、计算名 {@code [expr]}、字符串字面量 {@code 'x'}。
+     *
+     * <p>以前一律要求 {@link #isValidIdentifier}，于是 {@code [k]() {}}、{@code 'm'() {}}、
+     * {@code static [k2]() {}} 这些合法写法直接落进 {@code // unmatched, ignore} 分支 ——
+     * 成员被<b>静默丢掉</b>，要等到运行时才报 {@code Cannot find function xxx}。
+     * 引外部语料（test262 的 computed-property-names/class/*）时才发现本地语料
+     * 只覆盖了对象字面量的计算键，类成员这一支完全没测过。</p>
+     */
+    private static boolean isMemberName(String s) {
+        if (s == null || s.isEmpty()) {
+            return false;
+        }
+        if (isValidIdentifier(s)) {
+            return true;
+        }
+        if (s.startsWith("[") && s.endsWith("]")) {
+            return s.length() > 2; // [expr]，里面得有东西
+        }
+        if (s.length() >= 2) {
+            char first = s.charAt(0);
+            if ((first == '\'' || first == '"') && s.charAt(s.length() - 1) == first) {
+                return true; // 'x' / "x"
+            }
+        }
+        return false;
+    }
+
+    /**
+     * 形参表左括号的下标。
+     *
+     * <p>不能直接 {@code indexOf('(')}：计算名本身可能带括号（{@code [f()]() {}}），
+     * 那样会把名字截成 {@code [f}。名字是计算名时先跳过配对的 {@code ]} 再找。</p>
+     */
+    private static int paramListStart(String member) {
+        int paren = member.indexOf('(');
+        if (paren < 0) {
+            return -1;
+        }
+        if (member.startsWith("[")) {
+            int close = ModernJSMask.matchClose(ModernJSMask.mask(member), 0);
+            if (close >= 0) {
+                int after = member.indexOf('(', close);
+                return after >= 0 ? after : paren;
+            }
+        }
+        if (member.startsWith("'") || member.startsWith("\"")) {
+            char quote = member.charAt(0);
+            for (int i = 1; i < member.length(); i++) {
+                if (member.charAt(i) == '\\') {
+                    i++;
+                } else if (member.charAt(i) == quote) {
+                    int after = member.indexOf('(', i);
+                    return after >= 0 ? after : paren;
+                }
+            }
+        }
+        return paren;
+    }
+
     private static boolean isValidMethodDecl(String stmt) {
-        int paren = stmt.indexOf('(');
+        int paren = paramListStart(stmt);
         if (paren <= 0) return false;
         String name = stmt.substring(0, paren).trim();
-        return isValidIdentifier(name) && stmt.endsWith("}");
+        return isMemberName(name) && stmt.endsWith("}");
     }
 
     /**
@@ -521,22 +587,25 @@ public class ModernJSParser {
      * （如 {@code BASE = Math.max(1, 2)}）也不会被误判成方法。
      */
     private static boolean isStaticMethodDecl(String stat) {
-        int paren = stat.indexOf('(');
+        int paren = paramListStart(stat);
         if (paren <= 0) return false;
-        return isValidIdentifier(stat.substring(0, paren).trim());
+        return isMemberName(stat.substring(0, paren).trim());
     }
 
+    /** 不带初始值的字段声明（{@code x;}）。名字仍要求是标识符：这种声明本来就不赋任何值，
+     * 丢掉是无害的；而带计算名的 {@code [k];} 拿到这边会被拼成不合法的 {@code this.[k];}。 */
     private static boolean isValidPlainField(String stmt) {
         if (!stmt.endsWith(";")) return false;
         String name = stmt.substring(0, stmt.length() - 1).trim();
         return isValidIdentifier(name);
     }
 
+    /** 带初始值的实例字段名：允许标识符 / 计算名 / 字符串字面量。 */
     private static boolean isValidFieldName(String stmt) {
         int eq = stmt.indexOf('=');
         if (eq <= 0) return false;
         String name = stmt.substring(0, eq).trim();
-        return isValidIdentifier(name);
+        return isMemberName(name);
     }
 
     private static boolean isValidIdentifier(String s) {
@@ -730,11 +799,11 @@ public class ModernJSParser {
 
     /* ===================== 辅助方法 ===================== */
     private static String convertMethod(String className, String parentClass, String methodDecl) {
-        int paren = methodDecl.indexOf('(');
+        int paren = paramListStart(methodDecl);
         if (paren == -1) return "// invalid method: " + methodDecl;
         String name = methodDecl.substring(0, paren).trim();
         String rest = rewriteSuperMemberAccess(methodDecl.substring(paren), parentPrefix(parentClass, false));
-        return className + ".prototype." + name + " = function" + closeBody(rest) + ";";
+        return className + ".prototype" + memberSuffix(name) + " = function" + closeBody(rest) + ";";
     }
 
     private static String convertGetterSetter(String className, String parentClass, String decl) {
@@ -779,7 +848,7 @@ public class ModernJSParser {
             }
         }
 
-        return "Object.defineProperty(" + target + ", '" + propName + "', {\n" +
+        return "Object.defineProperty(" + target + ", " + propertyExpression(propName) + ", {\n" +
                 "  " + prefix + ": function(" + params + ") {\n" +
                 closeBody(indentLines(body, "    ")) +
                 "  },\n" +
@@ -788,8 +857,42 @@ public class ModernJSParser {
                 "});";
     }
 
+    /**
+     * 成员访问后缀：{@code m} → {@code .m}，{@code [expr]} → {@code [expr]}，
+     * {@code 'x'} → {@code ['x']}。
+     *
+     * <p>成员名不一定是普通标识符：计算名（{@code [expr]}）和字符串字面量（{@code 'x'}）
+     * 都是合法写法。以前一律拼 {@code "." + name}，于是
+     * {@code class A { get ['constructor']() {} }} 会生成
+     * {@code A.prototype.'['constructor']'} —— 引号嵌套破掉，整个脚本变成语法错。
+     * 这一条是引外部语料（test262 的 computed-property-names/class/*）才暴露出来的。</p>
+     */
+    private static String memberSuffix(String name) {
+        if (name.startsWith("[")) {
+            return name;
+        }
+        if (name.startsWith("'") || name.startsWith("\"")) {
+            return "[" + name + "]";
+        }
+        return "." + name;
+    }
+
+    /**
+     * {@code defineProperty} 的属性名要的是「一个表达式」：计算名去掉方括号，
+     * 字符串字面量原样用，其余（标识符、数字等）加引号。
+     */
+    private static String propertyExpression(String name) {
+        if (name.startsWith("[") && name.endsWith("]")) {
+            return name.substring(1, name.length() - 1).trim();
+        }
+        if (name.startsWith("'") || name.startsWith("\"")) {
+            return name;
+        }
+        return "'" + name + "'";
+    }
+
     private static String extractMethodName(String stat) {
-        int paren = stat.indexOf('(');
+        int paren = paramListStart(stat);
         return paren == -1 ? stat : stat.substring(0, paren).trim();
     }
 

@@ -52,8 +52,8 @@ public final class ModernJSScriptCorpusCheck {
 
     private static final boolean VERBOSE = Boolean.getBoolean("modernjs.verbose");
 
-    /** {@code // expect-error: xxx} */
-    private static final Pattern EXPECT_ERROR =
+    /** {@code // expect-error: xxx}（也供合法性扫描复用：声明「这个文件必须响亮失败」） */
+    static final Pattern EXPECT_ERROR =
             Pattern.compile("^\\s*//\\s*expect-error\\s*:?\\s*(.*)$", Pattern.MULTILINE);
     private static final Pattern REQUIRES_TRANSFORM =
             Pattern.compile("^\\s*//\\s*requires-transform\\b", Pattern.MULTILINE);
