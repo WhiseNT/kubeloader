@@ -43,6 +43,10 @@ public class ConfigManager {
         @SerializedName("polyfillBuiltins")
         private boolean polyfillBuiltins = true;  // 默认为true
 
+        /** 是否补偿 Rhino 缺失的 `for (let x = ...)` 每轮新绑定（闭包捕获循环变量时会算错） */
+        @SerializedName("fixLetIteration")
+        private boolean fixLetIteration = true;  // 默认为true
+
         // Getters
         public String getEngine() {
             return engine;
@@ -55,7 +59,11 @@ public class ConfigManager {
         public boolean isPolyfillBuiltins() {
             return polyfillBuiltins;
         }
-        
+
+        public boolean isFixLetIteration() {
+            return fixLetIteration;
+        }
+
         // Setters
         public void setEngine(String engine) {
             this.engine = engine;
@@ -67,6 +75,10 @@ public class ConfigManager {
 
         public void setPolyfillBuiltins(boolean polyfillBuiltins) {
             this.polyfillBuiltins = polyfillBuiltins;
+        }
+
+        public void setFixLetIteration(boolean fixLetIteration) {
+            this.fixLetIteration = fixLetIteration;
         }
         
         @Override
@@ -147,10 +159,12 @@ public class ConfigManager {
             String engine = configData.getOrElse("engine", "Rhino");
             Boolean useModernJS = configData.getOrElse("useModernJS", true);
             Boolean polyfillBuiltins = configData.getOrElse("polyfillBuiltins", true);
+            Boolean fixLetIteration = configData.getOrElse("fixLetIteration", true);
 
             config.setEngine(engine);
             config.setUseModernJS(useModernJS);
             config.setPolyfillBuiltins(polyfillBuiltins);
+            config.setFixLetIteration(fixLetIteration);
             
             configData.close();
             LOGGER.info("[KubeLoader] 读取TOML配置文件: {}", CONFIG_FILE_TOML);
@@ -209,12 +223,15 @@ public class ConfigManager {
         configData.set("engine", config.getEngine());
         configData.set("useModernJS", config.isUseModernJS());
         configData.set("polyfillBuiltins", config.isPolyfillBuiltins());
+        configData.set("fixLetIteration", config.isFixLetIteration());
         
         // 添加注释
         configData.setComment("engine", "JavaScript引擎选择: \"Rhino\" 或 \"GraalJS\"");
         configData.setComment("useModernJS", "是否启用现代JavaScript语法转换");
         configData.setComment("polyfillBuiltins",
                 "是否给 Rhino 补上它缺少的内建（globalThis / at / hasOwn / fromEntries / replaceAll / flat / flatMap / matchAll）");
+        configData.setComment("fixLetIteration",
+                "是否补偿 Rhino 缺失的 for (let x = ...) 每轮新绑定（闭包捕获循环变量时会全读到最后一次的值）；只对 Rhino 生效，GraalJS 不受影响");
         
         configData.save();
         configData.close();
@@ -246,6 +263,16 @@ public class ConfigManager {
      */
     public static boolean shouldPolyfillBuiltins() {
         return config.isPolyfillBuiltins();
+    }
+
+    /**
+     * 检查是否补偿 Rhino 缺失的 {@code for (let x = ...)} 每轮新绑定。
+     *
+     * <p>只对 Rhino 目标生效（由 {@code KLScriptLoader} 传入的 {@code rhinoTarget} 把住）；
+     * GraalJS 原生支持，开了也不会被改动。</p>
+     */
+    public static boolean shouldFixLetIteration() {
+        return config.isFixLetIteration();
     }
     
     /**

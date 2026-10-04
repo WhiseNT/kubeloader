@@ -71,6 +71,15 @@ public final class ModernJSParseSweepCheck {
     private static final ContextFactory CONTEXT_FACTORY = new ContextFactory();
 
     private static final String BASELINE_PROPERTY = "modernjs.sweep.baseline";
+
+    /**
+     * 把这一轮<b>所有</b>失败（含已登记基线的那些）写成一份可直接喂给
+     * {@code -Pbaseline} 的文件 —— 指向外部语料时用它一次生成基线。
+     */
+    private static final String EMIT_BASELINE_PROPERTY = "modernjs.sweep.emitBaseline";
+
+    /** 本轮出现过的所有失败键（相对路径）。用来生成基线、以及判断基线是否已过期。 */
+    private static final Set<String> FAILING_KEYS = new LinkedHashSet<>();
     private static final int SHOW_PER_SYMPTOM = intProperty("modernjs.sweep.show", 5);
     private static final boolean VERBOSE = Boolean.getBoolean("modernjs.sweep.verbose");
 
@@ -124,6 +133,9 @@ public final class ModernJSParseSweepCheck {
     private static int idempotentCount;
     private static int notIdempotentCount;
 
+    /** 转换不幂等的文件（汇总里最多列 SHOW_PER_SYMPTOM 条，明细仍在报告文件里）。 */
+    private static final List<String> NOT_IDEMPOTENT_FILES = new ArrayList<>();
+
     public static void main(String[] args) throws IOException {
         Path root = ModernJSScriptCorpusCheck.corpusRoot();
         List<Path> scripts = collect(root);
@@ -158,6 +170,7 @@ public final class ModernJSParseSweepCheck {
 
         printSummary(root, baseline);
         writeReport();
+        emitBaselineIfRequested();
 
         if (!FAILURES.isEmpty()) {
             throw new AssertionError("ModernJS 转换结果合法性扫描未通过："
@@ -263,10 +276,12 @@ public final class ModernJSParseSweepCheck {
                 idempotentCount++;
             } else {
                 notIdempotentCount++;
+                NOT_IDEMPOTENT_FILES.add(name);
                 reportLine("[非幂等] " + name + "：转换结果再转换一次会变");
             }
         } catch (Throwable t) {
             notIdempotentCount++;
+            NOT_IDEMPOTENT_FILES.add(name);
             reportLine("[非幂等] " + name + "：转换结果再转换时会抛 " + describe(t));
         }
         return new Outcome(Kind.PASS, "", false);
@@ -415,6 +430,7 @@ public final class ModernJSParseSweepCheck {
         if (!failure) {
             return;
         }
+        FAILING_KEYS.add(relative);
         if (known) {
             knownCount++;
             System.out.printf("[已知] %-46s %s%n", relative, shortMessage(outcome.reason()));
@@ -454,6 +470,11 @@ public final class ModernJSParseSweepCheck {
             System.out.printf("  以上失败中已登记基线  %d 个（不判失败）%n", knownCount);
         }
         System.out.printf("  幂等：稳定 %d，会变 %d%n", idempotentCount, notIdempotentCount);
+        if (!NOT_IDEMPOTENT_FILES.isEmpty()) {
+            System.out.println("  会变的那些（最多列 " + SHOW_PER_SYMPTOM + " 个，明细见报告文件）：");
+            NOT_IDEMPOTENT_FILES.stream().limit(SHOW_PER_SYMPTOM)
+                    .forEach(file -> System.out.println("        - " + file));
+        }
 
         if (!SKIP_REASONS.isEmpty()) {
             System.out.println();
@@ -485,13 +506,9 @@ public final class ModernJSParseSweepCheck {
         }
 
         if (!baseline.isEmpty()) {
-            Set<String> seen = new LinkedHashSet<>();
-            for (String failure : FAILURES) {
-                int arrow = failure.indexOf(" -> ");
-                if (arrow > 0) {
-                    seen.add(failure.substring(0, arrow));
-                }
-            }
+            // 用「所有失败键」而不是 FAILURES：后者不含已登记基线的那些，
+            // 否则一个既在基线里、又依然失败的文件会被误报成「可以从基线移除」。
+            Set<String> seen = new LinkedHashSet<>(FAILING_KEYS);
             List<String> fixed = baseline.stream().filter(b -> !seen.contains(b)).sorted().toList();
             if (!fixed.isEmpty()) {
                 System.out.println();
@@ -511,6 +528,32 @@ public final class ModernJSParseSweepCheck {
 
     private static void writeReport() throws IOException {
         closeReport();
+    }
+
+    /**
+     * 按 {@code -PemitBaseline=<文件>} 把本轮所有失败写成基线文件。
+     *
+     * <p>格式与读取端一致：一行一个相对路径，{@code #} 开头是注释。指向外部语料时的
+     * 标准流程是「先跑一次 + emit 出基线 → 之后带着基线跑」，这样报告里剩下的就都是
+     * <b>新</b>问题。</p>
+     */
+    private static void emitBaselineIfRequested() throws IOException {
+        String configured = System.getProperty(EMIT_BASELINE_PROPERTY);
+        if (configured == null || configured.isBlank()) {
+            return;
+        }
+        Path path = Paths.get(configured);
+        if (path.getParent() != null) {
+            Files.createDirectories(path.getParent());
+        }
+        List<String> lines = new ArrayList<>();
+        lines.add("# ModernJS 扫描基线：这些失败是已知的，不判失败。");
+        lines.add("# 由 modernJSSweepCheck -PemitBaseline=<本文件> 生成；删掉某行即要求它必须通过。");
+        lines.addAll(FAILING_KEYS.stream().sorted().toList());
+        lines.add("");
+        Files.write(path, lines, StandardCharsets.UTF_8);
+        System.out.println();
+        System.out.println("已写出基线：" + path.toAbsolutePath() + "（" + FAILING_KEYS.size() + " 条）");
     }
     /** 打开明细报告：文件名带上语料目录名，免得不同语料的结果互相覆盖。 */
     private static void openReport(Path root) throws IOException {

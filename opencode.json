@@ -1,0 +1,9 @@
+{
+  "mcp": {
+    "antares": {
+      "enabled": true,
+      "type": "remote",
+      "url": "http://127.0.0.1:7799/mcp"
+    }
+  }
+}

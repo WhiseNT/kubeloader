@@ -169,6 +169,38 @@ tasks.register('modernJSSweepCheck', JavaExec) {
     if (project.hasProperty('show')) {
         systemProperty 'modernjs.sweep.show', project.property('show')
     }
+    if (project.hasProperty('emitBaseline')) {
+        systemProperty 'modernjs.sweep.emitBaseline',
+                project.file(project.property('emitBaseline')).absolutePath
+    }
+}
+
+// 外部语料扫描的常规入口：一条命令扫一份现成的真实脚本目录，不用自己拼临时目录。
+// 默认指向本仓库开发实例的脚本目录（run/ 下），可用 -Pcorpus=<目录> 换成任意目录。
+//   ./gradlew modernJSExternalSweepCheck
+//   ./gradlew modernJSExternalSweepCheck -Pcorpus=<外部脚本目录>
+//   ./gradlew modernJSExternalSweepCheck -Pcorpus=<目录> -PemitBaseline=<基线文件>   # 先出一份基线
+//   ./gradlew modernJSExternalSweepCheck -Pcorpus=<目录> -Pbaseline=<基线文件>       # 之后带基线跑，只看新问题
+// 只校验「转换结果能否被 Rhino parser 解析」，不执行脚本，所以外部脚本不用改一个字。
+// 不挂在 check 上：外部语料是本机环境相关的，不该拖累 CI。
+tasks.register('modernJSExternalSweepCheck', JavaExec) {
+    group = 'verification'
+    description = '对外部（真实）脚本目录做转换结果合法性扫描'
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.whisent.kubeloader.scripts.ModernJSParseSweepCheck'
+    systemProperty 'modernjs.corpus', project.findProperty('corpus')
+            ?: file('run').absolutePath
+    if (project.hasProperty('baseline')) {
+        systemProperty 'modernjs.sweep.baseline',
+                project.file(project.property('baseline')).absolutePath
+    }
+    if (project.hasProperty('emitBaseline')) {
+        systemProperty 'modernjs.sweep.emitBaseline',
+                project.file(project.property('emitBaseline')).absolutePath
+    }
+    if (project.hasProperty('show')) {
+        systemProperty 'modernjs.sweep.show', project.property('show')
+    }
 }
 
 tasks.named('check') {

@@ -40,7 +40,10 @@ public class KLScriptLoader {
             //根据配置决定是否转换ES6语法
             if (ConfigManager.shouldUseModernJS()) {
                 try {
-                    sourceCode = ModernJSParser.parse(sourceCode, isRhinoTarget(info));
+                    // 第三个参数：补 Rhino 缺失的「for (let ...) 每轮新绑定」，
+                    // 默认开、可按配置关掉（只对 Rhino 目标生效）
+                    sourceCode = ModernJSParser.parse(sourceCode, isRhinoTarget(info),
+                            ConfigManager.shouldFixLetIteration());
                 } catch (ModernJSParseException e) {
                     skipScript(pack, info, e);
                     ci.cancel();
@@ -52,7 +55,10 @@ public class KLScriptLoader {
             //根据配置决定是否进行现代JS转换
             if (ConfigManager.shouldUseModernJS()) {
                 try {
-                    sourceCode = ModernJSParser.parse(sourceCode, isRhinoTarget(info));
+                    // 第三个参数：补 Rhino 缺失的「for (let ...) 每轮新绑定」，
+                    // 默认开、可按配置关掉（只对 Rhino 目标生效）
+                    sourceCode = ModernJSParser.parse(sourceCode, isRhinoTarget(info),
+                            ConfigManager.shouldFixLetIteration());
                 } catch (ModernJSParseException e) {
                     skipScript(pack, info, e);
                     ci.cancel();

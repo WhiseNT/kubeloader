@@ -31,9 +31,23 @@ public class ModernJSParser {
      *                    所以要对它做硬失败；而 GraalJS 原生支持这些写法，同样拦下来属于误伤。
      */
     public static String parse(String input, boolean rhinoTarget) {
+        return parse(input, rhinoTarget, true);
+    }
+
+    /**
+     * 转换入口。
+     *
+     * @param rhinoTarget      目标引擎是否包含 Rhino。Rhino 会「静默算错」{@code ??} 这类语法，
+     *                         也对 {@code let} 少实现了「每轮一个新绑定」，所以要对它做补偿；
+     *                         而 GraalJS 原生支持这些写法，同样处理属于误伤。
+     * @param fixLetIteration  是否补 Rhino 缺失的 {@code let} 每轮绑定（见
+     *                         {@link ModernJSLetIterationConverter}）。默认开；它会改动代码形状
+     *                         且每轮多一次快照调用，所以留了开关。
+     */
+    public static String parse(String input, boolean rhinoTarget, boolean fixLetIteration) {
         if (input == null || input.isEmpty()) return input;
         try {
-            return doParse(input, rhinoTarget);
+            return doParse(input, rhinoTarget, fixLetIteration);
         } catch (ModernJSParseException e) {
             throw e; // 已经是给用户看的错误（带原始行号与建议），原样抛
         } catch (RuntimeException | Error e) {
@@ -51,13 +65,20 @@ public class ModernJSParser {
         }
     }
 
-    private static String doParse(String input, boolean rhinoTarget) {
+    private static String doParse(String input, boolean rhinoTarget, boolean fixLetIteration) {
         // 先过安全网：Rhino 会“静默算错”的语法（如 ??）在这里直接报错，
         // 而不是让它跑出错误结果
         if (rhinoTarget) {
             ModernJSSyntaxGuard.check(input);
         }
-        return postProcessing(convertClasses(input));
+        String result = postProcessing(convertClasses(input));
+        if (rhinoTarget && fixLetIteration) {
+            // 再补一层：Rhino 分支没实现 let 的「每轮一个新绑定」，捕获循环变量的闭包会
+            // 静默读到最后一次的值。放在其它转换之后，这样类方法体、解构摊平出来的代码
+            // 里的 for-let 也一并覆盖到。
+            result = ModernJSLetIterationConverter.convert(result);
+        }
+        return result;
     }
 
     /** class 表头：名字、可选的 extends、以及类体的 '{' */
